@@ -1383,8 +1383,7 @@ bool RandomPlayerbotMgr::ProcessBot(uint32 bot)
         randomTime = urand(std::max(5, static_cast<int>(randomBotUpdateInterval * 0.5)),
                            std::max(12, static_cast<int>(randomBotUpdateInterval * 2)));
 
-        PlayerbotsDatabaseTransaction trans = PlayerbotsDatabase.BeginTransaction();
-        SetEventValue(bot, "update", 1, randomTime, trans);
+        SetEventValue(bot, "update", 1, randomTime);
 
         // do not randomize or teleport immediately after server start (prevent lagging)
         if (!GetEventValue(bot, "randomize"))
@@ -1397,7 +1396,7 @@ bool RandomPlayerbotMgr::ProcessBot(uint32 bot)
             {
                 randomTime = urand(3, std::max(4, static_cast<int>(randomBotUpdateInterval * 0.4)));
             }
-            SetEventValue(bot, "randomize", 1, randomTime, trans);
+            SetEventValue(bot, "randomize", 1, randomTime);
         }
         if (!GetEventValue(bot, "teleport"))
         {
@@ -1410,9 +1409,8 @@ bool RandomPlayerbotMgr::ProcessBot(uint32 bot)
                 randomTime = urand(std::max(7, static_cast<int>(randomBotUpdateInterval * 0.7)),
                                    std::max(14, static_cast<int>(randomBotUpdateInterval * 1.4)));
             }
-            SetEventValue(bot, "teleport", 1, randomTime, trans);
+            SetEventValue(bot, "teleport", 1, randomTime);
         }
-        PlayerbotsDatabase.CommitTransaction(trans);
 
         return true;
     }
