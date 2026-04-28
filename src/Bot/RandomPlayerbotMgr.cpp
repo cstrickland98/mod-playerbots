@@ -409,25 +409,41 @@ void RandomPlayerbotMgr::UpdateAIInternal(uint32 elapsed, bool /*minimal*/)
             : 0;
     uint32 loginBots = std::min(sPlayerbotAIConfig.randomBotsPerInterval - updateBots, maxNewBots);
 
+    uint32 maxRandomizationsPerTick = 10;  // sPlayerbotAIConfig.maxRandomizationsPerTick;
+
     if (!availableBots.empty())
     {
+        uint32 randomizationsThisTick = 0;
         // Update bots
         for (auto bot : availableBots)
         {
             if (!GetPlayerBot(bot))
                 continue;
 
-            if (ProcessBot(bot))
+            // Don't allow more randomizations than the cap this tick
+            bool needsRandomize = !GetEventValue(bot, "randomize");
+            if (needsRandomize && randomizationsThisTick >= maxRandomizationsPerTick)
+                continue;
+            std::cout << "RANDOMBOTPERF; needsrandom: " << needsRandomize << "randoms this tick: " << randomizationsThisTick << std::endl;
+            bool processed = ProcessBot(bot);
+
+            if (processed)
             {
+                if (needsRandomize)
+                    randomizationsThisTick++;
                 updateBots--;
             }
 
             if (!updateBots)
                 break;
         }
+        std::cout << "RANDOMBOTPERF; botLoading size: " << botLoading.size() << std::endl;
+        uint32 currentlyLoading = static_cast<uint32>(botLoading.size());
 
-        if (loginBots && botLoading.empty())
+        if (loginBots && currentlyLoading < 200)
         {
+            uint32 canStartNow = 200 - currentlyLoading;
+            loginBots = std::min(loginBots, canStartNow);
             loginBots += updateBots;
             loginBots = std::min(loginBots, maxNewBots);
 
@@ -703,16 +719,16 @@ uint32 RandomPlayerbotMgr::AddRandomBots()
             if (!result)
                 continue;
 
-            do
-            {
-                Field* fields = result->Fetch();
-                CharacterInfo info;
-                info.guid = fields[0].Get<uint32>();
-                info.rClass = fields[1].Get<uint8>();
-                info.rRace = fields[2].Get<uint8>();
+                do
+                {
+                    Field* fields = result->Fetch();
+                    CharacterInfo info;
+                    info.guid = fields[0].Get<uint32>();
+                    info.rClass = fields[1].Get<uint8>();
+                    info.rRace = fields[2].Get<uint8>();
                 info.accountId = accountId;
-                allCharacters.push_back(info);
-            } while (result->NextRow());
+                    allCharacters.push_back(info);
+                } while (result->NextRow());
         }
 
         // Shuffle for class balance
@@ -1362,25 +1378,41 @@ bool RandomPlayerbotMgr::ProcessBot(uint32 bot)
     if (!player)
     {
         AddPlayerBot(botGUID, 0);
-        randomTime = urand(1, 2);
 
         uint32 randomBotUpdateInterval = _isBotInitializing ? 1 : sPlayerbotAIConfig.randomBotUpdateInterval;
         randomTime = urand(std::max(5, static_cast<int>(randomBotUpdateInterval * 0.5)),
                            std::max(12, static_cast<int>(randomBotUpdateInterval * 2)));
-        SetEventValue(bot, "update", 1, randomTime);
+
+        PlayerbotsDatabaseTransaction trans = PlayerbotsDatabase.BeginTransaction();
+        SetEventValue(bot, "update", 1, randomTime, trans);
 
         // do not randomize or teleport immediately after server start (prevent lagging)
         if (!GetEventValue(bot, "randomize"))
         {
-            randomTime = urand(3, std::max(4, static_cast<int>(randomBotUpdateInterval * 0.4)));
-            ScheduleRandomize(bot, randomTime);
+            if (_isBotInitializing)
+            {
+                randomTime = urand(60, 120);
+            }
+            else
+            {
+                randomTime = urand(3, std::max(4, static_cast<int>(randomBotUpdateInterval * 0.4)));
+            }
+            SetEventValue(bot, "randomize", 1, randomTime, trans);
         }
         if (!GetEventValue(bot, "teleport"))
         {
-            randomTime = urand(std::max(7, static_cast<int>(randomBotUpdateInterval * 0.7)),
-                               std::max(14, static_cast<int>(randomBotUpdateInterval * 1.4)));
-            ScheduleTeleport(bot, randomTime);
+            if (_isBotInitializing)
+            {
+                randomTime = urand(60, 120);
+            }
+            else
+            {
+                randomTime = urand(std::max(7, static_cast<int>(randomBotUpdateInterval * 0.7)),
+                                   std::max(14, static_cast<int>(randomBotUpdateInterval * 1.4)));
+            }
+            SetEventValue(bot, "teleport", 1, randomTime, trans);
         }
+        PlayerbotsDatabase.CommitTransaction(trans);
 
         return true;
     }

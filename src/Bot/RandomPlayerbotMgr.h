@@ -171,6 +171,8 @@ public:
     void AssignAccountTypes();
     bool IsAccountType(uint32 accountId, uint8 accountType);
 
+    bool _isBotInitializing = true;
+
 protected:
     void OnBotLoginInternal(Player* const bot) override;
 
@@ -215,7 +217,6 @@ private:
     // pid values are set in constructor
     botPID pid = botPID(1, 50, -50, 0, 0, 0);
     float activityMod = 0.25;
-    bool _isBotInitializing = true;
     bool _isBotLogging = true;
     NewRpgStatistic rpgStasticTotal;
     CachedEvent* FindEvent(uint32 bot, std::string const& event);
