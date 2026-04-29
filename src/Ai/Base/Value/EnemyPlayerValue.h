@@ -17,7 +17,7 @@ class NearestEnemyPlayersValue : public PossibleTargetsValue
 {
 public:
     NearestEnemyPlayersValue(PlayerbotAI* botAI, float range = sPlayerbotAIConfig.grindDistance)
-        : PossibleTargetsValue(botAI, "nearest enemy players", range)
+        : PossibleTargetsValue(botAI, "nearest enemy players", range, false, 1000)
     {
     }
 

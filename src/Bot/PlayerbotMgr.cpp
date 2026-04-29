@@ -593,8 +593,10 @@ void PlayerbotHolder::OnBotLogin(Player* const bot)
     {
         bot->RemovePlayerFlag(PLAYER_FLAGS_NO_XP_GAIN);
     }
-
-    bot->SaveToDB(false, false);
+    if (!sRandomPlayerbotMgr._isBotInitializing)
+    {
+        bot->SaveToDB(false, false);
+    }
     bool addClassBot = sRandomPlayerbotMgr.IsAccountType(accountId, 2);
     if (addClassBot && master && abs((int)master->GetLevel() - (int)bot->GetLevel()) > 3)
     {

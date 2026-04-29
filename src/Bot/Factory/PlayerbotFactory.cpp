@@ -707,7 +707,7 @@ void PlayerbotFactory::Randomize(bool incremental)
     if (pmo)
         pmo->finish();
 
-    if (bot->GetLevel() >= 70)
+    if (bot->GetLevel() >= 70 && !sRandomPlayerbotMgr._isBotInitializing)
     {
         pmo = sPerfMonitor.start(PERF_MON_RNDBOT, "PlayerbotFactory_Arenas");
         // LOG_INFO("playerbots", "Initializing arena teams...");
@@ -2991,13 +2991,11 @@ void PlayerbotFactory::InitAvailableSpells()
     {
         Trainer::Trainer* trainer = sObjectMgr->GetTrainer(trainerId);
 
-        for (auto& spell : trainer->GetSpells())
+        for (auto const& spell : trainer->GetSpells())
         {
             // simplified version of Trainer::TeachSpell method
 
-            Trainer::Spell const* trainerSpell = trainer->GetSpell(spell.SpellId);
-            if (!trainerSpell)
-                continue;
+            Trainer::Spell const* trainerSpell = &spell;
 
             if (!trainer->CanTeachSpell(bot, trainerSpell))
                 continue;
@@ -4545,10 +4543,6 @@ void PlayerbotFactory::InitArenaTeam()
 
             LOG_INFO("playerbots", "Random bot arena teams deleted");
         }
-
-        RandomPlayerbotFactory::CreateRandomArenaTeams(ARENA_TYPE_2v2, sPlayerbotAIConfig.randomBotArenaTeam2v2Count);
-        RandomPlayerbotFactory::CreateRandomArenaTeams(ARENA_TYPE_3v3, sPlayerbotAIConfig.randomBotArenaTeam3v3Count);
-        RandomPlayerbotFactory::CreateRandomArenaTeams(ARENA_TYPE_5v5, sPlayerbotAIConfig.randomBotArenaTeam5v5Count);
     }
 
     std::vector<uint32> arenateams;
