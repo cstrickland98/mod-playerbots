@@ -6,6 +6,7 @@
 #ifndef _PLAYERBOT_NEARESTUNITSVALUE_H
 #define _PLAYERBOT_NEARESTUNITSVALUE_H
 
+#include "NearestObjectCache.h"
 #include "PlayerbotAIConfig.h"
 #include "Unit.h"
 #include "Value.h"
@@ -26,6 +27,10 @@ public:
 protected:
     virtual void FindUnits(std::list<Unit*>& targets) = 0;
     virtual bool AcceptUnit(Unit* unit) = 0;
+
+    // Override to false when FindUnits uses a pre-filtered checker
+    // (AnyFriendlyUnit, AnyUnfriendlyUnit, AnyDeadUnit) whose results differ per bot.
+    virtual bool UseUnitCache() const { return true; }
 
     float range;
     bool ignoreLos;

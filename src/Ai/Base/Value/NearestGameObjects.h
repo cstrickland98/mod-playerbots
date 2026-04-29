@@ -6,6 +6,7 @@
 #ifndef _PLAYERBOT_NEARESTGAMEOBJECTS_H
 #define _PLAYERBOT_NEARESTGAMEOBJECTS_H
 
+#include "NearestObjectCache.h"
 #include "PlayerbotAIConfig.h"
 #include "Value.h"
 #include "GameObject.h"

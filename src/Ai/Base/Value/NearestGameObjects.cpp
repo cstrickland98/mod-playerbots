@@ -14,18 +14,37 @@
 
 GuidVector NearestGameObjects::Calculate()
 {
-    std::list<GameObject*> targets;
-    AnyGameObjectInObjectRangeCheck u_check(bot, range);
-    Acore::GameObjectListSearcher<AnyGameObjectInObjectRangeCheck> searcher(bot, targets, u_check);
-    Cell::VisitObjects(bot, searcher, range);
+    NearestObjectCache::CacheKey key = NearestObjectCache::MakeKey(
+        bot->GetMapId(), bot->GetPositionX(), bot->GetPositionY());
 
-    GuidVector result;
-    for (GameObject* go : targets)
+    NearestObjectCache::Entry const* fresh = sNearestObjectCache.GetGameObjects(key);
+    if (!fresh)
     {
-        // if (ignoreLos || bot->IsWithinLOSInMap(go))
-        result.push_back(go->GetGUID());
+        // Cache miss — scan with extended radius to cover all bots in this 40y bucket.
+        float scanRange = sPlayerbotAIConfig.sightDistance + NEAREST_CACHE_BUCKET_SIZE * 1.5f;
+        NearestObjectCache::Entry* slot = sNearestObjectCache.GetOrCreateForGameObjects(key);
+
+        std::list<GameObject*> rawGOs;
+        AnyGameObjectInObjectRangeCheck go_check(bot, scanRange);
+        Acore::GameObjectListSearcher<AnyGameObjectInObjectRangeCheck> searcher(bot, rawGOs, go_check);
+        Cell::VisitObjects(bot, searcher, scanRange);
+
+        for (GameObject* go : rawGOs)
+            slot->gameObjects.push_back(go->GetGUID());
+        slot->goTimestamp = getMSTime();
+        fresh = slot;
     }
 
+    GuidVector result;
+    for (ObjectGuid const& guid : fresh->gameObjects)
+    {
+        GameObject* go = bot->GetMap()->GetGameObject(guid);
+        if (!go || !go->isSpawned() || !go->GetGOInfo())
+            continue;
+        if (!bot->IsWithinDistInMap(go, range))
+            continue;
+        result.push_back(guid);
+    }
     return result;
 }
 
