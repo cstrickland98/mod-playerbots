@@ -1,4 +1,5 @@
 #include "TrialOfTheChampionStrategy.h"
+#include "../TrialOfTheChampionTriggerContext.h"
 
 void WotlkDungeonToCStrategy::InitTriggers(std::vector<TriggerNode*> &triggers)
 {
@@ -17,4 +18,10 @@ void WotlkDungeonToCStrategy::InitTriggers(std::vector<TriggerNode*> &triggers)
 
 void WotlkDungeonToCStrategy::InitMultipliers(std::vector<Multiplier*> &multipliers)
 {
+}
+
+NamedObjectContext<Trigger>* WotlkDungeonToCStrategy::GetTriggerContext()
+{
+    static WotlkDungeonToCTriggerContext ctx;
+    return &ctx;
 }

@@ -1,4 +1,5 @@
 #include "RaidMcStrategy.h"
+#include "../RaidMcTriggerContext.h"
 
 #include "RaidMcMultipliers.h"
 #include "Strategy.h"
@@ -78,4 +79,10 @@ void RaidMcStrategy::InitMultipliers(std::vector<Multiplier*>& multipliers)
     multipliers.push_back(new GarrDisableDpsAoeMultiplier(botAI));
     multipliers.push_back(new BaronGeddonAbilityMultiplier(botAI));
     multipliers.push_back(new GolemaggMultiplier(botAI));
+}
+
+NamedObjectContext<Trigger>* RaidMcStrategy::GetTriggerContext()
+{
+    static RaidMcTriggerContext ctx;
+    return &ctx;
 }

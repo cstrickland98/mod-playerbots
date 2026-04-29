@@ -112,7 +112,42 @@ std::set<std::string> AiObjectContext::GetSiblingStrategy(std::string const name
     return strategyContexts.GetSiblings(name);
 }
 
-Trigger* AiObjectContext::GetTrigger(std::string const name) { return triggerContexts.GetContextObject(name, botAI); }
+Trigger* AiObjectContext::GetTrigger(std::string const name)
+{
+    auto it = localTriggerCreators.find(name);
+    if (it != localTriggerCreators.end())
+    {
+        auto& cached = localCreatedTriggers[name];
+        if (!cached)
+            cached = it->second(botAI);
+        return cached;
+    }
+    return triggerContexts.GetContextObject(name, botAI);
+}
+
+void AiObjectContext::RegisterLocalTriggerContext(NamedObjectContext<Trigger>* ctx)
+{
+    if (!ctx)
+        return;
+    for (auto const& [name, creator] : ctx->creators)
+        localTriggerCreators[name] = creator;
+}
+
+void AiObjectContext::UnregisterLocalTriggerContext(NamedObjectContext<Trigger>* ctx)
+{
+    if (!ctx)
+        return;
+    for (auto const& [name, creator] : ctx->creators)
+    {
+        auto it = localCreatedTriggers.find(name);
+        if (it != localCreatedTriggers.end())
+        {
+            delete it->second;
+            localCreatedTriggers.erase(it);
+        }
+        localTriggerCreators.erase(name);
+    }
+}
 
 Action* AiObjectContext::GetAction(std::string const name) { return actionContexts.GetContextObject(name, botAI); }
 

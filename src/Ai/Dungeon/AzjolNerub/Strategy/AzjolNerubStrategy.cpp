@@ -1,4 +1,5 @@
 #include "AzjolNerubStrategy.h"
+#include "../AzjolNerubTriggerContext.h"
 #include "AzjolNerubMultipliers.h"
 
 void WotlkDungeonANStrategy::InitTriggers(std::vector<TriggerNode*> &triggers)
@@ -27,4 +28,10 @@ void WotlkDungeonANStrategy::InitTriggers(std::vector<TriggerNode*> &triggers)
 void WotlkDungeonANStrategy::InitMultipliers(std::vector<Multiplier*> &multipliers)
 {
     multipliers.push_back(new KrikthirMultiplier(botAI));
+}
+
+NamedObjectContext<Trigger>* WotlkDungeonANStrategy::GetTriggerContext()
+{
+    static WotlkDungeonANTriggerContext ctx;
+    return &ctx;
 }

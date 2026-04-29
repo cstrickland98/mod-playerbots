@@ -1,4 +1,5 @@
 #include "ForgeOfSoulsStrategy.h"
+#include "../ForgeOfSoulsTriggerContext.h"
 #include "ForgeOfSoulsMultipliers.h"
 
 void WotlkDungeonFoSStrategy::InitTriggers(std::vector<TriggerNode*>& triggers)
@@ -16,4 +17,10 @@ void WotlkDungeonFoSStrategy::InitTriggers(std::vector<TriggerNode*>& triggers)
 void WotlkDungeonFoSStrategy::InitMultipliers(std::vector<Multiplier*>& multipliers)
 {
     multipliers.push_back(new BronjahmMultiplier(botAI));
+}
+
+NamedObjectContext<Trigger>* WotlkDungeonFoSStrategy::GetTriggerContext()
+{
+    static WotlkDungeonFoSTriggerContext ctx;
+    return &ctx;
 }

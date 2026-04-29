@@ -1,4 +1,5 @@
 #include "RaidMagtheridonStrategy.h"
+#include "../RaidMagtheridonTriggerContext.h"
 #include "RaidMagtheridonMultipliers.h"
 
 void RaidMagtheridonStrategy::InitTriggers(std::vector<TriggerNode*>& triggers)
@@ -39,4 +40,10 @@ void RaidMagtheridonStrategy::InitMultipliers(std::vector<Multiplier*>& multipli
     multipliers.push_back(new MagtheridonUseManticronCubeMultiplier(botAI));
     multipliers.push_back(new MagtheridonWaitToAttackMultiplier(botAI));
     multipliers.push_back(new MagtheridonDisableOffTankAssistMultiplier(botAI));
+}
+
+NamedObjectContext<Trigger>* RaidMagtheridonStrategy::GetTriggerContext()
+{
+    static RaidMagtheridonTriggerContext ctx;
+    return &ctx;
 }

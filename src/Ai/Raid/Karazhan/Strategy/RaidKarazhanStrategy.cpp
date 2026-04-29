@@ -1,4 +1,5 @@
 #include "RaidKarazhanStrategy.h"
+#include "../RaidKarazhanTriggerContext.h"
 #include "RaidKarazhanMultipliers.h"
 
 void RaidKarazhanStrategy::InitTriggers(std::vector<TriggerNode*>& triggers)
@@ -161,4 +162,10 @@ void RaidKarazhanStrategy::InitMultipliers(std::vector<Multiplier*>& multipliers
     multipliers.push_back(new NightbaneWaitForDpsMultiplier(botAI));
     multipliers.push_back(new NightbaneDisableAvoidAoeMultiplier(botAI));
     multipliers.push_back(new NightbaneDisableMovementMultiplier(botAI));
+}
+
+NamedObjectContext<Trigger>* RaidKarazhanStrategy::GetTriggerContext()
+{
+    static RaidKarazhanTriggerContext ctx;
+    return &ctx;
 }

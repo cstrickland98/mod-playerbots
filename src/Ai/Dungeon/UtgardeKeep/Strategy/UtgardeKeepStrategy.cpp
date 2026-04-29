@@ -1,4 +1,5 @@
 #include "UtgardeKeepStrategy.h"
+#include "../UtgardeKeepTriggerContext.h"
 #include "UtgardeKeepMultipliers.h"
 
 void WotlkDungeonUKStrategy::InitTriggers(std::vector<TriggerNode*> &triggers)
@@ -39,4 +40,10 @@ void WotlkDungeonUKStrategy::InitMultipliers(std::vector<Multiplier*> &multiplie
     multipliers.push_back(new PrinceKelesethMultiplier(botAI));
     multipliers.push_back(new SkarvaldAndDalronnMultiplier(botAI));
     multipliers.push_back(new IngvarThePlundererMultiplier(botAI));
+}
+
+NamedObjectContext<Trigger>* WotlkDungeonUKStrategy::GetTriggerContext()
+{
+    static WotlkDungeonUKTriggerContext ctx;
+    return &ctx;
 }

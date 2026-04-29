@@ -1,4 +1,5 @@
 #include "RaidOsStrategy.h"
+#include "../RaidOsTriggerContext.h"
 #include "RaidOsMultipliers.h"
 #include "Strategy.h"
 
@@ -29,4 +30,10 @@ void RaidOsStrategy::InitTriggers(std::vector<TriggerNode*>& triggers)
 void RaidOsStrategy::InitMultipliers(std::vector<Multiplier*> &multipliers)
 {
     multipliers.push_back(new SartharionMultiplier(botAI));
+}
+
+NamedObjectContext<Trigger>* RaidOsStrategy::GetTriggerContext()
+{
+    static RaidOsTriggerContext ctx;
+    return &ctx;
 }

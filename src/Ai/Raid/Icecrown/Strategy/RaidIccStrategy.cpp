@@ -1,4 +1,5 @@
 #include "RaidIccStrategy.h"
+#include "../RaidIccTriggerContext.h"
 
 #include "RaidIccMultipliers.h"
 
@@ -183,4 +184,10 @@ void RaidIccStrategy::InitMultipliers(std::vector<Multiplier*>& multipliers)
     multipliers.push_back(new IccValithriaDreamCloudMultiplier(botAI));
     multipliers.push_back(new IccSindragosaMultiplier(botAI));
     multipliers.push_back(new IccLichKingAddsMultiplier(botAI));
+}
+
+NamedObjectContext<Trigger>* RaidIccStrategy::GetTriggerContext()
+{
+    static RaidIccTriggerContext ctx;
+    return &ctx;
 }

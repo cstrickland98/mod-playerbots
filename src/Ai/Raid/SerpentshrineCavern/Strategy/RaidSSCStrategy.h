@@ -18,6 +18,7 @@ public:
 
     void InitTriggers(std::vector<TriggerNode*>& triggers) override;
     void InitMultipliers(std::vector<Multiplier*>& multipliers) override;
+    NamedObjectContext<Trigger>* GetTriggerContext() override;
 };
 
 #endif

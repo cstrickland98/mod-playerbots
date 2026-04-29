@@ -1,4 +1,5 @@
 #include "DrakTharonKeepStrategy.h"
+#include "../DrakTharonKeepTriggerContext.h"
 #include "DrakTharonKeepMultipliers.h"
 
 void WotlkDungeonDTKStrategy::InitTriggers(std::vector<TriggerNode*> &triggers)
@@ -37,4 +38,10 @@ void WotlkDungeonDTKStrategy::InitMultipliers(std::vector<Multiplier*> &multipli
 {
     multipliers.push_back(new NovosMultiplier(botAI));
     multipliers.push_back(new TharonjaMultiplier(botAI));
+}
+
+NamedObjectContext<Trigger>* WotlkDungeonDTKStrategy::GetTriggerContext()
+{
+    static WotlkDungeonDTKTriggerContext ctx;
+    return &ctx;
 }

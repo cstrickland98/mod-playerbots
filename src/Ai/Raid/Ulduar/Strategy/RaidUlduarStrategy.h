@@ -11,6 +11,7 @@ public:
     RaidUlduarStrategy(PlayerbotAI* ai) : Strategy(ai) {}
     virtual std::string const getName() override { return "ulduar"; }
     virtual void InitTriggers(std::vector<TriggerNode*>& triggers) override;
+    NamedObjectContext<Trigger>* GetTriggerContext() override;
 };
 
 #endif

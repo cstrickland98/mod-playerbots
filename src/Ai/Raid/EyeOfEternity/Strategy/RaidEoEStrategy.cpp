@@ -1,4 +1,5 @@
 #include "RaidEoEStrategy.h"
+#include "../RaidEoETriggerContext.h"
 #include "RaidEoEMultipliers.h"
 #include "Strategy.h"
 
@@ -18,4 +19,10 @@ void RaidEoEStrategy::InitTriggers(std::vector<TriggerNode*>& triggers)
 void RaidEoEStrategy::InitMultipliers(std::vector<Multiplier*> &multipliers)
 {
     multipliers.push_back(new MalygosMultiplier(botAI));
+}
+
+NamedObjectContext<Trigger>* RaidEoEStrategy::GetTriggerContext()
+{
+    static RaidEoETriggerContext ctx;
+    return &ctx;
 }

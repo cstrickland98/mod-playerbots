@@ -1,4 +1,5 @@
 #include "NexusStrategy.h"
+#include "../NexusTriggerContext.h"
 #include "NexusMultipliers.h"
 
 void WotlkDungeonNexStrategy::InitTriggers(std::vector<TriggerNode*> &triggers)
@@ -49,4 +50,10 @@ void WotlkDungeonNexStrategy::InitMultipliers(std::vector<Multiplier*> &multipli
     multipliers.push_back(new TelestraMultiplier(botAI));
     multipliers.push_back(new AnomalusMultiplier(botAI));
     multipliers.push_back(new OrmorokMultiplier(botAI));
+}
+
+NamedObjectContext<Trigger>* WotlkDungeonNexStrategy::GetTriggerContext()
+{
+    static WotlkDungeonNexTriggerContext ctx;
+    return &ctx;
 }

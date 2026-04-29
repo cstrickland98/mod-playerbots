@@ -1,4 +1,5 @@
 #include "PitOfSaronStrategy.h"
+#include "../PitOfSaronTriggerContext.h"
 #include "PitOfSaronMultipliers.h"
 
 void WotlkDungeonPoSStrategy::InitTriggers(std::vector<TriggerNode*>& triggers)
@@ -13,4 +14,10 @@ void WotlkDungeonPoSStrategy::InitTriggers(std::vector<TriggerNode*>& triggers)
 void WotlkDungeonPoSStrategy::InitMultipliers(std::vector<Multiplier*>& multipliers)
 {
     multipliers.push_back(new IckAndKrickMultiplier(botAI));
+}
+
+NamedObjectContext<Trigger>* WotlkDungeonPoSStrategy::GetTriggerContext()
+{
+    static WotlkDungeonPoSTriggerContext ctx;
+    return &ctx;
 }

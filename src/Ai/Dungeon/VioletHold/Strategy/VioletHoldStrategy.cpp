@@ -1,4 +1,5 @@
 #include "VioletHoldStrategy.h"
+#include "../VioletHoldTriggerContext.h"
 #include "VioletHoldMultipliers.h"
 
 void WotlkDungeonVHStrategy::InitTriggers(std::vector<TriggerNode*> &triggers)
@@ -37,4 +38,10 @@ void WotlkDungeonVHStrategy::InitMultipliers(std::vector<Multiplier*> &multiplie
     multipliers.push_back(new ErekemMultiplier(botAI));
     multipliers.push_back(new IchoronMultiplier(botAI));
     multipliers.push_back(new ZuramatMultiplier(botAI));
+}
+
+NamedObjectContext<Trigger>* WotlkDungeonVHStrategy::GetTriggerContext()
+{
+    static WotlkDungeonVHTriggerContext ctx;
+    return &ctx;
 }

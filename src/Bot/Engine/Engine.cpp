@@ -357,6 +357,7 @@ void Engine::addStrategy(std::string const name, bool init)
 
         LogAction("S:+%s", strategy->getName().c_str());
         strategies[strategy->getName()] = strategy;
+        aiObjectContext->RegisterLocalTriggerContext(strategy->GetTriggerContext());
     }
     if (init)
         Init();
@@ -406,6 +407,7 @@ bool Engine::removeStrategy(std::string const name, bool init)
     if (i == strategies.end())
         return false;
 
+    aiObjectContext->UnregisterLocalTriggerContext(i->second->GetTriggerContext());
     LogAction("S:-%s", name.c_str());
     strategies.erase(i);
     if (init)
@@ -416,6 +418,8 @@ bool Engine::removeStrategy(std::string const name, bool init)
 
 void Engine::removeAllStrategies()
 {
+    for (auto const& [name, strategy] : strategies)
+        aiObjectContext->UnregisterLocalTriggerContext(strategy->GetTriggerContext());
     strategies.clear();
     Init();
 }

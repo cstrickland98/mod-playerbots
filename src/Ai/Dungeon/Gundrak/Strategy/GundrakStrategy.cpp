@@ -1,4 +1,5 @@
 #include "GundrakStrategy.h"
+#include "../GundrakTriggerContext.h"
 #include "GundrakMultipliers.h"
 
 void WotlkDungeonGDStrategy::InitTriggers(std::vector<TriggerNode*> &triggers)
@@ -26,4 +27,10 @@ void WotlkDungeonGDStrategy::InitMultipliers(std::vector<Multiplier*> &multiplie
 {
     multipliers.push_back(new SladranMultiplier(botAI));
     multipliers.push_back(new GaldarahMultiplier(botAI));
+}
+
+NamedObjectContext<Trigger>* WotlkDungeonGDStrategy::GetTriggerContext()
+{
+    static WotlkDungeonGDTriggerContext ctx;
+    return &ctx;
 }

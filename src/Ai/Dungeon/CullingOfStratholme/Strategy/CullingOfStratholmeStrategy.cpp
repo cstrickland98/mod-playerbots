@@ -1,4 +1,5 @@
 #include "CullingOfStratholmeStrategy.h"
+#include "../CullingOfStratholmeTriggerContext.h"
 #include "CullingOfStratholmeMultipliers.h"
 
 void WotlkDungeonCoSStrategy::InitTriggers(std::vector<TriggerNode*> &triggers)
@@ -23,4 +24,10 @@ void WotlkDungeonCoSStrategy::InitTriggers(std::vector<TriggerNode*> &triggers)
 void WotlkDungeonCoSStrategy::InitMultipliers(std::vector<Multiplier*> &multipliers)
 {
     multipliers.push_back(new EpochMultiplier(botAI));
+}
+
+NamedObjectContext<Trigger>* WotlkDungeonCoSStrategy::GetTriggerContext()
+{
+    static WotlkDungeonCoSTriggerContext ctx;
+    return &ctx;
 }

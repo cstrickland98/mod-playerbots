@@ -1,4 +1,5 @@
 #include "HallsOfStoneStrategy.h"
+#include "../HallsOfStoneTriggerContext.h"
 #include "HallsOfStoneMultipliers.h"
 
 void WotlkDungeonHoSStrategy::InitTriggers(std::vector<TriggerNode*> &triggers)
@@ -26,4 +27,10 @@ void WotlkDungeonHoSStrategy::InitMultipliers(std::vector<Multiplier*> &multipli
 {
     multipliers.push_back(new KrystallusMultiplier(botAI));
     multipliers.push_back(new SjonnirMultiplier(botAI));
+}
+
+NamedObjectContext<Trigger>* WotlkDungeonHoSStrategy::GetTriggerContext()
+{
+    static WotlkDungeonHoSTriggerContext ctx;
+    return &ctx;
 }

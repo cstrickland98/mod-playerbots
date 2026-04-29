@@ -66,6 +66,7 @@ public:
     virtual std::string const getName() = 0;
     virtual uint32 GetType() const { return STRATEGY_TYPE_GENERIC; }
     virtual ActionNode* GetAction(std::string const name);
+    virtual NamedObjectContext<Trigger>* GetTriggerContext() { return nullptr; }
     void Update() {}
     void Reset() {}
 

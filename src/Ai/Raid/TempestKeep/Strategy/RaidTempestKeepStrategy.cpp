@@ -1,4 +1,5 @@
 #include "RaidTempestKeepStrategy.h"
+#include "../RaidTempestKeepTriggerContext.h"
 #include "RaidTempestKeepMultipliers.h"
 
 void RaidTempestKeepStrategy::InitTriggers(std::vector<TriggerNode*>& triggers)
@@ -159,4 +160,10 @@ void RaidTempestKeepStrategy::InitMultipliers(std::vector<Multiplier*>& multipli
     multipliers.push_back(new KaelthasSunstriderDisableDisperseMultiplier(botAI));
     multipliers.push_back(new KaelthasSunstriderDelayCooldownsMultiplier(botAI));
     multipliers.push_back(new KaelthasSunstriderStaySpreadDuringGravityLapseMultiplier(botAI));
+}
+
+NamedObjectContext<Trigger>* RaidTempestKeepStrategy::GetTriggerContext()
+{
+    static RaidTempestKeepTriggerContext ctx;
+    return &ctx;
 }

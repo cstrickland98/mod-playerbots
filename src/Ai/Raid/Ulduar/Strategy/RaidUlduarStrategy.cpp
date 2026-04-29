@@ -1,4 +1,5 @@
 #include "RaidUlduarStrategy.h"
+#include "../RaidUlduarTriggerContext.h"
 
 void RaidUlduarStrategy::InitTriggers(std::vector<TriggerNode*>& triggers)
 {
@@ -313,4 +314,10 @@ void RaidUlduarStrategy::InitTriggers(std::vector<TriggerNode*>& triggers)
     triggers.push_back(new TriggerNode(
         "yogg-saron phase 3 positioning trigger",
         { NextAction("yogg-saron phase 3 positioning action", ACTION_RAID) }));
+}
+
+NamedObjectContext<Trigger>* RaidUlduarStrategy::GetTriggerContext()
+{
+    static RaidUlduarTriggerContext ctx;
+    return &ctx;
 }

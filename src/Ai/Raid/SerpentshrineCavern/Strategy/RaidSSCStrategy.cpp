@@ -4,6 +4,7 @@
  */
 
 #include "RaidSSCStrategy.h"
+#include "../RaidSSCTriggerContext.h"
 #include "RaidSSCMultipliers.h"
 
 void RaidSSCStrategy::InitTriggers(std::vector<TriggerNode*>& triggers)
@@ -206,4 +207,10 @@ void RaidSSCStrategy::InitMultipliers(std::vector<Multiplier*>& multipliers)
     multipliers.push_back(new LadyVashjDoNotLootTheTaintedCoreMultiplier(botAI));
     multipliers.push_back(new LadyVashjCorePassersPrioritizePositioningMultiplier(botAI));
     multipliers.push_back(new LadyVashjDisableAutomaticTargetingAndMovementModifier(botAI));
+}
+
+NamedObjectContext<Trigger>* RaidSSCStrategy::GetTriggerContext()
+{
+    static RaidSSCTriggerContext ctx;
+    return &ctx;
 }

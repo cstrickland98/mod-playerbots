@@ -1,4 +1,5 @@
 #include "RaidGruulsLairStrategy.h"
+#include "../RaidGruulsLairTriggerContext.h"
 #include "RaidGruulsLairMultipliers.h"
 
 void RaidGruulsLairStrategy::InitTriggers(std::vector<TriggerNode*>& triggers)
@@ -53,4 +54,10 @@ void RaidGruulsLairStrategy::InitMultipliers(std::vector<Multiplier*>& multiplie
     multipliers.push_back(new HighKingMaulgarDisableMageTankAOEMultiplier(botAI));
     multipliers.push_back(new GruulTheDragonkillerMainTankMovementMultiplier(botAI));
     multipliers.push_back(new GruulTheDragonkillerGroundSlamMultiplier(botAI));
+}
+
+NamedObjectContext<Trigger>* RaidGruulsLairStrategy::GetTriggerContext()
+{
+    static RaidGruulsLairTriggerContext ctx;
+    return &ctx;
 }

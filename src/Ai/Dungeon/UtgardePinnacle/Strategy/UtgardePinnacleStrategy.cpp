@@ -1,4 +1,5 @@
 #include "UtgardePinnacleStrategy.h"
+#include "../UtgardePinnacleTriggerContext.h"
 #include "UtgardePinnacleMultipliers.h"
 
 void WotlkDungeonUPStrategy::InitTriggers(std::vector<TriggerNode*> &triggers)
@@ -24,4 +25,10 @@ void WotlkDungeonUPStrategy::InitMultipliers(std::vector<Multiplier*> &multiplie
 {
     multipliers.push_back(new SkadiMultiplier(botAI));
     multipliers.push_back(new YmironMultiplier(botAI));
+}
+
+NamedObjectContext<Trigger>* WotlkDungeonUPStrategy::GetTriggerContext()
+{
+    static WotlkDungeonUPTriggerContext ctx;
+    return &ctx;
 }

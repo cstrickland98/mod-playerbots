@@ -4,6 +4,7 @@
  */
 
 #include "RaidZulAmanStrategy.h"
+#include "../RaidZulAmanTriggerContext.h"
 #include "RaidZulAmanMultipliers.h"
 
 void RaidZulAmanStrategy::InitTriggers(std::vector<TriggerNode*>& triggers)
@@ -131,4 +132,10 @@ void RaidZulAmanStrategy::InitMultipliers(std::vector<Multiplier*>& multipliers)
     multipliers.push_back(new ZuljinAvoidWhirlwindMultiplier(botAI));
     multipliers.push_back(new ZuljinDisableAvoidAoeMultiplier(botAI));
     multipliers.push_back(new ZuljinDelayBloodlustAndHeroismMultiplier(botAI));
+}
+
+NamedObjectContext<Trigger>* RaidZulAmanStrategy::GetTriggerContext()
+{
+    static RaidZulAmanTriggerContext ctx;
+    return &ctx;
 }

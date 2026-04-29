@@ -1,4 +1,5 @@
 #include "RaidVoAStrategy.h"
+#include "../RaidVoATriggerContext.h"
 #include "Action.h"
 #include "Strategy.h"
 #include "Trigger.h"
@@ -36,4 +37,10 @@ void RaidVoAStrategy::InitTriggers(std::vector<TriggerNode*>& triggers)
     triggers.push_back(new TriggerNode(
         "koralon fire resistance trigger",
         { NextAction("koralon fire resistance action", ACTION_RAID) }));
+}
+
+NamedObjectContext<Trigger>* RaidVoAStrategy::GetTriggerContext()
+{
+    static RaidVoATriggerContext ctx;
+    return &ctx;
 }

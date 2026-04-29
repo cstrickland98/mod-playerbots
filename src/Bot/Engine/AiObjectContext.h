@@ -6,8 +6,10 @@
 #ifndef _PLAYERBOT_AIOBJECTCONTEXT_H
 #define _PLAYERBOT_AIOBJECTCONTEXT_H
 
+#include <functional>
 #include <sstream>
 #include <string>
+#include <unordered_map>
 
 #include "Common.h"
 #include "DynamicObject.h"
@@ -39,6 +41,9 @@ public:
     virtual std::set<std::string> GetSiblingStrategy(std::string const name);
     virtual Trigger* GetTrigger(std::string const name);
     virtual Action* GetAction(std::string const name);
+
+    void RegisterLocalTriggerContext(NamedObjectContext<Trigger>* ctx);
+    void UnregisterLocalTriggerContext(NamedObjectContext<Trigger>* ctx);
     virtual UntypedValue* GetUntypedValue(std::string const name);
 
     template <class T>
@@ -84,6 +89,9 @@ protected:
     NamedObjectContextList<Action> actionContexts;
     NamedObjectContextList<Trigger> triggerContexts;
     NamedObjectContextList<UntypedValue> valueContexts;
+
+    std::unordered_map<std::string, std::function<Trigger*(PlayerbotAI*)>> localTriggerCreators;
+    std::unordered_map<std::string, Trigger*> localCreatedTriggers;
 
 private:
     static SharedNamedObjectContextList<Strategy> sharedStrategyContexts;

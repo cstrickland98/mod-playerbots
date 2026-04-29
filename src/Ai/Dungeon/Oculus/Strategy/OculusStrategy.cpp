@@ -1,4 +1,5 @@
 #include "OculusStrategy.h"
+#include "../OculusTriggerContext.h"
 #include "OculusMultipliers.h"
 
 void WotlkDungeonOccStrategy::InitTriggers(std::vector<TriggerNode*> &triggers)
@@ -38,4 +39,10 @@ void WotlkDungeonOccStrategy::InitMultipliers(std::vector<Multiplier*> &multipli
     multipliers.push_back(new OccFlyingMultiplier(botAI));
     multipliers.push_back(new UromMultiplier(botAI));
     multipliers.push_back(new EregosMultiplier(botAI));
+}
+
+NamedObjectContext<Trigger>* WotlkDungeonOccStrategy::GetTriggerContext()
+{
+    static WotlkDungeonOccTriggerContext ctx;
+    return &ctx;
 }

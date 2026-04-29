@@ -1,4 +1,5 @@
 #include "OldKingdomStrategy.h"
+#include "../OldKingdomTriggerContext.h"
 #include "OldKingdomMultipliers.h"
 
 void WotlkDungeonOKStrategy::InitTriggers(std::vector<TriggerNode*> &triggers)
@@ -32,4 +33,10 @@ void WotlkDungeonOKStrategy::InitMultipliers(std::vector<Multiplier*> &multiplie
     multipliers.push_back(new ElderNadoxMultiplier(botAI));
     multipliers.push_back(new JedogaShadowseekerMultiplier(botAI));
     multipliers.push_back(new ForgottenOneMultiplier(botAI));
+}
+
+NamedObjectContext<Trigger>* WotlkDungeonOKStrategy::GetTriggerContext()
+{
+    static WotlkDungeonOKTriggerContext ctx;
+    return &ctx;
 }

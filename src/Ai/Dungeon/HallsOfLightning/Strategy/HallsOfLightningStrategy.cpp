@@ -1,4 +1,5 @@
 #include "HallsOfLightningStrategy.h"
+#include "../HallsOfLightningTriggerContext.h"
 #include "HallsOfLightningMultipliers.h"
 
 void WotlkDungeonHoLStrategy::InitTriggers(std::vector<TriggerNode*> &triggers)
@@ -37,4 +38,10 @@ void WotlkDungeonHoLStrategy::InitMultipliers(std::vector<Multiplier*> &multipli
     multipliers.push_back(new VolkhanMultiplier(botAI));
     multipliers.push_back(new IonarMultiplier(botAI));
     multipliers.push_back(new LokenMultiplier(botAI));
+}
+
+NamedObjectContext<Trigger>* WotlkDungeonHoLStrategy::GetTriggerContext()
+{
+    static WotlkDungeonHoLTriggerContext ctx;
+    return &ctx;
 }

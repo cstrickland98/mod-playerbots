@@ -1,5 +1,6 @@
 #include "AuchenaiCryptsTriggers.h"
 #include "AuchenaiCryptsStrategy.h"
+#include "../AuchenaiCryptsTriggerContext.h"
 #include "AuchenaiCryptsMultipliers.h"
 
 void TbcDungeonAuchenaiCryptsStrategy::InitTriggers(std::vector<TriggerNode*>& triggers)
@@ -18,4 +19,10 @@ void TbcDungeonAuchenaiCryptsStrategy::InitTriggers(std::vector<TriggerNode*>& t
 void TbcDungeonAuchenaiCryptsStrategy::InitMultipliers(std::vector<Multiplier*>& multipliers)
 {
     multipliers.push_back(new ShirrakFleeFocusFireMultiplier(botAI));
+}
+
+NamedObjectContext<Trigger>* TbcDungeonAuchenaiCryptsStrategy::GetTriggerContext()
+{
+    static TbcDungeonAuchenaiCryptsTriggerContext ctx;
+    return &ctx;
 }

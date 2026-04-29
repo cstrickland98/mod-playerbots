@@ -1,4 +1,5 @@
 #include "RaidOnyxiaStrategy.h"
+#include "../RaidOnyxiaTriggerContext.h"
 
 void RaidOnyxiaStrategy::InitTriggers(std::vector<TriggerNode*>& triggers)
 {
@@ -27,4 +28,10 @@ void RaidOnyxiaStrategy::InitTriggers(std::vector<TriggerNode*>& triggers)
 void RaidOnyxiaStrategy::InitMultipliers(std::vector<Multiplier*>& multipliers)
 {
     // Empty for now
+}
+
+NamedObjectContext<Trigger>* RaidOnyxiaStrategy::GetTriggerContext()
+{
+    static RaidOnyxiaTriggerContext ctx;
+    return &ctx;
 }

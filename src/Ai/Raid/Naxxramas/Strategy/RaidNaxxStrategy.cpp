@@ -1,4 +1,5 @@
 #include "RaidNaxxStrategy.h"
+#include "../RaidNaxxTriggerContext.h"
 
 #include "RaidNaxxMultipliers.h"
 
@@ -153,4 +154,10 @@ void RaidNaxxStrategy::InitMultipliers(std::vector<Multiplier*>& multipliers)
     multipliers.push_back(new FourHorsemenGenericMultiplier(botAI));
     // multipliers.push_back(new GothikGenericMultiplier(botAI));
     multipliers.push_back(new GluthGenericMultiplier(botAI));
+}
+
+NamedObjectContext<Trigger>* RaidNaxxStrategy::GetTriggerContext()
+{
+    static RaidNaxxTriggerContext ctx;
+    return &ctx;
 }
