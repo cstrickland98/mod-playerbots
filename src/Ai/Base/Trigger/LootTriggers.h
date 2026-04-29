@@ -13,7 +13,7 @@ class PlayerbotAI;
 class LootAvailableTrigger : public Trigger
 {
 public:
-    LootAvailableTrigger(PlayerbotAI* botAI) : Trigger(botAI, "loot available") {}
+    LootAvailableTrigger(PlayerbotAI* botAI) : Trigger(botAI, "loot available", 500) {}
 
     bool IsActive() override;
 };

@@ -8,6 +8,7 @@
 
 #include "Action.h"
 #include "Common.h"
+#include <unordered_map>
 
 /**
  * @class Queue
@@ -89,6 +90,7 @@ private:
     void removeAndDeleteBaskets(std::list<ActionBasket*>& basketsToRemove);
 
     std::list<ActionBasket*> actions; /**< Container for action baskets */
+    std::unordered_map<std::string, ActionBasket*> actionIndex; /**< O(1) lookup by action name for dedup */
 };
 
 #endif

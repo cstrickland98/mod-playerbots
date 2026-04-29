@@ -9,9 +9,8 @@
 #include "ServerFacade.h"
 #include "SpellAuraEffects.h"
 
-GuidVector FindMaxDensity(Player* bot)
+GuidVector AoeDensityValue::Calculate()
 {
-    PlayerbotAI* botAI = GET_PLAYERBOT_AI(bot);
     GuidVector units = *botAI->GetAiObjectContext()->GetValue<GuidVector>("possible targets");
 
     std::map<ObjectGuid, GuidVector> groups;
@@ -49,7 +48,7 @@ GuidVector FindMaxDensity(Player* bot)
 
 WorldLocation AoePositionValue::Calculate()
 {
-    GuidVector group = FindMaxDensity(bot);
+    GuidVector group = AI_VALUE(GuidVector, "aoe density");
     if (group.empty())
         return WorldLocation();
 
@@ -60,7 +59,7 @@ WorldLocation AoePositionValue::Calculate()
     float y2 = 0.f;
     for (GuidVector::iterator i = group.begin(); i != group.end(); ++i)
     {
-        Unit* unit = GET_PLAYERBOT_AI(bot)->GetUnit(*i);
+        Unit* unit = botAI->GetUnit(*i);
         if (!unit)
             continue;
 
@@ -85,16 +84,26 @@ WorldLocation AoePositionValue::Calculate()
     return WorldLocation(bot->GetMapId(), x, y, z, 0);
 }
 
-uint8 AoeCountValue::Calculate() { return FindMaxDensity(bot).size(); }
+uint8 AoeCountValue::Calculate() { return static_cast<uint8>(AI_VALUE(GuidVector, "aoe density").size()); }
 
 bool HasAreaDebuffValue::Calculate()
 {
-    for (uint32 auraType = SPELL_AURA_BIND_SIGHT; auraType < TOTAL_AURAS; auraType++)
-    {
-        Unit::AuraEffectList const& auras = botAI->GetBot()->GetAuraEffectsByType((AuraType)auraType);
+    // Only scan the 5 aura types that can be area debuffs - avoid iterating all TOTAL_AURAS types
+    static const AuraType relevantTypes[] = {
+        SPELL_AURA_PERIODIC_DAMAGE,
+        SPELL_AURA_PERIODIC_DAMAGE_PERCENT,
+        SPELL_AURA_PERIODIC_TRIGGER_SPELL,
+        SPELL_AURA_PERIODIC_TRIGGER_SPELL_WITH_VALUE,
+        SPELL_AURA_DUMMY
+    };
 
-        if (auras.empty())
-            continue;
+    Unit* target = GetTarget();
+    if (!target)
+        return false;
+
+    for (AuraType auraType : relevantTypes)
+    {
+        Unit::AuraEffectList const& auras = target->GetAuraEffectsByType(auraType);
 
         for (AuraEffect const* aurEff : auras)
         {
@@ -105,13 +114,9 @@ bool HasAreaDebuffValue::Calculate()
 
             uint32 trigger_spell_id = proto->Effects[aurEff->GetEffIndex()].TriggerSpell;
             if (trigger_spell_id == 29767)  // Overload
-            {
                 return true;
-            }
-            else
-            {
-                return (!proto->IsPositive() && aurEff->IsPeriodic() && proto->HasAreaAuraEffect());
-            }
+            else if (!proto->IsPositive() && aurEff->IsPeriodic() && proto->HasAreaAuraEffect())
+                return true;
         }
     }
 

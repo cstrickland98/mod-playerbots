@@ -169,6 +169,7 @@ public:
 
 protected:
     std::string spell;
+    uint32 cachedSpellId = 0;
 };
 
 class SpellCanBeCastTrigger : public SpellTrigger
@@ -271,6 +272,7 @@ public:
     AoeTrigger(PlayerbotAI* botAI, int32 amount = 3, float range = 15.0f)
         : AttackerCountTrigger(botAI, amount), range(range)
     {
+        this->checkInterval = 500;
     }
 
     bool IsActive() override;
@@ -474,7 +476,7 @@ class HealerShouldAttackTrigger : public Trigger
 {
 public:
     HealerShouldAttackTrigger(PlayerbotAI* botAI)
-        : Trigger(botAI, "healer should attack", 1)
+        : Trigger(botAI, "healer should attack", 500)
     {
     }
 
@@ -556,9 +558,13 @@ BEGIN_TRIGGER(PanicTrigger, Trigger) // cppcheck-suppress unknownMacro
 std::string const getName() override { return "panic"; }
 END_TRIGGER()
 
-BEGIN_TRIGGER(OutNumberedTrigger, Trigger)
-std::string const getName() override { return "outnumbered"; }
-END_TRIGGER()
+class OutNumberedTrigger : public Trigger
+{
+public:
+    OutNumberedTrigger(PlayerbotAI* botAI) : Trigger(botAI, "outnumbered", 1000) {}
+    bool IsActive() override;
+    std::string const getName() override { return "outnumbered"; }
+};
 
 class NoPetTrigger : public Trigger
 {

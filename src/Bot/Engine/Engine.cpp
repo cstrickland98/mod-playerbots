@@ -264,7 +264,7 @@ ActionNode* Engine::CreateActionNode(std::string const name)
 }
 
 bool Engine::MultiplyAndPush(
-    std::vector<NextAction> actions,
+    const std::vector<NextAction>& actions,
     float forceRelevance,
     bool skipPrerequisites,
     Event event,
@@ -273,7 +273,7 @@ bool Engine::MultiplyAndPush(
 {
     bool pushed = false;
 
-    for (NextAction nextAction : actions)
+    for (const NextAction& nextAction : actions)
     {
         ActionNode* action = this->CreateActionNode(nextAction.getName());
 

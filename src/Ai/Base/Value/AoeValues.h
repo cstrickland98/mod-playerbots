@@ -13,10 +13,18 @@
 
 class PlayerbotAI;
 
+class AoeDensityValue : public CalculatedValue<GuidVector>
+{
+public:
+    AoeDensityValue(PlayerbotAI* botAI) : CalculatedValue<GuidVector>(botAI, "aoe density", 500) {}
+
+    GuidVector Calculate() override;
+};
+
 class AoePositionValue : public CalculatedValue<WorldLocation>
 {
 public:
-    AoePositionValue(PlayerbotAI* botAI) : CalculatedValue<WorldLocation>(botAI, "aoe position") {}
+    AoePositionValue(PlayerbotAI* botAI) : CalculatedValue<WorldLocation>(botAI, "aoe position", 500) {}
 
     WorldLocation Calculate() override;
 };
@@ -24,7 +32,7 @@ public:
 class AoeCountValue : public CalculatedValue<uint8>
 {
 public:
-    AoeCountValue(PlayerbotAI* botAI) : CalculatedValue<uint8>(botAI, "aoe count") {}
+    AoeCountValue(PlayerbotAI* botAI) : CalculatedValue<uint8>(botAI, "aoe count", 500) {}
 
     uint8 Calculate() override;
 };
@@ -32,7 +40,7 @@ public:
 class HasAreaDebuffValue : public BoolCalculatedValue, public Qualified
 {
 public:
-    HasAreaDebuffValue(PlayerbotAI* botAI) : BoolCalculatedValue(botAI) {}
+    HasAreaDebuffValue(PlayerbotAI* botAI) : BoolCalculatedValue(botAI, "value", 500) {}
 
     Unit* GetTarget()
     {
@@ -46,7 +54,7 @@ public:
 class AreaDebuffValue : public CalculatedValue<Aura*>
 {
 public:
-    AreaDebuffValue(PlayerbotAI* botAI) : CalculatedValue<Aura*>(botAI, "area debuff", 1) {}
+    AreaDebuffValue(PlayerbotAI* botAI) : CalculatedValue<Aura*>(botAI, "area debuff", 500) {}
 
     Aura* Calculate() override;
 };

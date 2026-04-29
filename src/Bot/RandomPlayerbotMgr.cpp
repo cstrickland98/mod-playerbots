@@ -330,17 +330,18 @@ void RandomPlayerbotMgr::UpdateAIInternal(uint32 elapsed, bool /*minimal*/)
         PERF_MON_TOTAL,
         onlineBotCount < maxAllowedBotCount ? "RandomPlayerbotMgr::Login" : "RandomPlayerbotMgr::UpdateAIInternal");
 
+    time_t now = time(nullptr);
     bool realPlayerIsLogged = false;
     if (sPlayerbotAIConfig.disabledWithoutRealPlayer)
     {
         if (sWorldSessionMgr->GetActiveAndQueuedSessionCount() > 0)
         {
-            RealPlayerLastTimeSeen = time(nullptr);
+            RealPlayerLastTimeSeen = now;
             realPlayerIsLogged = true;
 
             if (DelayLoginBotsTimer == 0)
             {
-                DelayLoginBotsTimer = time(nullptr) + sPlayerbotAIConfig.disabledWithoutRealPlayerLoginDelay;
+                DelayLoginBotsTimer = now + sPlayerbotAIConfig.disabledWithoutRealPlayerLoginDelay;
             }
         }
         else
@@ -351,7 +352,7 @@ void RandomPlayerbotMgr::UpdateAIInternal(uint32 elapsed, bool /*minimal*/)
             }
 
             if (RealPlayerLastTimeSeen != 0 && onlineBotCount > 0 &&
-                time(nullptr) > RealPlayerLastTimeSeen + sPlayerbotAIConfig.disabledWithoutRealPlayerLogoutDelay)
+                now > RealPlayerLastTimeSeen + sPlayerbotAIConfig.disabledWithoutRealPlayerLogoutDelay)
             {
                 LogoutAllBots();
                 LOG_INFO("playerbots", "Logout all bots due no real player session.");
@@ -360,7 +361,7 @@ void RandomPlayerbotMgr::UpdateAIInternal(uint32 elapsed, bool /*minimal*/)
 
         if (availableBotCount < maxAllowedBotCount &&
             (sPlayerbotAIConfig.disabledWithoutRealPlayer == false ||
-             (realPlayerIsLogged && DelayLoginBotsTimer != 0 && time(nullptr) >= DelayLoginBotsTimer)))
+             (realPlayerIsLogged && DelayLoginBotsTimer != 0 && now >= DelayLoginBotsTimer)))
         {
             AddRandomBots();
         }
@@ -372,27 +373,27 @@ void RandomPlayerbotMgr::UpdateAIInternal(uint32 elapsed, bool /*minimal*/)
 
     if (sPlayerbotAIConfig.syncLevelWithPlayers && !players.empty())
     {
-        if (time(nullptr) > (PlayersCheckTimer + 60))
+        if (now > (PlayersCheckTimer + 60))
             sRandomPlayerbotMgr.CheckPlayers();
     }
 
     if (sPlayerbotAIConfig.randomBotJoinBG /* && !players.empty()*/)
     {
-        if (time(nullptr) > (BgCheckTimer + 35))
+        if (now > (BgCheckTimer + 35))
             sRandomPlayerbotMgr.CheckBgQueue();
     }
 
     if (sPlayerbotAIConfig.randomBotJoinLfg /* && !players.empty()*/)
     {
-        if (time(nullptr) > (LfgCheckTimer + 30))
+        if (now > (LfgCheckTimer + 30))
             sRandomPlayerbotMgr.CheckLfgQueue();
     }
 
-    if (sPlayerbotAIConfig.randomBotAutologin && time(nullptr) > (printStatsTimer + 300))
+    if (sPlayerbotAIConfig.randomBotAutologin && now > (printStatsTimer + 300))
     {
         if (!printStatsTimer)
         {
-            printStatsTimer = time(nullptr);
+            printStatsTimer = now;
         }
         else
         {
@@ -404,7 +405,7 @@ void RandomPlayerbotMgr::UpdateAIInternal(uint32 elapsed, bool /*minimal*/)
     uint32 maxNewBots =
         onlineBotCount < maxAllowedBotCount &&
                 (sPlayerbotAIConfig.disabledWithoutRealPlayer == false ||
-                 (realPlayerIsLogged && DelayLoginBotsTimer != 0 && time(nullptr) >= DelayLoginBotsTimer))
+                 (realPlayerIsLogged && DelayLoginBotsTimer != 0 && now >= DelayLoginBotsTimer))
             ? maxAllowedBotCount - onlineBotCount
             : 0;
     uint32 loginBots = std::min(sPlayerbotAIConfig.randomBotsPerInterval - updateBots, maxNewBots);

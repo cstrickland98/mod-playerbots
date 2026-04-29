@@ -227,6 +227,7 @@ public:
         creators["last said"] = &ValueContext::last_said;
         creators["last emote"] = &ValueContext::last_emote;
 
+        creators["aoe density"] = &ValueContext::aoe_density;
         creators["aoe count"] = &ValueContext::aoe_count;
         creators["aoe position"] = &ValueContext::aoe_position;
         creators["outfit list"] = &ValueContext::outfit_list_value;
@@ -486,6 +487,7 @@ private:
     static UntypedValue* speed(PlayerbotAI* botAI) { return new SpeedValue(botAI); }
     static UntypedValue* last_said(PlayerbotAI* botAI) { return new LastSaidValue(botAI); }
     static UntypedValue* last_emote(PlayerbotAI* botAI) { return new LastEmoteValue(botAI); }
+    static UntypedValue* aoe_density(PlayerbotAI* botAI) { return new AoeDensityValue(botAI); }
     static UntypedValue* aoe_count(PlayerbotAI* botAI) { return new AoeCountValue(botAI); }
     static UntypedValue* aoe_position(PlayerbotAI* botAI) { return new AoePositionValue(botAI); }
     static UntypedValue* outfit_list_value(PlayerbotAI* botAI) { return new OutfitListValue(botAI); }

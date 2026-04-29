@@ -293,20 +293,22 @@ bool SpellCanBeCastTrigger::IsActive()
 
 bool SpellNoCooldownTrigger::IsActive()
 {
-    uint32 spellId = AI_VALUE2(uint32, "spell id", name);
-    if (!spellId)
+    if (!cachedSpellId)
+        cachedSpellId = AI_VALUE2(uint32, "spell id", name);
+    if (!cachedSpellId)
         return false;
 
-    return !bot->HasSpellCooldown(spellId);
+    return !bot->HasSpellCooldown(cachedSpellId);
 }
 
 bool SpellCooldownTrigger::IsActive()
 {
-    uint32 spellId = AI_VALUE2(uint32, "spell id", name);
-    if (!spellId)
+    if (!cachedSpellId)
+        cachedSpellId = AI_VALUE2(uint32, "spell id", name);
+    if (!cachedSpellId)
         return false;
 
-    return bot->HasSpellCooldown(spellId);
+    return bot->HasSpellCooldown(cachedSpellId);
 }
 
 RandomTrigger::RandomTrigger(PlayerbotAI* botAI, std::string const name, int32 probability)

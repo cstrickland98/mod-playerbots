@@ -85,7 +85,7 @@ void PacketHandlingHelper::Handle(ExternalEventHelper& helper)
 {
     while (!queue.empty())
     {
-        WorldPacket packet = queue.top();
+        WorldPacket packet = std::move(queue.top());
         queue.pop(); // remove first so handling can't modify the queue while we're using it
 
         helper.HandlePacket(handlers, packet);
@@ -482,10 +482,11 @@ void PlayerbotAI::UpdateAIInternal([[maybe_unused]] uint32 elapsed, bool minimal
     ExternalEventHelper helper(aiObjectContext);
 
     // chat replies
+    time_t now = time(0);
     for (auto it = chatReplies.begin(); it != chatReplies.end();)
     {
         time_t checkTime = it->m_time;
-        if (checkTime && time(0) < checkTime)
+        if (checkTime && now < checkTime)
         {
             ++it;
             continue;
@@ -552,11 +553,12 @@ void PlayerbotAI::UpdateAIInternal([[maybe_unused]] uint32 elapsed, bool minimal
 void PlayerbotAI::HandleCommands()
 {
     ExternalEventHelper helper(aiObjectContext);
+    time_t now = time(nullptr);
 
     for (auto it = chatCommands.begin(); it != chatCommands.end();)
     {
         time_t& checkTime = it->GetTime();
-        if (checkTime && time(nullptr) < checkTime)
+        if (checkTime && now < checkTime)
         {
             ++it;
             continue;
