@@ -59,12 +59,11 @@ public:
             name = name.substr(0, found);
         }
 
-        if (creators.find(name) == creators.end())
+        auto it = creators.find(name);
+        if (it == creators.end())
             return nullptr;
 
-        ObjectCreator& creator = creators[name];
-
-        T* object = creator(botAI);
+        T* object = it->second(botAI);
         Qualified* q = dynamic_cast<Qualified*>(object);
         if (q && found != std::string::npos)
             q->Qualify(qualifier);
@@ -96,10 +95,12 @@ public:
 
     virtual T* create(std::string name, PlayerbotAI* botAI) override
     {
-        if (created.find(name) == created.end())
-            return created[name] = NamedObjectFactory<T>::create(name, botAI);
+        auto it = created.find(name);
+        if (it != created.end())
+            return it->second;
 
-        return created[name];
+        T* obj = NamedObjectFactory<T>::create(name, botAI);
+        return created.emplace(name, obj).first->second;
     }
 
     void Clear()
@@ -188,12 +189,11 @@ public:
             name = name.substr(0, found);
         }
 
-        if (creators.find(name) == creators.end())
+        auto it = creators.find(name);
+        if (it == creators.end())
             return nullptr;
 
-        const ObjectCreator& creator = creators.at(name);
-
-        T* object = creator(botAI);
+        T* object = it->second(botAI);
         Qualified* q = dynamic_cast<Qualified*>(object);
         if (q && found != std::string::npos)
             q->Qualify(qualifier);
@@ -203,13 +203,12 @@ public:
 
     T* GetContextObject(const std::string& name, PlayerbotAI* botAI)
     {
-        if (created.find(name) == created.end())
-        {
-            if (T* object = create(name, botAI))
-                return created[name] = object;
-        }
+        auto it = created.find(name);
+        if (it != created.end())
+            return it->second;
 
-        return created[name];
+        T* object = create(name, botAI);
+        return created.emplace(name, object).first->second;
     }
 
     std::set<std::string> GetSiblings(const std::string& name)
@@ -278,12 +277,11 @@ public:
             name = name.substr(0, found);
         }
 
-        if (creators.find(name) == creators.end())
+        auto it = creators.find(name);
+        if (it == creators.end())
             return nullptr;
 
-        const ObjectCreator& creator = creators[name];
-
-        T* object = creator(botAI);
+        T* object = it->second(botAI);
         Qualified* q = dynamic_cast<Qualified*>(object);
         if (q && found != std::string::npos)
             q->Qualify(qualifier);
