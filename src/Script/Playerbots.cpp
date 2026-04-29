@@ -559,14 +559,14 @@ static void NotifyGroupHealthChanged(Player* player)
     }
 }
 
-// Notifies all bot members of a group when a player's auras change.
-static void NotifyGroupAuraChanged(Player* player)
+// Notifies all bot members of a group when a specific aura changes.
+static void NotifyGroupAuraChanged(Player* player, std::string const& spellName)
 {
-    if (!player)
+    if (!player || spellName.empty())
         return;
 
     if (PlayerbotAI* ai = GET_PLAYERBOT_AI(player))
-        ai->OnAuraChanged();
+        ai->OnAuraChanged(spellName);
 
     Group* group = player->GetGroup();
     if (!group)
@@ -578,7 +578,7 @@ static void NotifyGroupAuraChanged(Player* player)
         if (!member || member == player)
             continue;
         if (PlayerbotAI* ai = GET_PLAYERBOT_AI(member))
-            ai->OnPartyAuraChanged();
+            ai->OnPartyAuraChanged(spellName);
     }
 }
 
@@ -607,18 +607,22 @@ public:
             NotifyGroupHealthChanged(player);
     }
 
-    // An aura was applied to a unit — re-evaluate aura/buff/cure triggers.
-    void OnAuraApply(Unit* unit, Aura* /*aura*/) override
+    // An aura was applied to a unit — dirty the trigger for that specific spell.
+    void OnAuraApply(Unit* unit, Aura* aura) override
     {
+        if (!aura)
+            return;
         if (Player* player = unit ? unit->ToPlayer() : nullptr)
-            NotifyGroupAuraChanged(player);
+            NotifyGroupAuraChanged(player, aura->GetSpellInfo()->SpellName[0]);
     }
 
-    // An aura was removed from a unit — re-evaluate aura/buff/cure triggers.
-    void OnAuraRemove(Unit* unit, AuraApplication* /*aurApp*/, AuraRemoveMode /*mode*/) override
+    // An aura was removed from a unit — dirty the trigger for that specific spell.
+    void OnAuraRemove(Unit* unit, AuraApplication* aurApp, AuraRemoveMode /*mode*/) override
     {
+        if (!aurApp)
+            return;
         if (Player* player = unit ? unit->ToPlayer() : nullptr)
-            NotifyGroupAuraChanged(player);
+            NotifyGroupAuraChanged(player, aurApp->GetBase()->GetSpellInfo()->SpellName[0]);
     }
 
     // A unit died — re-evaluate dead/resurrect triggers.

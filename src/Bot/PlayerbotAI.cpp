@@ -6800,14 +6800,16 @@ void PlayerbotAI::OnPartyHealthChanged()
             t->ExternalEvent("");
 }
 
-void PlayerbotAI::OnAuraChanged()
+void PlayerbotAI::OnAuraChanged(std::string const& spellName)
 {
-    aiObjectContext->MarkEventDrivenTriggersDirty();
+    if (Trigger* t = aiObjectContext->GetTrigger(spellName))
+        t->ExternalEvent("");
 }
 
-void PlayerbotAI::OnPartyAuraChanged()
+void PlayerbotAI::OnPartyAuraChanged(std::string const& spellName)
 {
-    aiObjectContext->MarkEventDrivenTriggersDirty();
+    if (Trigger* t = aiObjectContext->GetTrigger(spellName))
+        t->ExternalEvent("");
 }
 
 void PlayerbotAI::EvaluateHealerDpsStrategy()
