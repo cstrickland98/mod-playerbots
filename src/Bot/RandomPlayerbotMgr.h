@@ -11,6 +11,8 @@
 #include "PlayerbotMgr.h"
 #include "GameTime.h"
 #include "PlayerbotCommandServer.h"
+#include "DatabaseEnvFwd.h"
+#include "unordered_set"
 
 struct BattlegroundInfo
 {
@@ -224,6 +226,8 @@ private:
     std::string GetEventData(uint32 bot, std::string const& event);
     uint32 SetEventValue(uint32 bot, std::string const& event, uint32 value, uint32 validIn,
                          std::string const& data = "");
+    uint32 SetEventValue(uint32 bot, std::string const& event, uint32 value, uint32 validIn,
+                         PlayerbotsDatabaseTransaction trans, std::string const& data = "");
     void GetBots();
     std::vector<uint32> GetBgBots(uint32 bracket);
     time_t BgCheckTimer;
@@ -246,13 +250,15 @@ private:
     std::map<uint32, std::map<uint32, std::vector<WorldLocation>>> rpgLocsCacheLevel;
     std::map<TeamId, std::map<BattlegroundTypeId, std::vector<uint32>>> BattleMastersCache;
     std::unordered_map<uint32, BotEventCache> eventCache;
-    std::list<uint32> currentBots;
+    std::unordered_set<uint32> currentBots;
     uint32 bgBotsCount;
     uint32 playersLevel;
 
     // Account lists
     std::vector<uint32> rndBotTypeAccounts;             // Accounts marked as RNDbot (type 1)
     std::vector<uint32> addClassTypeAccounts;           // Accounts marked as AddClass (type 2)
+    std::unordered_set<uint32> rndBotTypeAccountSet;
+    std::unordered_set<uint32> addClassTypeAccountSet;
 
     //void ScaleBotActivity();      // Deprecated function
     static inline uint32 NowSeconds() { return static_cast<uint32>(GameTime::GetGameTime().count()); }
