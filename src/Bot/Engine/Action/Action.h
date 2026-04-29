@@ -19,8 +19,8 @@ public:
         : relevance(relevance), name(name) {}                                  // name after relevance - whipowill
     NextAction(NextAction const& o) : relevance(o.relevance), name(o.name) {}  // name after relevance - whipowill
 
-    std::string const getName() { return name; }
-    float getRelevance() { return relevance; }
+    std::string const getName() const { return name; }
+    float getRelevance() const { return relevance; }
 
     static std::vector<NextAction> merge(std::vector<NextAction> const& what, std::vector<NextAction> const& with)
     {
