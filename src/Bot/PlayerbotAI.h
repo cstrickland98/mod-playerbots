@@ -607,6 +607,13 @@ public:
     // Schedules a callback to run once after <delayMs> milliseconds.
     void AddTimedEvent(std::function<void()> callback, uint32 delayMs);
 
+    // Event notifications: called by UnitScript hooks when the relevant game state changes.
+    // Each method marks the appropriate event-driven triggers dirty so they re-evaluate on the next AI tick.
+    void OnHealthChanged();       // bot's own health changed (damage or heal received)
+    void OnPartyHealthChanged();  // a party member's health changed
+    void OnAuraChanged();         // an aura was applied/removed on this bot
+    void OnPartyAuraChanged();    // an aura was applied/removed on a party member
+
 private:
     static void _fillGearScoreData(Player* player, Item* item, std::vector<uint32>* gearScore, uint32& twoHandScore,
                                    bool mixed = false);

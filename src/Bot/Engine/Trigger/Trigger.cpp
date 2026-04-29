@@ -31,6 +31,18 @@ Value<Unit*>* Trigger::GetTargetValue() { return context->GetValue<Unit*>(GetTar
 
 Unit* Trigger::GetTarget() { return GetTargetValue()->Get(); }
 
+Event EventDrivenTrigger::Check()
+{
+    uint32 now = getMSTime();
+    bool fallback = (now - lastFallbackCheck) >= FALLBACK_MS;
+    if (!dirty && !fallback)
+        return Event();
+    if (fallback)
+        lastFallbackCheck = now;
+    dirty = false;
+    return Trigger::Check();
+}
+
 bool Trigger::needCheck(uint32 now)
 {
     if (checkInterval < 2)

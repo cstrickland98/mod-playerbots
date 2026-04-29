@@ -314,11 +314,11 @@ public:
     HighAoeTrigger(PlayerbotAI* botAI) : AoeTrigger(botAI, 4, 8.0f) {}
 };
 
-class BuffTrigger : public SpellTrigger
+class BuffTrigger : public EventDrivenTrigger
 {
 public:
     BuffTrigger(PlayerbotAI* botAI, std::string const spell, int32 checkInterval = 1, bool checkIsOwner = false, bool checkDuration = false, uint32 beforeDuration = 0)
-        : SpellTrigger(botAI, spell, checkInterval)
+        : EventDrivenTrigger(botAI, spell, checkInterval), spell(spell)
     {
         this->checkIsOwner = checkIsOwner;
         this->checkDuration = checkDuration;
@@ -327,9 +327,11 @@ public:
 
 public:
     std::string const GetTargetName() override { return "self target"; }
+    std::string const getName() override { return spell; }
     bool IsActive() override;
 
 protected:
+    std::string spell;
     bool checkIsOwner;
     bool checkDuration;
     uint32 beforeDuration;
@@ -608,11 +610,11 @@ public:
     bool IsActive() override;
 };
 
-class HasAuraTrigger : public Trigger
+class HasAuraTrigger : public EventDrivenTrigger
 {
 public:
     HasAuraTrigger(PlayerbotAI* botAI, std::string const spell, int32 checkInterval = 1)
-        : Trigger(botAI, spell, checkInterval)
+        : EventDrivenTrigger(botAI, spell, checkInterval)
     {
     }
 
@@ -620,11 +622,11 @@ public:
     bool IsActive() override;
 };
 
-class HasAuraStackTrigger : public Trigger
+class HasAuraStackTrigger : public EventDrivenTrigger
 {
 public:
     HasAuraStackTrigger(PlayerbotAI* ai, std::string spell, int stack, int checkInterval = 1)
-        : Trigger(ai, spell, checkInterval), stack(stack)
+        : EventDrivenTrigger(ai, spell, checkInterval), stack(stack)
     {
     }
 
@@ -635,10 +637,10 @@ private:
     int stack;
 };
 
-class HasNoAuraTrigger : public Trigger
+class HasNoAuraTrigger : public EventDrivenTrigger
 {
 public:
-    HasNoAuraTrigger(PlayerbotAI* botAI, std::string const spell) : Trigger(botAI, spell) {}
+    HasNoAuraTrigger(PlayerbotAI* botAI, std::string const spell) : EventDrivenTrigger(botAI, spell) {}
 
     std::string const GetTargetName() override { return "self target"; }
     bool IsActive() override;

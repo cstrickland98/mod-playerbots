@@ -125,6 +125,21 @@ Trigger* AiObjectContext::GetTrigger(std::string const name)
     return triggerContexts.GetContextObject(name, botAI);
 }
 
+void AiObjectContext::MarkEventDrivenTriggersDirty()
+{
+    for (auto const& name : triggerContexts.GetCreated())
+    {
+        Trigger* t = triggerContexts.GetContextObject(name, botAI);
+        if (t)
+            t->ExternalEvent("");
+    }
+    for (auto& [name, trigger] : localCreatedTriggers)
+    {
+        if (trigger)
+            trigger->ExternalEvent("");
+    }
+}
+
 void AiObjectContext::RegisterLocalTriggerContext(NamedObjectContext<Trigger>* ctx)
 {
     if (!ctx)

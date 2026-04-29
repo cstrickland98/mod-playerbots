@@ -23,6 +23,7 @@
 #include "DatabaseEnv.h"
 #include "DatabaseLoader.h"
 #include "GuildTaskMgr.h"
+#include "Group.h"
 #include "PlayerScript.h"
 #include "PlayerbotAIConfig.h"
 #include "PlayerbotGuildMgr.h"
@@ -31,6 +32,7 @@
 #include "RandomPlayerbotMgr.h"
 #include "ScriptMgr.h"
 #include "PlayerbotCommandScript.h"
+#include "UnitScript.h"
 #include "cmath"
 #include "BattleGroundTactics.h"
 #include <RandomPlayerbotFactory.h>
@@ -534,6 +536,99 @@ public:
     PlayerbotsBattlefieldScript() : BattlefieldScript("PlayerbotsBattlefieldScript") { }
 };
 
+// Notifies all bot members of a group when a player's health changes.
+static void NotifyGroupHealthChanged(Player* player)
+{
+    if (!player)
+        return;
+
+    if (PlayerbotAI* ai = GET_PLAYERBOT_AI(player))
+        ai->OnHealthChanged();
+
+    Group* group = player->GetGroup();
+    if (!group)
+        return;
+
+    for (GroupReference* ref = group->GetFirstMember(); ref; ref = ref->next())
+    {
+        Player* member = ref->GetSource();
+        if (!member || member == player)
+            continue;
+        if (PlayerbotAI* ai = GET_PLAYERBOT_AI(member))
+            ai->OnPartyHealthChanged();
+    }
+}
+
+// Notifies all bot members of a group when a player's auras change.
+static void NotifyGroupAuraChanged(Player* player)
+{
+    if (!player)
+        return;
+
+    if (PlayerbotAI* ai = GET_PLAYERBOT_AI(player))
+        ai->OnAuraChanged();
+
+    Group* group = player->GetGroup();
+    if (!group)
+        return;
+
+    for (GroupReference* ref = group->GetFirstMember(); ref; ref = ref->next())
+    {
+        Player* member = ref->GetSource();
+        if (!member || member == player)
+            continue;
+        if (PlayerbotAI* ai = GET_PLAYERBOT_AI(member))
+            ai->OnPartyAuraChanged();
+    }
+}
+
+class PlayerbotsUnitScript : public UnitScript
+{
+public:
+    PlayerbotsUnitScript() : UnitScript("PlayerbotsUnitScript", true, {
+        UNITHOOK_ON_DAMAGE,
+        UNITHOOK_ON_HEAL,
+        UNITHOOK_ON_AURA_APPLY,
+        UNITHOOK_ON_AURA_REMOVE,
+        UNITHOOK_ON_UNIT_DEATH,
+    }) {}
+
+    // Victim took damage — re-evaluate health triggers.
+    void OnDamage(Unit* /*attacker*/, Unit* victim, uint32& /*damage*/) override
+    {
+        if (Player* player = victim ? victim->ToPlayer() : nullptr)
+            NotifyGroupHealthChanged(player);
+    }
+
+    // Unit received a heal — health may have risen, re-evaluate health triggers.
+    void OnHeal(Unit* /*healer*/, Unit* reciever, uint32& /*gain*/) override
+    {
+        if (Player* player = reciever ? reciever->ToPlayer() : nullptr)
+            NotifyGroupHealthChanged(player);
+    }
+
+    // An aura was applied to a unit — re-evaluate aura/buff/cure triggers.
+    void OnAuraApply(Unit* unit, Aura* /*aura*/) override
+    {
+        if (Player* player = unit ? unit->ToPlayer() : nullptr)
+            NotifyGroupAuraChanged(player);
+    }
+
+    // An aura was removed from a unit — re-evaluate aura/buff/cure triggers.
+    void OnAuraRemove(Unit* unit, AuraApplication* /*aurApp*/, AuraRemoveMode /*mode*/) override
+    {
+        if (Player* player = unit ? unit->ToPlayer() : nullptr)
+            NotifyGroupAuraChanged(player);
+    }
+
+    // A unit died — re-evaluate dead/resurrect triggers.
+    void OnUnitDeath(Unit* unit, Unit* /*killer*/) override
+    {
+        if (Player* player = unit ? unit->ToPlayer() : nullptr)
+            NotifyGroupHealthChanged(player);
+    }
+};
+
 void AddPlayerbotsSecureLoginScripts();
 
 void AddSC_TempestKeepBotScripts();
@@ -548,6 +643,7 @@ void AddPlayerbotsScripts()
     new PlayerbotsWorldScript();
     new PlayerbotsScript();
     new PlayerBotsBGScript();
+    new PlayerbotsUnitScript();
     AddPlayerbotsSecureLoginScripts();
     AddPlayerbotsCommandscripts();
     PlayerBotsGuildValidationScript();

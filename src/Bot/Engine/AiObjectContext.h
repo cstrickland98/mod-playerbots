@@ -46,6 +46,9 @@ public:
     void UnregisterLocalTriggerContext(NamedObjectContext<Trigger>* ctx);
     virtual UntypedValue* GetUntypedValue(std::string const name);
 
+    // Call ExternalEvent on every already-instantiated EventDrivenTrigger so they re-evaluate on the next AI tick.
+    void MarkEventDrivenTriggersDirty();
+
     template <class T>
     Value<T>* GetValue(std::string const name)
     {

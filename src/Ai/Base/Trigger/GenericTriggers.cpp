@@ -159,8 +159,6 @@ bool BuffTrigger::IsActive()
     Unit* target = GetTarget();
     if (!target)
         return false;
-    if (!SpellTrigger::IsActive())
-        return false;
     Aura* aura = botAI->GetAura(spell, target, checkIsOwner, checkDuration);
     if (!aura)
         return true;

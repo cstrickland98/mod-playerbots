@@ -13,11 +13,11 @@
 
 class PlayerbotAI;
 
-class ValueInRangeTrigger : public Trigger
+class ValueInRangeTrigger : public EventDrivenTrigger
 {
 public:
     ValueInRangeTrigger(PlayerbotAI* botAI, std::string const name, float maxValue, float minValue)
-        : Trigger(botAI, name), maxValue(maxValue), minValue(minValue)
+        : EventDrivenTrigger(botAI, name), maxValue(maxValue), minValue(minValue)
     {
     }
 
@@ -143,39 +143,39 @@ public:
     TargetCriticalHealthTrigger(PlayerbotAI* botAI) : TargetLowHealthTrigger(botAI, 20) {}
 };
 
-class PartyMemberDeadTrigger : public Trigger
+class PartyMemberDeadTrigger : public EventDrivenTrigger
 {
 public:
-    PartyMemberDeadTrigger(PlayerbotAI* botAI) : Trigger(botAI, "resurrect", 1 * 1000) {}
+    PartyMemberDeadTrigger(PlayerbotAI* botAI) : EventDrivenTrigger(botAI, "resurrect") {}
 
     std::string const GetTargetName() override { return "party member to resurrect"; }
     bool IsActive() override;
 };
 
-class CombatPartyMemberDeadTrigger : public Trigger
+class CombatPartyMemberDeadTrigger : public EventDrivenTrigger
 {
 public:
-    CombatPartyMemberDeadTrigger(PlayerbotAI* ai) : Trigger(ai, "combat party member to resurrect", 1) {}
+    CombatPartyMemberDeadTrigger(PlayerbotAI* ai) : EventDrivenTrigger(ai, "combat party member to resurrect") {}
     std::string const GetTargetName() override { return "party member to resurrect"; }
     bool IsActive() override;
 };
 
-class DeadTrigger : public Trigger
+class DeadTrigger : public EventDrivenTrigger
 {
 public:
-    DeadTrigger(PlayerbotAI* botAI) : Trigger(botAI, "dead") {}
+    DeadTrigger(PlayerbotAI* botAI) : EventDrivenTrigger(botAI, "dead") {}
 
     std::string const GetTargetName() override { return "self target"; }
     bool IsActive() override;
 };
 
-class AoeHealTrigger : public Trigger
+class AoeHealTrigger : public EventDrivenTrigger
 {
 public:
     AoeHealTrigger(PlayerbotAI* botAI, std::string const name, std::string const type, int32 count)
-        : Trigger(botAI, name), count(count), type(type)
+        : EventDrivenTrigger(botAI, name), count(count), type(type)
     {
-    }  // reorder args - whipowill
+    }
     bool IsActive() override;
 
 protected:
@@ -183,11 +183,11 @@ protected:
     std::string const type;
 };
 
-class AoeInGroupTrigger : public Trigger
+class AoeInGroupTrigger : public EventDrivenTrigger
 {
 public:
     AoeInGroupTrigger(PlayerbotAI* ai, std::string name, std::string type)
-        : Trigger(ai, name), type(type)
+        : EventDrivenTrigger(ai, name), type(type)
     {
     }
     bool IsActive() override;

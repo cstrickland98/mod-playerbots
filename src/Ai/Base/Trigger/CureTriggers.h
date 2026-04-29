@@ -11,11 +11,11 @@
 class PlayerbotAI;
 class Unit;
 
-class NeedCureTrigger : public SpellTrigger
+class NeedCureTrigger : public EventDrivenTrigger
 {
 public:
     NeedCureTrigger(PlayerbotAI* botAI, std::string const spell, uint32 dispelType)
-        : SpellTrigger(botAI, spell, 1 * 1000), dispelType(dispelType)
+        : EventDrivenTrigger(botAI, spell), dispelType(dispelType)
     {
     }
 

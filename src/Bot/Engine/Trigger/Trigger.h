@@ -39,6 +39,25 @@ protected:
     uint32_t lastCheckTime;
 };
 
+// Event-driven trigger: only evaluates IsActive() when dirtied by ExternalEvent
+// or when the 2-second fallback safety timer fires.
+class EventDrivenTrigger : public Trigger
+{
+public:
+    EventDrivenTrigger(PlayerbotAI* botAI, std::string const name, int32 checkInterval = 1)
+        : Trigger(botAI, name, checkInterval), dirty(true), lastFallbackCheck(0)
+    {
+    }
+
+    void ExternalEvent(std::string const param, Player* owner = nullptr) override { dirty = true; }
+    Event Check() override;
+
+protected:
+    bool dirty;
+    uint32 lastFallbackCheck;
+    static constexpr uint32 FALLBACK_MS = 2000;
+};
+
 class TriggerNode
 {
 public:

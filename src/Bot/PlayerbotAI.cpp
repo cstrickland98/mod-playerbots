@@ -6775,6 +6775,41 @@ void PlayerbotAI::AddTimedEvent(std::function<void()> callback, uint32 delayMs)
     bot->m_Events.AddEvent(new LambdaEvent(std::move(callback)), bot->m_Events.CalculateTime(delayMs));
 }
 
+void PlayerbotAI::OnHealthChanged()
+{
+    static const char* const SELF_HEALTH_TRIGGERS[] = {
+        "critical health", "low health", "medium health", "almost full health", "dead", nullptr
+    };
+    for (int i = 0; SELF_HEALTH_TRIGGERS[i]; ++i)
+        if (Trigger* t = aiObjectContext->GetTrigger(SELF_HEALTH_TRIGGERS[i]))
+            t->ExternalEvent("");
+}
+
+void PlayerbotAI::OnPartyHealthChanged()
+{
+    static const char* const PARTY_HEALTH_TRIGGERS[] = {
+        "party member critical health", "party member low health",
+        "party member medium health", "party member almost full health",
+        "party member dead", "combat party member dead",
+        "critical aoe heal", "low aoe heal", "medium aoe heal", "almost full aoe heal",
+        "group heal setting", "medium group heal setting",
+        nullptr
+    };
+    for (int i = 0; PARTY_HEALTH_TRIGGERS[i]; ++i)
+        if (Trigger* t = aiObjectContext->GetTrigger(PARTY_HEALTH_TRIGGERS[i]))
+            t->ExternalEvent("");
+}
+
+void PlayerbotAI::OnAuraChanged()
+{
+    aiObjectContext->MarkEventDrivenTriggersDirty();
+}
+
+void PlayerbotAI::OnPartyAuraChanged()
+{
+    aiObjectContext->MarkEventDrivenTriggersDirty();
+}
+
 void PlayerbotAI::EvaluateHealerDpsStrategy()
 {
     if (!IsHeal(bot, true))
