@@ -39,9 +39,10 @@ bool OffHandWeaponNoImbueTrigger::IsActive()
 
 bool ShockTrigger::IsActive()
 {
-    return SpellTrigger::IsActive() &&
-        !botAI->HasAura("flame shock", GetTarget(), false, true) &&
-        !botAI->HasAura("frost shock", GetTarget(), false, true);
+    Unit* target = GetTarget();
+
+    return target && !botAI->HasAura("flame shock", target, false, true) &&
+           !botAI->HasAura("frost shock", target, false, true);
 }
 
 // Checks if the target's health is above 25%/1500 hp. Returns false if either are true.

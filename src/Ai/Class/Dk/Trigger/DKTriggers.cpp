@@ -20,7 +20,8 @@ bool DKPresenceTrigger::IsActive()
 
 bool PestilenceGlyphTrigger::IsActive()
 {
-    if (!SpellTrigger::IsActive())
+    Unit* target = GetTarget();
+    if (!target)
     {
         return false;
     }
@@ -28,8 +29,8 @@ bool PestilenceGlyphTrigger::IsActive()
     {
         return false;
     }
-    Aura* blood_plague = botAI->GetAura("blood plague", GetTarget(), true, true);
-    Aura* frost_fever = botAI->GetAura("frost fever", GetTarget(), true, true);
+    Aura* blood_plague = botAI->GetAura("blood plague", target, true, true);
+    Aura* frost_fever = botAI->GetAura("frost fever", target, true, true);
     if ((blood_plague && blood_plague->GetDuration() <= 3000) || (frost_fever && frost_fever->GetDuration() <= 3000))
     {
         return true;

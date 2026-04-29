@@ -60,7 +60,7 @@ bool PrayerOfSpiritTrigger::IsActive()
 bool InnerFireTrigger::IsActive()
 {
     Unit* target = GetTarget();
-    return SpellTrigger::IsActive() && !botAI->HasAura(spell, target);
+    return target && !botAI->HasAura(spell, target);
 }
 
 bool ShadowformTrigger::IsActive() { return !botAI->HasAura("shadowform", bot); }

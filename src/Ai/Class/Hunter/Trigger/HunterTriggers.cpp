@@ -33,9 +33,6 @@ bool HunterAspectOfTheDragonhawkTrigger::IsActive()
     if (!target)
         return false;
 
-    if (!SpellTrigger::IsActive())
-        return false;
-
     if (botAI->HasAura("aspect of the hawk", target) ||
         botAI->HasAura("aspect of the dragonhawk", target))
         return false;
