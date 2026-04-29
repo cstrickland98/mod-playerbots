@@ -424,7 +424,7 @@ void RandomPlayerbotMgr::UpdateAIInternal(uint32 elapsed, bool /*minimal*/)
             bool needsRandomize = !GetEventValue(bot, "randomize");
             if (needsRandomize && randomizationsThisTick >= maxRandomizationsPerTick)
                 continue;
-            std::cout << "RANDOMBOTPERF; needsrandom: " << needsRandomize << "randoms this tick: " << randomizationsThisTick << std::endl;
+
             bool processed = ProcessBot(bot);
 
             if (processed)
@@ -437,7 +437,7 @@ void RandomPlayerbotMgr::UpdateAIInternal(uint32 elapsed, bool /*minimal*/)
             if (!updateBots)
                 break;
         }
-        std::cout << "RANDOMBOTPERF; botLoading size: " << botLoading.size() << std::endl;
+
         uint32 currentlyLoading = static_cast<uint32>(botLoading.size());
 
         if (loginBots && currentlyLoading < 200)
