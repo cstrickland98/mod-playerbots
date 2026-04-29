@@ -49,10 +49,10 @@ public:
     bool IsActive() override;
 };
 
-class NeedWorldBuffTrigger : public Trigger
+class NeedWorldBuffTrigger : public EventDrivenTrigger
 {
 public:
-    NeedWorldBuffTrigger(PlayerbotAI* botAI) : Trigger(botAI) {}
+    NeedWorldBuffTrigger(PlayerbotAI* botAI) : EventDrivenTrigger(botAI, "need world buff") {}
 
     bool IsActive() override;
 };

@@ -33,11 +33,11 @@ enum BossAuraIDs
     SPELL_ASPECT_OF_THE_WILD_RANK_4 = 49071
 };
 
-class BossFireResistanceTrigger : public Trigger
+class BossFireResistanceTrigger : public EventDrivenTrigger
 {
 public:
     BossFireResistanceTrigger(PlayerbotAI* ai, std::string const bossName)
-        : Trigger(ai, bossName + " fire resistance trigger"), bossName(bossName)
+        : EventDrivenTrigger(ai, bossName + " fire resistance trigger"), bossName(bossName)
     {
     }
     bool IsActive() override;
@@ -46,11 +46,11 @@ private:
     std::string bossName;
 };
 
-class BossFrostResistanceTrigger : public Trigger
+class BossFrostResistanceTrigger : public EventDrivenTrigger
 {
 public:
     BossFrostResistanceTrigger(PlayerbotAI* ai, std::string const bossName)
-        : Trigger(ai, bossName + " frost resistance trigger"), bossName(bossName)
+        : EventDrivenTrigger(ai, bossName + " frost resistance trigger"), bossName(bossName)
     {
     }
     bool IsActive() override;
@@ -59,11 +59,11 @@ private:
     std::string bossName;
 };
 
-class BossNatureResistanceTrigger : public Trigger
+class BossNatureResistanceTrigger : public EventDrivenTrigger
 {
 public:
     BossNatureResistanceTrigger(PlayerbotAI* ai, std::string const bossName)
-        : Trigger(ai, " nature resistance trigger"), bossName(bossName)
+        : EventDrivenTrigger(ai, " nature resistance trigger"), bossName(bossName)
     {
     }
     bool IsActive() override;
@@ -72,11 +72,11 @@ private:
     std::string bossName;
 };
 
-class BossShadowResistanceTrigger : public Trigger
+class BossShadowResistanceTrigger : public EventDrivenTrigger
 {
 public:
     BossShadowResistanceTrigger(PlayerbotAI* ai, std::string const bossName)
-        : Trigger(ai, " shadow resistance trigger"), bossName(bossName)
+        : EventDrivenTrigger(ai, " shadow resistance trigger"), bossName(bossName)
     {
     }
     bool IsActive() override;

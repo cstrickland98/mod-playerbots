@@ -748,26 +748,26 @@ public:
     bool IsActive() override;
 };
 
-class LossOfControlTrigger : public Trigger
+class LossOfControlTrigger : public EventDrivenTrigger
 {
 public:
-    LossOfControlTrigger(PlayerbotAI* botAI) : Trigger(botAI, "loss of control", 1) {}
+    LossOfControlTrigger(PlayerbotAI* botAI) : EventDrivenTrigger(botAI, "loss of control") {}
 
     bool IsActive() override;
 };
 
-class FearCharmSleepTrigger : public Trigger
+class FearCharmSleepTrigger : public EventDrivenTrigger
 {
 public:
-    FearCharmSleepTrigger(PlayerbotAI* botAI) : Trigger(botAI, "fear charm sleep", 1) {}
+    FearCharmSleepTrigger(PlayerbotAI* botAI) : EventDrivenTrigger(botAI, "fear charm sleep") {}
 
     bool IsActive() override;
 };
 
-class FearSleepSapTrigger : public Trigger
+class FearSleepSapTrigger : public EventDrivenTrigger
 {
 public:
-    FearSleepSapTrigger(PlayerbotAI* botAI) : Trigger(botAI, "fear sleep sap", 1) {}
+    FearSleepSapTrigger(PlayerbotAI* botAI) : EventDrivenTrigger(botAI, "fear sleep sap") {}
 
     bool IsActive() override;
 };
@@ -909,10 +909,10 @@ public:
     bool IsActive() override;
 };
 
-class IsMountedTrigger : public Trigger
+class IsMountedTrigger : public EventDrivenTrigger
 {
 public:
-    IsMountedTrigger(PlayerbotAI* botAI) : Trigger(botAI, "mounted", 1) {}
+    IsMountedTrigger(PlayerbotAI* botAI) : EventDrivenTrigger(botAI, "mounted") {}
 
     bool IsActive() override;
 };
@@ -941,10 +941,10 @@ public:
     bool IsActive() override;
 };
 
-class HasAreaDebuffTrigger : public Trigger
+class HasAreaDebuffTrigger : public EventDrivenTrigger
 {
 public:
-    HasAreaDebuffTrigger(PlayerbotAI* botAI) : Trigger(botAI, "have area debuff") {}
+    HasAreaDebuffTrigger(PlayerbotAI* botAI) : EventDrivenTrigger(botAI, "have area debuff") {}
 
     bool IsActive() override;
 };
