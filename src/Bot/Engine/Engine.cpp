@@ -442,9 +442,9 @@ void Engine::ProcessTriggers(bool minimal)
 {
     std::unordered_map<Trigger*, Event> fires;
     uint32 now = getMSTime();
-    for (std::vector<TriggerNode*>::iterator i = triggers.begin(); i != triggers.end(); i++)
+
+    for (TriggerNode* node : triggers)
     {
-        TriggerNode* node = *i;
         if (!node)
             continue;
 
@@ -458,43 +458,36 @@ void Engine::ProcessTriggers(bool minimal)
         if (!trigger)
             continue;
 
-        if (fires.find(trigger) != fires.end())
-            continue;
-
-        if (testMode || trigger->needCheck(now))
+        // If this trigger already fired this tick, push handlers immediately and move on.
+        auto it = fires.find(trigger);
+        if (it != fires.end())
         {
-            if (minimal && node->getFirstRelevance() < 100)
-                continue;
-
-            PerfMonitorOperation* pmo =
-                sPerfMonitor.start(PERF_MON_TRIGGER, trigger->getName(), &aiObjectContext->performanceStack);
-            Event event = trigger->Check();
-            if (pmo)
-                pmo->finish();
-
-            if (!event)
-                continue;
-
-            fires[trigger] = event;
-            LogAction("T:%s", trigger->getName().c_str());
+            MultiplyAndPush(node->getHandlers(), 0.0f, false, it->second, "trigger");
+            continue;
         }
-    }
 
-    for (std::vector<TriggerNode*>::iterator i = triggers.begin(); i != triggers.end(); i++)
-    {
-        TriggerNode* node = *i;
-        Trigger* trigger = node->getTrigger();
-        if (fires.find(trigger) == fires.end())
+        if (!testMode && !trigger->needCheck(now))
             continue;
 
-        Event event = fires[trigger];
-        MultiplyAndPush(node->getHandlers(), 0.0f, false, event, "trigger");
-    }
+        if (minimal && node->getFirstRelevance() < 100)
+            continue;
 
-    for (std::vector<TriggerNode*>::iterator i = triggers.begin(); i != triggers.end(); i++)
-    {
-        if (Trigger* trigger = (*i)->getTrigger())
-            trigger->Reset();
+        PerfMonitorOperation* pmo =
+            sPerfMonitor.start(PERF_MON_TRIGGER, trigger->getName(), &aiObjectContext->performanceStack);
+        Event event = trigger->Check();
+        if (pmo)
+            pmo->finish();
+
+        // Reset clears event-driven state (e.g. ChatCommandTrigger::triggered).
+        // It never touches lastCheckTime, so needCheck() deduplication is unaffected.
+        trigger->Reset();
+
+        if (!event)
+            continue;
+
+        fires[trigger] = event;
+        LogAction("T:%s", trigger->getName().c_str());
+        MultiplyAndPush(node->getHandlers(), 0.0f, false, event, "trigger");
     }
 }
 
