@@ -16,60 +16,64 @@ NearestObjectCache::CacheKey NearestObjectCache::MakeKey(uint32 mapId, float x, 
     return kmap | kbx | kby;
 }
 
-bool NearestObjectCache::TryGetUnits(CacheKey key, GuidVector& out) const
+NearestObjectCache::GuidSnapshot NearestObjectCache::TryGetUnits(CacheKey key) const
 {
-    std::lock_guard<std::mutex> lock(_mutex);
+    std::shared_lock<std::shared_mutex> lock(_mutex);
 
     auto it = _cache.find(key);
     if (it == _cache.end())
-        return false;
+        return GuidSnapshot();
 
     Entry const& e = it->second;
     if (!e.unitsTimestamp || getMSTimeDiff(e.unitsTimestamp, getMSTime()) >= NEAREST_CACHE_TTL_MS)
-        return false;
+        return GuidSnapshot();
 
-    out = e.units;
-    return true;
+    return e.units;
 }
 
-bool NearestObjectCache::TryGetGameObjects(CacheKey key, GuidVector& out) const
+NearestObjectCache::GuidSnapshot NearestObjectCache::TryGetGameObjects(CacheKey key) const
 {
-    std::lock_guard<std::mutex> lock(_mutex);
+    std::shared_lock<std::shared_mutex> lock(_mutex);
 
     auto it = _cache.find(key);
     if (it == _cache.end())
-        return false;
+        return GuidSnapshot();
 
     Entry const& e = it->second;
     if (!e.goTimestamp || getMSTimeDiff(e.goTimestamp, getMSTime()) >= NEAREST_CACHE_TTL_MS)
-        return false;
+        return GuidSnapshot();
 
-    out = e.gameObjects;
-    return true;
+    return e.gameObjects;
 }
 
-void NearestObjectCache::StoreUnits(CacheKey key, GuidVector value)
+NearestObjectCache::GuidSnapshot NearestObjectCache::StoreUnits(CacheKey key, GuidVector value)
 {
+    auto snap = std::make_shared<GuidVector const>(std::move(value));
     uint32 const now = getMSTime();
-    std::lock_guard<std::mutex> lock(_mutex);
+
+    std::unique_lock<std::shared_mutex> lock(_mutex);
 
     PruneStaleLocked(now);
 
     Entry& e = _cache[key];
-    e.units = std::move(value);
+    e.units = snap;
     e.unitsTimestamp = now;
+    return snap;
 }
 
-void NearestObjectCache::StoreGameObjects(CacheKey key, GuidVector value)
+NearestObjectCache::GuidSnapshot NearestObjectCache::StoreGameObjects(CacheKey key, GuidVector value)
 {
+    auto snap = std::make_shared<GuidVector const>(std::move(value));
     uint32 const now = getMSTime();
-    std::lock_guard<std::mutex> lock(_mutex);
+
+    std::unique_lock<std::shared_mutex> lock(_mutex);
 
     PruneStaleLocked(now);
 
     Entry& e = _cache[key];
-    e.gameObjects = std::move(value);
+    e.gameObjects = snap;
     e.goTimestamp = now;
+    return snap;
 }
 
 void NearestObjectCache::PruneStaleLocked(uint32 now)

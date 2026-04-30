@@ -69,8 +69,8 @@ GuidVector NearestUnitsValue::Calculate()
     NearestObjectCache::CacheKey key = NearestObjectCache::MakeKey(
         bot->GetMapId(), bot->GetPositionX(), bot->GetPositionY());
 
-    GuidVector cachedUnits;
-    if (!sNearestObjectCache.TryGetUnits(key, cachedUnits))
+    NearestObjectCache::GuidSnapshot snapshot = sNearestObjectCache.TryGetUnits(key);
+    if (!snapshot)
     {
         // Cache miss — scan with extended radius to cover all bots in this 40y bucket,
         // collect GUIDs into a local vector during the visit (so we never hold raw
@@ -83,13 +83,14 @@ GuidVector NearestUnitsValue::Calculate()
         Acore::UnitListSearcher<GuidCollectorCheck> searcher(bot, dummy, u_check);
         Cell::VisitObjects(bot, searcher, scanRange);
 
-        cachedUnits = freshUnits;
-        sNearestObjectCache.StoreUnits(key, std::move(freshUnits));
+        // Store returns the same shared snapshot it just published, so we can iterate
+        // it locally without a redundant copy or a re-query through the cache.
+        snapshot = sNearestObjectCache.StoreUnits(key, std::move(freshUnits));
     }
 
     // Per-bot resolution: re-check range from this bot's actual position, then AcceptUnit + LOS.
     // IsWithinDistInMap uses squared distance (no sqrt) — cheap even for large lists.
-    for (ObjectGuid const& guid : cachedUnits)
+    for (ObjectGuid const& guid : *snapshot)
     {
         Unit* unit = ObjectAccessor::GetUnit(*bot, guid);
         if (!unit || !unit->IsInWorld() || unit->IsDuringRemoveFromWorld())

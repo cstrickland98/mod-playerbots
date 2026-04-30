@@ -51,8 +51,8 @@ GuidVector NearestGameObjects::Calculate()
     NearestObjectCache::CacheKey key = NearestObjectCache::MakeKey(
         bot->GetMapId(), bot->GetPositionX(), bot->GetPositionY());
 
-    GuidVector cachedGOs;
-    if (!sNearestObjectCache.TryGetGameObjects(key, cachedGOs))
+    NearestObjectCache::GuidSnapshot snapshot = sNearestObjectCache.TryGetGameObjects(key);
+    if (!snapshot)
     {
         // Cache miss — scan with extended radius to cover all bots in this 40y bucket.
         float scanRange = sPlayerbotAIConfig.sightDistance + NEAREST_CACHE_BUCKET_SIZE * 1.5f;
@@ -63,11 +63,12 @@ GuidVector NearestGameObjects::Calculate()
         Acore::GameObjectListSearcher<GameObjectGuidCollectorCheck> searcher(bot, dummy, go_check);
         Cell::VisitObjects(bot, searcher, scanRange);
 
-        cachedGOs = freshGOs;
-        sNearestObjectCache.StoreGameObjects(key, std::move(freshGOs));
+        // Store returns the same shared snapshot it just published, so we can iterate
+        // it locally without a redundant copy or a re-query through the cache.
+        snapshot = sNearestObjectCache.StoreGameObjects(key, std::move(freshGOs));
     }
 
-    for (ObjectGuid const& guid : cachedGOs)
+    for (ObjectGuid const& guid : *snapshot)
     {
         GameObject* go = bot->GetMap()->GetGameObject(guid);
         if (!go || !go->isSpawned() || !go->GetGOInfo())

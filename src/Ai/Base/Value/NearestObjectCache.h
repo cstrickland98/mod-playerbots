@@ -10,7 +10,8 @@
 #include "Timer.h"
 
 #include <cmath>
-#include <mutex>
+#include <memory>
+#include <shared_mutex>
 #include <unordered_map>
 
 // Side length in yards of each spatial bucket. Bots within the same 40x40y square share one scan.
@@ -24,12 +25,21 @@ constexpr uint32 NEAREST_CACHE_TTL_MS = 200u;
 
 // Thread-safe singleton. The map is shared across all bot AI ticks and is reached from
 // any thread that runs Map::Update for a map containing playerbots, so every access must
-// hold _mutex. The API copies values in and out instead of returning pointers into the
-// map: that avoids exposing iterators that a concurrent rehash (or even a later sequential
-// insert) could invalidate.
+// hold _mutex.
+//
+// Cache hits return a shared_ptr<GuidVector> snapshot — one atomic refcount inc, no copy
+// of the (potentially large, hundreds of GUIDs) vector. The shared_mutex lets concurrent
+// readers proceed without serializing on the cache.
+//
+// Once a snapshot pointer is returned to a caller it is immutable: the cache only ever
+// publishes new snapshots by replacing the pointer inside the entry, never by mutating
+// the vector that an existing snapshot points at. So callers can iterate the snapshot
+// freely outside any lock without worrying about a concurrent rehash or rewrite.
 class NearestObjectCache
 {
 public:
+    using GuidSnapshot = std::shared_ptr<GuidVector const>;
+
     // Packed 64-bit key: mapId(16b) | (bucketX+512)(16b) | (bucketY+512)(16b)
     // WoW coords ±17000y → bucket ±425 → +512 bias fits in uint16 with room to spare.
     using CacheKey = uint64_t;
@@ -42,30 +52,34 @@ public:
 
     static CacheKey MakeKey(uint32 mapId, float x, float y);
 
-    // Copies the cached unit GUIDs for 'key' into 'out' if a fresh entry exists.
-    // Returns true on cache hit, false on miss (out is left untouched on miss).
-    bool TryGetUnits(CacheKey key, GuidVector& out) const;
-    bool TryGetGameObjects(CacheKey key, GuidVector& out) const;
+    // Returns a snapshot of the cached unit GUIDs for 'key' if a fresh entry exists.
+    // Returns an empty shared_ptr on miss. The returned snapshot is immutable and safe
+    // to iterate without holding any lock.
+    GuidSnapshot TryGetUnits(CacheKey key) const;
+    GuidSnapshot TryGetGameObjects(CacheKey key) const;
 
     // Atomically replaces the cached entry for 'key' with 'value' and stamps it now.
-    // The caller passes the freshly scanned GUIDs by value; ownership moves into the map.
-    void StoreUnits(CacheKey key, GuidVector value);
-    void StoreGameObjects(CacheKey key, GuidVector value);
+    // The caller passes the freshly scanned GUIDs by value; the cache wraps them in a
+    // shared snapshot that subsequent readers can share without copying. The same
+    // snapshot is returned to the caller so it can iterate the just-scanned list
+    // without re-querying the cache (and without making a redundant copy).
+    GuidSnapshot StoreUnits(CacheKey key, GuidVector value);
+    GuidSnapshot StoreGameObjects(CacheKey key, GuidVector value);
 
 private:
     NearestObjectCache() = default;
 
     struct Entry
     {
-        GuidVector units;
-        GuidVector gameObjects;
+        GuidSnapshot units;
+        GuidSnapshot gameObjects;
         uint32 unitsTimestamp = 0; // 0 = not yet populated
         uint32 goTimestamp    = 0;
     };
 
     void PruneStaleLocked(uint32 now);
 
-    mutable std::mutex _mutex;
+    mutable std::shared_mutex _mutex;
     std::unordered_map<CacheKey, Entry> _cache;
 };
 

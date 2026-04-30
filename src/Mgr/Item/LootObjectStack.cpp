@@ -10,11 +10,16 @@
 #include "ObjectAccessor.h"
 #include "Playerbots.h"
 #include "Unit.h"
-#include <mutex>
+#include <shared_mutex>
 #include <unordered_map>
 
 // Cached per GO loot entry: does this loot table contain any non-quest items?
-static std::mutex s_goLootClassMutex;
+// The value is derived from static game data and is immutable after first
+// computation. The shared_mutex lets every cache hit (the steady-state path,
+// hit hundreds of times per bot tick) take a cheap shared lock; the unique
+// lock is only needed once per lootEntry to publish the computed result.
+// LootTemplate::Process() runs OUTSIDE any lock so it never serializes bots.
+static std::shared_mutex s_goLootClassMutex;
 static std::unordered_map<uint32, bool> s_goLootHasNonQuestItems;
 
 #define MAX_LOOT_OBJECT_COUNT 200
@@ -125,71 +130,80 @@ void LootObject::Refresh(Player* bot, ObjectGuid lootGUID)
         if (lootEntry == 0)
             return;
 
-        // Check if this loot entry has non-quest items (cached per lootEntry to avoid repeated Process calls)
+        // Check if this loot entry has non-quest items (cached per lootEntry to avoid
+        // repeated Process calls). Hot path: shared_lock + hashmap find. Cold path
+        // (first encounter of this lootEntry): drop the lock, run Process(), then take
+        // a brief unique_lock to publish. Two threads racing the same uncached entry
+        // may each compute once — harmless, and only happens during cache warm-up.
+        bool hasNonQuest = false;
+        bool cached = false;
         {
-            std::lock_guard<std::mutex> lock(s_goLootClassMutex);
+            std::shared_lock<std::shared_mutex> lock(s_goLootClassMutex);
             auto cit = s_goLootHasNonQuestItems.find(lootEntry);
             if (cit != s_goLootHasNonQuestItems.end())
             {
-                if (cit->second)
-                    onlyHasQuestItems = false;
-            }
-            else
-            {
-                bool hasNonQuest = false;
-                if (const LootTemplate* lootTemplate = LootTemplates_Gameobject.GetLootFor(lootEntry))
-                {
-                    Loot loot;
-                    lootTemplate->Process(loot, LootTemplates_Gameobject, 1, bot);
-
-                    for (const LootItem& item : loot.items)
-                    {
-                        uint32 itemId = item.itemid;
-                        if (!itemId)
-                            continue;
-
-                        const ItemTemplate* proto = sObjectMgr->GetItemTemplate(itemId);
-                        if (!proto)
-                            continue;
-
-                        if (proto->Class != ITEM_CLASS_QUEST)
-                        {
-                            hasNonQuest = true;
-                            break;
-                        }
-
-                        // If this item references another loot table, process it
-                        if (const LootTemplate* refLootTemplate = LootTemplates_Reference.GetLootFor(itemId))
-                        {
-                            Loot refLoot;
-                            refLootTemplate->Process(refLoot, LootTemplates_Reference, 1, bot);
-
-                            for (const LootItem& refItem : refLoot.items)
-                            {
-                                uint32 refItemId = refItem.itemid;
-                                if (!refItemId)
-                                    continue;
-
-                                const ItemTemplate* refProto = sObjectMgr->GetItemTemplate(refItemId);
-                                if (!refProto)
-                                    continue;
-
-                                if (refProto->Class != ITEM_CLASS_QUEST)
-                                {
-                                    hasNonQuest = true;
-                                    break;
-                                }
-                            }
-                        }
-                        if (hasNonQuest)
-                            break;
-                    }
-                }
-                s_goLootHasNonQuestItems[lootEntry] = hasNonQuest;
-                if (hasNonQuest)
-                    onlyHasQuestItems = false;
+                hasNonQuest = cit->second;
+                cached = true;
             }
         }
+
+        if (!cached)
+        {
+            if (const LootTemplate* lootTemplate = LootTemplates_Gameobject.GetLootFor(lootEntry))
+            {
+                Loot loot;
+                lootTemplate->Process(loot, LootTemplates_Gameobject, 1, bot);
+
+                for (const LootItem& item : loot.items)
+                {
+                    uint32 itemId = item.itemid;
+                    if (!itemId)
+                        continue;
+
+                    const ItemTemplate* proto = sObjectMgr->GetItemTemplate(itemId);
+                    if (!proto)
+                        continue;
+
+                    if (proto->Class != ITEM_CLASS_QUEST)
+                    {
+                        hasNonQuest = true;
+                        break;
+                    }
+
+                    // If this item references another loot table, process it
+                    if (const LootTemplate* refLootTemplate = LootTemplates_Reference.GetLootFor(itemId))
+                    {
+                        Loot refLoot;
+                        refLootTemplate->Process(refLoot, LootTemplates_Reference, 1, bot);
+
+                        for (const LootItem& refItem : refLoot.items)
+                        {
+                            uint32 refItemId = refItem.itemid;
+                            if (!refItemId)
+                                continue;
+
+                            const ItemTemplate* refProto = sObjectMgr->GetItemTemplate(refItemId);
+                            if (!refProto)
+                                continue;
+
+                            if (refProto->Class != ITEM_CLASS_QUEST)
+                            {
+                                hasNonQuest = true;
+                                break;
+                            }
+                        }
+                    }
+                    if (hasNonQuest)
+                        break;
+                }
+            }
+
+            std::unique_lock<std::shared_mutex> lock(s_goLootClassMutex);
+            s_goLootHasNonQuestItems.emplace(lootEntry, hasNonQuest);
+        }
+
+        if (hasNonQuest)
+            onlyHasQuestItems = false;
 
         // If gameobject has only quest items that bot doesn’t need, skip it.
         if (hasAnyQuestItems && onlyHasQuestItems)

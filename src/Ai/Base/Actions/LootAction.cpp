@@ -5,13 +5,16 @@
 
 #include "LootAction.h"
 
-#include <mutex>
+#include <shared_mutex>
 #include <unordered_map>
 #include "ChatHelper.h"
 
 // Cache: lockId -> spellId that can open it (0 = none found, use openGoSpell fallback).
-// Populated lazily on first full-spell-store scan per lockId.
-static std::mutex s_lockSpellMutex;
+// Populated lazily on first full-spell-store scan per lockId. The value is derived
+// from static spell/lock data and is immutable after first computation. Cache hits
+// take a shared lock; the unique lock is held only briefly to publish a new entry.
+// The expensive sSpellMgr scan runs OUTSIDE any lock.
+static std::shared_mutex s_lockSpellMutex;
 static std::unordered_map<uint32, uint32> s_lockIdSpellCache;
 #include "Event.h"
 #include "GuildMgr.h"
@@ -197,11 +200,12 @@ uint32 OpenLootAction::GetOpeningSpell(LootObject& lootObject, GameObject* go)
             return spellId;
     }
 
-    // Full spell-store scan is expensive; cache the result per lockId
+    // Full spell-store scan is expensive; cache the result per lockId.
+    // Hot path: shared_lock + hashmap find. Cold path drops the lock during the scan.
     uint32 const lockId = go->GetGOInfo()->GetLockId();
     if (lockId)
     {
-        std::lock_guard<std::mutex> lock(s_lockSpellMutex);
+        std::shared_lock<std::shared_mutex> lock(s_lockSpellMutex);
         auto cit = s_lockIdSpellCache.find(lockId);
         if (cit != s_lockIdSpellCache.end())
             return cit->second ? cit->second : sPlayerbotAIConfig.openGoSpell;
@@ -226,8 +230,8 @@ uint32 OpenLootAction::GetOpeningSpell(LootObject& lootObject, GameObject* go)
 
     if (lockId)
     {
-        std::lock_guard<std::mutex> lock(s_lockSpellMutex);
-        s_lockIdSpellCache[lockId] = foundSpellId;
+        std::unique_lock<std::shared_mutex> lock(s_lockSpellMutex);
+        s_lockIdSpellCache.emplace(lockId, foundSpellId);
     }
 
     return foundSpellId ? foundSpellId : sPlayerbotAIConfig.openGoSpell;
