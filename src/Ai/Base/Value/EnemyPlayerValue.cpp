@@ -38,6 +38,9 @@ bool NearestEnemyPlayersValue::AcceptUnit(Unit* unit)
 
 Unit* EnemyPlayerValue::Calculate()
 {
+    if (bot->GetMap()->IsDungeon())
+        return nullptr;
+
     bool controllingCannon = false;
     bool controllingVehicle = false;
     if (Vehicle* vehicle = bot->GetVehicle())

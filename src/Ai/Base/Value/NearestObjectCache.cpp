@@ -44,6 +44,21 @@ NearestObjectCache::Entry const* NearestObjectCache::GetGameObjects(CacheKey key
 
 NearestObjectCache::Entry* NearestObjectCache::GetOrCreateForUnits(CacheKey key)
 {
+    if (_cache.size() > 500)
+    {
+        uint32 const now = getMSTime();
+        for (auto it = _cache.begin(); it != _cache.end();)
+        {
+            Entry const& ce = it->second;
+            bool unitStale = !ce.unitsTimestamp || getMSTimeDiff(ce.unitsTimestamp, now) > 5000;
+            bool goStale   = !ce.goTimestamp    || getMSTimeDiff(ce.goTimestamp,    now) > 5000;
+            if (unitStale && goStale)
+                it = _cache.erase(it);
+            else
+                ++it;
+        }
+    }
+
     Entry& e = _cache[key];
     e.units.clear();
     e.unitsTimestamp = 0;

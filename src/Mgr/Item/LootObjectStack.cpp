@@ -10,6 +10,12 @@
 #include "ObjectAccessor.h"
 #include "Playerbots.h"
 #include "Unit.h"
+#include <mutex>
+#include <unordered_map>
+
+// Cached per GO loot entry: does this loot table contain any non-quest items?
+static std::mutex s_goLootClassMutex;
+static std::unordered_map<uint32, bool> s_goLootHasNonQuestItems;
 
 #define MAX_LOOT_OBJECT_COUNT 200
 
@@ -119,51 +125,69 @@ void LootObject::Refresh(Player* bot, ObjectGuid lootGUID)
         if (lootEntry == 0)
             return;
 
-        // Check the main loot template
-        if (const LootTemplate* lootTemplate = LootTemplates_Gameobject.GetLootFor(lootEntry))
+        // Check if this loot entry has non-quest items (cached per lootEntry to avoid repeated Process calls)
         {
-            Loot loot;
-            lootTemplate->Process(loot, LootTemplates_Gameobject, 1, bot);
-
-            for (const LootItem& item : loot.items)
+            std::lock_guard<std::mutex> lock(s_goLootClassMutex);
+            auto cit = s_goLootHasNonQuestItems.find(lootEntry);
+            if (cit != s_goLootHasNonQuestItems.end())
             {
-                uint32 itemId = item.itemid;
-                if (!itemId)
-                    continue;
-
-                const ItemTemplate* proto = sObjectMgr->GetItemTemplate(itemId);
-                if (!proto)
-                    continue;
-
-                if (proto->Class != ITEM_CLASS_QUEST)
-                {
+                if (cit->second)
                     onlyHasQuestItems = false;
-                    break;
-                }
-
-                // If this item references another loot table, process it
-                if (const LootTemplate* refLootTemplate = LootTemplates_Reference.GetLootFor(itemId))
+            }
+            else
+            {
+                bool hasNonQuest = false;
+                if (const LootTemplate* lootTemplate = LootTemplates_Gameobject.GetLootFor(lootEntry))
                 {
-                    Loot refLoot;
-                    refLootTemplate->Process(refLoot, LootTemplates_Reference, 1, bot);
+                    Loot loot;
+                    lootTemplate->Process(loot, LootTemplates_Gameobject, 1, bot);
 
-                    for (const LootItem& refItem : refLoot.items)
+                    for (const LootItem& item : loot.items)
                     {
-                        uint32 refItemId = refItem.itemid;
-                        if (!refItemId)
+                        uint32 itemId = item.itemid;
+                        if (!itemId)
                             continue;
 
-                        const ItemTemplate* refProto = sObjectMgr->GetItemTemplate(refItemId);
-                        if (!refProto)
+                        const ItemTemplate* proto = sObjectMgr->GetItemTemplate(itemId);
+                        if (!proto)
                             continue;
 
-                        if (refProto->Class != ITEM_CLASS_QUEST)
+                        if (proto->Class != ITEM_CLASS_QUEST)
                         {
-                            onlyHasQuestItems = false;
+                            hasNonQuest = true;
                             break;
                         }
+
+                        // If this item references another loot table, process it
+                        if (const LootTemplate* refLootTemplate = LootTemplates_Reference.GetLootFor(itemId))
+                        {
+                            Loot refLoot;
+                            refLootTemplate->Process(refLoot, LootTemplates_Reference, 1, bot);
+
+                            for (const LootItem& refItem : refLoot.items)
+                            {
+                                uint32 refItemId = refItem.itemid;
+                                if (!refItemId)
+                                    continue;
+
+                                const ItemTemplate* refProto = sObjectMgr->GetItemTemplate(refItemId);
+                                if (!refProto)
+                                    continue;
+
+                                if (refProto->Class != ITEM_CLASS_QUEST)
+                                {
+                                    hasNonQuest = true;
+                                    break;
+                                }
+                            }
+                        }
+                        if (hasNonQuest)
+                            break;
                     }
                 }
+                s_goLootHasNonQuestItems[lootEntry] = hasNonQuest;
+                if (hasNonQuest)
+                    onlyHasQuestItems = false;
             }
         }
 
@@ -246,8 +270,6 @@ bool LootObject::IsNeededForQuest(Player* bot, uint32 itemId)
 
 WorldObject* LootObject::GetWorldObject(Player* bot)
 {
-    Refresh(bot, guid);
-
     PlayerbotAI* botAI = GET_PLAYERBOT_AI(bot);
     if (!botAI)
     {
@@ -292,7 +314,7 @@ bool LootObject::IsLootPossible(Player* bot)
     if (abs(worldObj->GetPositionZ() - bot->GetPositionZ()) > INTERACTION_DISTANCE - 2.0f)
         return false;
 
-    Creature* creature = botAI->GetCreature(guid);
+    Creature* creature = worldObj->ToCreature();
     if (creature && creature->getDeathState() == DeathState::Corpse)
     {
         if (!bot->isAllowedToLoot(creature) && skillId != SKILL_SKINNING)
@@ -301,7 +323,7 @@ bool LootObject::IsLootPossible(Player* bot)
 
     // Prevent bot from running to chests that are unlootable (e.g. Gunship Armory before completing the event) or on
     // respawn time
-    GameObject* go = botAI->GetGameObject(guid);
+    GameObject* go = worldObj->ToGameObject();
     if (go && (go->HasFlag(GAMEOBJECT_FLAGS, GO_FLAG_INTERACT_COND | GO_FLAG_NOT_SELECTABLE) || !go->isSpawned()))
         return false;
 
@@ -384,8 +406,7 @@ LootObject LootObjectStack::GetNearest(float maxDistance)
     LootObject nearest;
     float nearestDistance = std::numeric_limits<float>::max();
 
-    LootTargetList safeCopy(availableLoot);
-    for (LootTargetList::iterator i = safeCopy.begin(); i != safeCopy.end(); i++)
+    for (LootTargetList::const_iterator i = availableLoot.begin(); i != availableLoot.end(); i++)
     {
         ObjectGuid guid = i->guid;
 

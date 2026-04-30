@@ -83,7 +83,7 @@ public:
 class WaterWalkingOnPartyTrigger : public BuffOnPartyTrigger
 {
 public:
-    WaterWalkingOnPartyTrigger(PlayerbotAI* botAI) : BuffOnPartyTrigger(botAI, "water walking on party", 2 * 2000) {}
+    WaterWalkingOnPartyTrigger(PlayerbotAI* botAI) : BuffOnPartyTrigger(botAI, "water walking on party", 10000) {}
 
     bool IsActive() override;
 };
@@ -91,7 +91,7 @@ public:
 class WaterBreathingOnPartyTrigger : public BuffOnPartyTrigger
 {
 public:
-    WaterBreathingOnPartyTrigger(PlayerbotAI* botAI) : BuffOnPartyTrigger(botAI, "water breathing on party", 2 * 2000) {}
+    WaterBreathingOnPartyTrigger(PlayerbotAI* botAI) : BuffOnPartyTrigger(botAI, "water breathing on party", 10000) {}
 
     bool IsActive() override;
 };

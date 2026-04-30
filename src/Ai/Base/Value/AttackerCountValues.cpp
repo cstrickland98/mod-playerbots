@@ -36,15 +36,15 @@ uint8 AttackerCountValue::Calculate()
     uint32 count = 0;
     float range = sPlayerbotAIConfig.sightDistance;
 
-    GuidVector attackers = context->GetValue<GuidVector>("attackers")->Get();
+    float const rangeSq = range * range;
+    GuidVector const& attackers = context->GetValue<GuidVector>("attackers")->RefGet();
     for (ObjectGuid const guid : attackers)
     {
         Unit* unit = botAI->GetUnit(guid);
         if (!unit || !unit->IsAlive())
             continue;
 
-        float distance = bot->GetDistance(unit);
-        if (distance <= range)
+        if (bot->GetExactDist2sq(unit) <= rangeSq)
             ++count;
     }
 
@@ -57,10 +57,9 @@ uint8 BalancePercentValue::Calculate()
 
     if (Group* group = bot->GetGroup())
     {
-        Group::MemberSlotList const& groupSlot = group->GetMemberSlots();
-        for (Group::member_citerator itr = groupSlot.begin(); itr != groupSlot.end(); itr++)
+        for (GroupReference* ref = group->GetFirstMember(); ref; ref = ref->next())
         {
-            Player* player = ObjectAccessor::FindPlayer(itr->guid);
+            Player* player = ref->GetSource();
             if (!player || !player->IsAlive())
                 continue;
 
@@ -73,7 +72,7 @@ uint8 BalancePercentValue::Calculate()
         else
             playerLevel *= 10;
     }
-    GuidVector v = context->GetValue<GuidVector>("attackers")->Get();
+    GuidVector const& v = context->GetValue<GuidVector>("attackers")->RefGet();
     for (ObjectGuid const guid : v)
     {
         Creature* creature = botAI->GetCreature((guid));

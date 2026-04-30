@@ -20,7 +20,7 @@ class PlayerbotAI;
 class MarkOfTheWildOnPartyTrigger : public BuffOnPartyTrigger
 {
 public:
-    MarkOfTheWildOnPartyTrigger(PlayerbotAI* botAI) : BuffOnPartyTrigger(botAI, "mark of the wild", 2 * 2000) {}
+    MarkOfTheWildOnPartyTrigger(PlayerbotAI* botAI) : BuffOnPartyTrigger(botAI, "mark of the wild", 10000) {}
 
     bool IsActive() override;
 };
@@ -36,7 +36,7 @@ public:
 class ThornsOnPartyTrigger : public BuffOnPartyTrigger
 {
 public:
-    ThornsOnPartyTrigger(PlayerbotAI* botAI) : BuffOnPartyTrigger(botAI, "thorns", 2 * 2000) {}
+    ThornsOnPartyTrigger(PlayerbotAI* botAI) : BuffOnPartyTrigger(botAI, "thorns", 10000) {}
 
     bool IsActive() override;
 };

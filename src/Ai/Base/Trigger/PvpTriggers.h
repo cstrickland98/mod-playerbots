@@ -13,7 +13,7 @@ class PlayerbotAI;
 class EnemyPlayerNear : public Trigger
 {
 public:
-    EnemyPlayerNear(PlayerbotAI* botAI) : Trigger(botAI, "enemy player near", 3) {}
+    EnemyPlayerNear(PlayerbotAI* botAI) : Trigger(botAI, "enemy player near", 2000) {}
 
     bool IsActive() override;
 };

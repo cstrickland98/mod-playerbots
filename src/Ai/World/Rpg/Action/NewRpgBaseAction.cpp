@@ -657,6 +657,10 @@ bool NewRpgBaseAction::OrganizeQuestLog()
 
 bool NewRpgBaseAction::SearchQuestGiverAndAcceptOrReward()
 {
+    if (GetMSTimeDiffToNow(botAI->lastQuestGiverCheckMs) < 3000)
+        return false;
+    botAI->lastQuestGiverCheckMs = getMSTime();
+
     OrganizeQuestLog();
     if (ObjectGuid npcOrGo = ChooseNpcOrGameObjectToInteract(true, 80.0f))
     {

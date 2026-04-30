@@ -379,7 +379,7 @@ public:
 class InvalidTargetTrigger : public Trigger
 {
 public:
-    InvalidTargetTrigger(PlayerbotAI* botAI) : Trigger(botAI, "invalid target") {}
+    InvalidTargetTrigger(PlayerbotAI* botAI) : Trigger(botAI, "invalid target", 300) {}
 
     bool IsActive() override;
 };
@@ -733,7 +733,7 @@ public:
 class NotDpsTargetActiveTrigger : public Trigger
 {
 public:
-    NotDpsTargetActiveTrigger(PlayerbotAI* botAI) : Trigger(botAI, "not dps target active") {}
+    NotDpsTargetActiveTrigger(PlayerbotAI* botAI) : Trigger(botAI, "not dps target active", 500) {}
 
     bool IsActive() override;
 };

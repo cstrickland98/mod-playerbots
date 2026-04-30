@@ -657,6 +657,10 @@ protected:
     Position jumpDestination = Position();
     uint32 nextTransportCheck = 0;
     bool spellInterruptRequested = false;
+    std::string perfMonLabel;
+    uint32 perfMonLastMapId = 0;
+    bool perfMonLastWasInstance = false;
+    uint32 lastQuestGiverCheckMs = 0;
 };
 
 #endif

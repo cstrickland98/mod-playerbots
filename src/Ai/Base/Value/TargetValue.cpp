@@ -17,7 +17,7 @@ Unit* FindTargetStrategy::GetResult() { return result; }
 
 Unit* TargetValue::FindTarget(FindTargetStrategy* strategy)
 {
-    GuidVector attackers = botAI->GetAiObjectContext()->GetValue<GuidVector>("attackers")->Get();
+    GuidVector const& attackers = botAI->GetAiObjectContext()->GetValue<GuidVector>("attackers")->RefGet();
     for (ObjectGuid const guid : attackers)
     {
         Unit* unit = botAI->GetUnit(guid);

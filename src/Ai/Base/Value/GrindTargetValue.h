@@ -7,6 +7,7 @@
 #define _PLAYERBOT_GRINDTARGETVALUE_H
 
 #include "TargetValue.h"
+#include <unordered_map>
 
 class PlayerbotAI;
 class Unit;
@@ -14,7 +15,7 @@ class Unit;
 class GrindTargetValue : public TargetValue
 {
 public:
-    GrindTargetValue(PlayerbotAI* botAI, std::string const name = "grind target") : TargetValue(botAI, name) {}
+    GrindTargetValue(PlayerbotAI* botAI, std::string const name = "grind target") : TargetValue(botAI, name, 500) {}
 
     Unit* Calculate() override;
 
@@ -22,6 +23,9 @@ private:
     uint32 GetTargetingPlayerCount(Unit* unit);
     Unit* FindTargetForGrinding(uint32 assistCount);
     bool needForQuest(Unit* target);
+
+    struct NeedForQuestEntry { bool result; uint32 timestamp; };
+    std::unordered_map<uint32, NeedForQuestEntry> needForQuestCache;
 };
 
 #endif

@@ -47,7 +47,7 @@ BOOST_TRIGGER_A(ShadowfiendTrigger, "shadowfiend");
 class PowerWordFortitudeOnPartyTrigger : public BuffOnPartyTrigger
 {
 public:
-    PowerWordFortitudeOnPartyTrigger(PlayerbotAI* botAI) : BuffOnPartyTrigger(botAI, "power word: fortitude", 4 * 2000)
+    PowerWordFortitudeOnPartyTrigger(PlayerbotAI* botAI) : BuffOnPartyTrigger(botAI, "power word: fortitude", 10000)
     {
     }
 
@@ -65,7 +65,7 @@ public:
 class DivineSpiritOnPartyTrigger : public BuffOnPartyTrigger
 {
 public:
-    DivineSpiritOnPartyTrigger(PlayerbotAI* botAI) : BuffOnPartyTrigger(botAI, "divine spirit", 4 * 2000) {}
+    DivineSpiritOnPartyTrigger(PlayerbotAI* botAI) : BuffOnPartyTrigger(botAI, "divine spirit", 10000) {}
 
     bool IsActive() override;
 };
@@ -81,7 +81,7 @@ public:
 class PrayerOfFortitudeTrigger : public BuffOnPartyTrigger
 {
 public:
-    PrayerOfFortitudeTrigger(PlayerbotAI* botAI) : BuffOnPartyTrigger(botAI, "prayer of fortitude", 3 * 2000) {}
+    PrayerOfFortitudeTrigger(PlayerbotAI* botAI) : BuffOnPartyTrigger(botAI, "prayer of fortitude", 10000) {}
 
     bool IsActive() override;
 };
@@ -89,7 +89,7 @@ public:
 class PrayerOfSpiritTrigger : public BuffOnPartyTrigger
 {
 public:
-    PrayerOfSpiritTrigger(PlayerbotAI* botAI) : BuffOnPartyTrigger(botAI, "prayer of spirit", 2 * 2000) {}
+    PrayerOfSpiritTrigger(PlayerbotAI* botAI) : BuffOnPartyTrigger(botAI, "prayer of spirit", 10000) {}
 
     bool IsActive() override;
 };

@@ -37,7 +37,7 @@ Unit* GrindTargetValue::FindTargetForGrinding(uint32 assistCount)
                    !GET_PLAYERBOT_AI(master)))
         master = nullptr;
 
-    GuidVector attackers = context->GetValue<GuidVector>("attackers")->Get();
+    GuidVector const& attackers = context->GetValue<GuidVector>("attackers")->RefGet();
     for (ObjectGuid const guid : attackers)
     {
         Unit* unit = botAI->GetUnit(guid);
@@ -47,13 +47,13 @@ Unit* GrindTargetValue::FindTargetForGrinding(uint32 assistCount)
         return unit;
     }
 
-    GuidVector targets = *context->GetValue<GuidVector>("possible targets");
+    GuidVector const& targets = context->GetValue<GuidVector>("possible targets")->RefGet();
     if (targets.empty())
         return nullptr;
 
     float distance = 0;
     Unit* result = nullptr;
-    std::unordered_map<uint32, bool> needForQuestMap;
+    uint32 const now = getMSTime();
 
     for (ObjectGuid const guid : targets)
     {
@@ -113,19 +113,25 @@ Unit* GrindTargetValue::FindTargetForGrinding(uint32 assistCount)
         bool outOfAggro = unit->ToCreature() && bot->GetDistance(unit) > aggroRange;
         if (inactiveGrindStatus && outOfAggro)
         {
-            if (needForQuestMap.find(unit->GetEntry()) == needForQuestMap.end())
-                needForQuestMap[unit->GetEntry()] = needForQuest(unit);
-
-            if (!needForQuestMap[unit->GetEntry()])
+            uint32 entry = unit->GetEntry();
+            auto cit = needForQuestCache.find(entry);
+            bool needed;
+            if (cit != needForQuestCache.end() && now - cit->second.timestamp < 5000)
+                needed = cit->second.result;
+            else
+            {
+                needed = needForQuest(unit);
+                needForQuestCache[entry] = {needed, now};
+            }
+            if (!needed)
                 continue;
         }
 
         if (group)
         {
-            Group::MemberSlotList const& groupSlot = group->GetMemberSlots();
-            for (Group::member_citerator itr = groupSlot.begin(); itr != groupSlot.end(); itr++)
+            for (GroupReference* ref = group->GetFirstMember(); ref; ref = ref->next())
             {
-                Player* member = ObjectAccessor::FindPlayer(itr->guid);
+                Player* member = ref->GetSource();
                 if (!member || !member->IsAlive())
                     continue;
 
@@ -210,16 +216,15 @@ uint32 GrindTargetValue::GetTargetingPlayerCount(Unit* unit)
         return 0;
 
     uint32 count = 0;
-    Group::MemberSlotList const& groupSlot = group->GetMemberSlots();
-    for (Group::member_citerator itr = groupSlot.begin(); itr != groupSlot.end(); itr++)
+    for (GroupReference* ref = group->GetFirstMember(); ref; ref = ref->next())
     {
-        Player* member = ObjectAccessor::FindPlayer(itr->guid);
+        Player* member = ref->GetSource();
         if (!member || !member->IsAlive() || member == bot)
             continue;
 
-        PlayerbotAI* botAI = GET_PLAYERBOT_AI(member);
-        if ((botAI && *botAI->GetAiObjectContext()->GetValue<Unit*>("current target") == unit) ||
-            (!botAI && member->GetTarget() == unit->GetGUID()))
+        PlayerbotAI* memberBotAI = GET_PLAYERBOT_AI(member);
+        if ((memberBotAI && *memberBotAI->GetAiObjectContext()->GetValue<Unit*>("current target") == unit) ||
+            (!memberBotAI && member->GetTarget() == unit->GetGUID()))
             ++count;
     }
 

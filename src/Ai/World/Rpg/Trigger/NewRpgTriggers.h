@@ -8,7 +8,7 @@ class NewRpgStatusTrigger : public Trigger
 {
 public:
     NewRpgStatusTrigger(PlayerbotAI* botAI, NewRpgStatus status = RPG_IDLE)
-        : Trigger(botAI, "new rpg status"), status(status)
+        : Trigger(botAI, "new rpg status", 1000), status(status)
     {
     }
     bool IsActive() override;

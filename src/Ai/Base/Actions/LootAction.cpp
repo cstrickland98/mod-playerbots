@@ -5,7 +5,14 @@
 
 #include "LootAction.h"
 
+#include <mutex>
+#include <unordered_map>
 #include "ChatHelper.h"
+
+// Cache: lockId -> spellId that can open it (0 = none found, use openGoSpell fallback).
+// Populated lazily on first full-spell-store scan per lockId.
+static std::mutex s_lockSpellMutex;
+static std::unordered_map<uint32, uint32> s_lockIdSpellCache;
 #include "Event.h"
 #include "GuildMgr.h"
 #include "GuildTaskMgr.h"
@@ -171,6 +178,7 @@ uint32 OpenLootAction::GetOpeningSpell(LootObject& lootObject)
 
 uint32 OpenLootAction::GetOpeningSpell(LootObject& lootObject, GameObject* go)
 {
+    // Check bot's known spells first (per-bot, not cached)
     for (PlayerSpellMap::iterator itr = bot->GetSpellMap().begin(); itr != bot->GetSpellMap().end(); ++itr)
     {
         uint32 spellId = itr->first;
@@ -189,6 +197,17 @@ uint32 OpenLootAction::GetOpeningSpell(LootObject& lootObject, GameObject* go)
             return spellId;
     }
 
+    // Full spell-store scan is expensive; cache the result per lockId
+    uint32 const lockId = go->GetGOInfo()->GetLockId();
+    if (lockId)
+    {
+        std::lock_guard<std::mutex> lock(s_lockSpellMutex);
+        auto cit = s_lockIdSpellCache.find(lockId);
+        if (cit != s_lockIdSpellCache.end())
+            return cit->second ? cit->second : sPlayerbotAIConfig.openGoSpell;
+    }
+
+    uint32 foundSpellId = 0;
     for (uint32 spellId = 0; spellId < sSpellMgr->GetSpellInfoStoreSize(); spellId++)
     {
         if (spellId == MINING || spellId == HERB_GATHERING)
@@ -199,10 +218,19 @@ uint32 OpenLootAction::GetOpeningSpell(LootObject& lootObject, GameObject* go)
             continue;
 
         if (CanOpenLock(lootObject, spellInfo, go))
-            return spellId;
+        {
+            foundSpellId = spellId;
+            break;
+        }
     }
 
-    return sPlayerbotAIConfig.openGoSpell;
+    if (lockId)
+    {
+        std::lock_guard<std::mutex> lock(s_lockSpellMutex);
+        s_lockIdSpellCache[lockId] = foundSpellId;
+    }
+
+    return foundSpellId ? foundSpellId : sPlayerbotAIConfig.openGoSpell;
 }
 
 bool OpenLootAction::CanOpenLock(LootObject& /*lootObject*/, SpellInfo const* spellInfo, GameObject* go)
