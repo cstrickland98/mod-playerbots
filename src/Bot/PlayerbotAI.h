@@ -657,7 +657,7 @@ protected:
     Position jumpDestination = Position();
     uint32 nextTransportCheck = 0;
     bool spellInterruptRequested = false;
-    std::string perfMonLabel;
+    std::string perfMonLabel = "";
     uint32 perfMonLastMapId = 0;
     bool perfMonLastWasInstance = false;
 
