@@ -11,9 +11,44 @@
 #include "ObjectAccessor.h"
 #include "Playerbots.h"
 
+namespace
+{
+    // Captures GUIDs directly during the grid visit, while the Unit* is
+    // guaranteed to still be linked in the cell. Returning false from the
+    // check prevents UnitListSearcher from inserting the raw pointer into
+    // a container that would otherwise be iterated after the visit ends —
+    // a window in which the pointer could be invalidated before GetGUID().
+    class GuidCollectorCheck
+    {
+    public:
+        GuidCollectorCheck(WorldObject const* origin, float range, GuidVector& out)
+            : _origin(origin), _range(range), _out(out) {}
+
+        bool operator()(Unit* u)
+        {
+            if (!u || !u->IsInWorld() || u->IsDuringRemoveFromWorld())
+                return false;
+            if (!u->IsAlive())
+                return false;
+            if (!_origin->IsWithinDistInMap(u, _range))
+                return false;
+            _out.push_back(u->GetGUID());
+            return false;
+        }
+
+    private:
+        WorldObject const* _origin;
+        float _range;
+        GuidVector& _out;
+    };
+}
+
 GuidVector NearestUnitsValue::Calculate()
 {
     GuidVector results;
+
+    if (!bot || !bot->IsInWorld() || bot->IsDuringRemoveFromWorld())
+        return results;
 
     if (!UseUnitCache())
     {
@@ -22,8 +57,12 @@ GuidVector NearestUnitsValue::Calculate()
         std::list<Unit*> targets;
         FindUnits(targets);
         for (Unit* unit : targets)
+        {
+            if (!unit || !unit->IsInWorld() || unit->IsDuringRemoveFromWorld())
+                continue;
             if (AcceptUnit(unit) && (ignoreLos || bot->IsWithinLOSInMap(unit)))
                 results.push_back(unit->GetGUID());
+        }
         return results;
     }
 
@@ -38,13 +77,15 @@ GuidVector NearestUnitsValue::Calculate()
         float scanRange = sPlayerbotAIConfig.sightDistance + NEAREST_CACHE_BUCKET_SIZE * 1.5f;
         NearestObjectCache::Entry* slot = sNearestObjectCache.GetOrCreateForUnits(key);
 
-        std::list<Unit*> rawUnits;
-        Acore::AnyUnitInObjectRangeCheck u_check(bot, scanRange);
-        Acore::UnitListSearcher<Acore::AnyUnitInObjectRangeCheck> searcher(bot, rawUnits, u_check);
+        // Push GUIDs into the cache slot directly from the visit callback so we
+        // never hold raw Unit* pointers between collection and dereference.
+        // The dummy list satisfies UnitListSearcher's container parameter; the
+        // check always returns false so nothing is inserted into it.
+        std::list<Unit*> dummy;
+        GuidCollectorCheck u_check(bot, scanRange, slot->units);
+        Acore::UnitListSearcher<GuidCollectorCheck> searcher(bot, dummy, u_check);
         Cell::VisitObjects(bot, searcher, scanRange);
 
-        for (Unit* u : rawUnits)
-            slot->units.push_back(u->GetGUID());
         slot->unitsTimestamp = getMSTime();
         fresh = slot;
     }
