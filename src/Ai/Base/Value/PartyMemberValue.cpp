@@ -108,9 +108,8 @@ bool PartyMemberValue::Check(Unit* player)
     // return player && player != bot && player->GetMapId() == bot->GetMapId() && bot->IsWithinDistInMap(player,
     // sPlayerbotAIConfig.sightDistance, false);
     bool isGM = player->ToPlayer() && player->ToPlayer()->IsGameMaster();
-    float const distLimit = sPlayerbotAIConfig.spellDistance * 2;
     return player && player->GetMapId() == bot->GetMapId() && !isGM &&
-           bot->GetExactDist2sq(player) < distLimit * distLimit;
+           bot->IsWithinDist(player, sPlayerbotAIConfig.spellDistance * 2, true);
 }
 
 bool PartyMemberValue::IsTargetOfSpellCast(Player* target, SpellEntryPredicate& predicate)

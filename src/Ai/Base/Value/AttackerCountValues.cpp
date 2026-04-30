@@ -36,7 +36,6 @@ uint8 AttackerCountValue::Calculate()
     uint32 count = 0;
     float range = sPlayerbotAIConfig.sightDistance;
 
-    float const rangeSq = range * range;
     GuidVector const& attackers = context->GetValue<GuidVector>("attackers")->RefGet();
     for (ObjectGuid const guid : attackers)
     {
@@ -44,7 +43,7 @@ uint8 AttackerCountValue::Calculate()
         if (!unit || !unit->IsAlive())
             continue;
 
-        if (bot->GetExactDist2sq(unit) <= rangeSq)
+        if (bot->IsWithinDist(unit, range, true))
             ++count;
     }
 
