@@ -660,6 +660,8 @@ protected:
     std::string perfMonLabel;
     uint32 perfMonLastMapId = 0;
     bool perfMonLastWasInstance = false;
+
+public:
     uint32 lastQuestGiverCheckMs = 0;
 };
 
