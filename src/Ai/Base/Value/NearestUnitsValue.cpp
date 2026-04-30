@@ -69,30 +69,27 @@ GuidVector NearestUnitsValue::Calculate()
     NearestObjectCache::CacheKey key = NearestObjectCache::MakeKey(
         bot->GetMapId(), bot->GetPositionX(), bot->GetPositionY());
 
-    NearestObjectCache::Entry const* fresh = sNearestObjectCache.GetUnits(key);
-    if (!fresh)
+    GuidVector cachedUnits;
+    if (!sNearestObjectCache.TryGetUnits(key, cachedUnits))
     {
-        // Cache miss — first bot in this bucket this tick triggers one scan.
-        // Extended radius covers every point in the 40y bucket from any bot inside it.
+        // Cache miss — scan with extended radius to cover all bots in this 40y bucket,
+        // collect GUIDs into a local vector during the visit (so we never hold raw
+        // Unit* pointers across iteration), then publish the snapshot under the cache lock.
         float scanRange = sPlayerbotAIConfig.sightDistance + NEAREST_CACHE_BUCKET_SIZE * 1.5f;
-        NearestObjectCache::Entry* slot = sNearestObjectCache.GetOrCreateForUnits(key);
 
-        // Push GUIDs into the cache slot directly from the visit callback so we
-        // never hold raw Unit* pointers between collection and dereference.
-        // The dummy list satisfies UnitListSearcher's container parameter; the
-        // check always returns false so nothing is inserted into it.
+        GuidVector freshUnits;
         std::list<Unit*> dummy;
-        GuidCollectorCheck u_check(bot, scanRange, slot->units);
+        GuidCollectorCheck u_check(bot, scanRange, freshUnits);
         Acore::UnitListSearcher<GuidCollectorCheck> searcher(bot, dummy, u_check);
         Cell::VisitObjects(bot, searcher, scanRange);
 
-        slot->unitsTimestamp = getMSTime();
-        fresh = slot;
+        cachedUnits = freshUnits;
+        sNearestObjectCache.StoreUnits(key, std::move(freshUnits));
     }
 
     // Per-bot resolution: re-check range from this bot's actual position, then AcceptUnit + LOS.
     // IsWithinDistInMap uses squared distance (no sqrt) — cheap even for large lists.
-    for (ObjectGuid const& guid : fresh->units)
+    for (ObjectGuid const& guid : cachedUnits)
     {
         Unit* unit = ObjectAccessor::GetUnit(*bot, guid);
         if (!unit || !unit->IsInWorld() || unit->IsDuringRemoveFromWorld())

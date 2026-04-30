@@ -16,59 +16,75 @@ NearestObjectCache::CacheKey NearestObjectCache::MakeKey(uint32 mapId, float x, 
     return kmap | kbx | kby;
 }
 
-NearestObjectCache::Entry const* NearestObjectCache::GetUnits(CacheKey key) const
+bool NearestObjectCache::TryGetUnits(CacheKey key, GuidVector& out) const
 {
+    std::lock_guard<std::mutex> lock(_mutex);
+
     auto it = _cache.find(key);
     if (it == _cache.end())
-        return nullptr;
+        return false;
 
     Entry const& e = it->second;
     if (!e.unitsTimestamp || getMSTimeDiff(e.unitsTimestamp, getMSTime()) >= NEAREST_CACHE_TTL_MS)
-        return nullptr;
+        return false;
 
-    return &e;
+    out = e.units;
+    return true;
 }
 
-NearestObjectCache::Entry const* NearestObjectCache::GetGameObjects(CacheKey key) const
+bool NearestObjectCache::TryGetGameObjects(CacheKey key, GuidVector& out) const
 {
+    std::lock_guard<std::mutex> lock(_mutex);
+
     auto it = _cache.find(key);
     if (it == _cache.end())
-        return nullptr;
+        return false;
 
     Entry const& e = it->second;
     if (!e.goTimestamp || getMSTimeDiff(e.goTimestamp, getMSTime()) >= NEAREST_CACHE_TTL_MS)
-        return nullptr;
+        return false;
 
-    return &e;
+    out = e.gameObjects;
+    return true;
 }
 
-NearestObjectCache::Entry* NearestObjectCache::GetOrCreateForUnits(CacheKey key)
+void NearestObjectCache::StoreUnits(CacheKey key, GuidVector value)
 {
-    if (_cache.size() > 500)
+    uint32 const now = getMSTime();
+    std::lock_guard<std::mutex> lock(_mutex);
+
+    PruneStaleLocked(now);
+
+    Entry& e = _cache[key];
+    e.units = std::move(value);
+    e.unitsTimestamp = now;
+}
+
+void NearestObjectCache::StoreGameObjects(CacheKey key, GuidVector value)
+{
+    uint32 const now = getMSTime();
+    std::lock_guard<std::mutex> lock(_mutex);
+
+    PruneStaleLocked(now);
+
+    Entry& e = _cache[key];
+    e.gameObjects = std::move(value);
+    e.goTimestamp = now;
+}
+
+void NearestObjectCache::PruneStaleLocked(uint32 now)
+{
+    if (_cache.size() <= 500)
+        return;
+
+    for (auto it = _cache.begin(); it != _cache.end();)
     {
-        uint32 const now = getMSTime();
-        for (auto it = _cache.begin(); it != _cache.end();)
-        {
-            Entry const& ce = it->second;
-            bool unitStale = !ce.unitsTimestamp || getMSTimeDiff(ce.unitsTimestamp, now) > 5000;
-            bool goStale   = !ce.goTimestamp    || getMSTimeDiff(ce.goTimestamp,    now) > 5000;
-            if (unitStale && goStale)
-                it = _cache.erase(it);
-            else
-                ++it;
-        }
+        Entry const& ce = it->second;
+        bool unitStale = !ce.unitsTimestamp || getMSTimeDiff(ce.unitsTimestamp, now) > 5000;
+        bool goStale   = !ce.goTimestamp    || getMSTimeDiff(ce.goTimestamp,    now) > 5000;
+        if (unitStale && goStale)
+            it = _cache.erase(it);
+        else
+            ++it;
     }
-
-    Entry& e = _cache[key];
-    e.units.clear();
-    e.unitsTimestamp = 0;
-    return &e;
-}
-
-NearestObjectCache::Entry* NearestObjectCache::GetOrCreateForGameObjects(CacheKey key)
-{
-    Entry& e = _cache[key];
-    e.gameObjects.clear();
-    e.goTimestamp = 0;
-    return &e;
 }
