@@ -22,7 +22,6 @@ public:
 protected:
     void FindUnits(std::list<Unit*>& targets) override;
     bool AcceptUnit(Unit* unit) override;
-    bool UseUnitCache() const override { return false; } // Uses AnyFriendlyUnitInObjectRangeCheck
 };
 
 #endif

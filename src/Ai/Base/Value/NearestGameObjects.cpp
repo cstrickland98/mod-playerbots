@@ -12,71 +12,20 @@
 #include "SharedDefines.h"
 #include "SpellMgr.h"
 
-namespace
-{
-    // Captures GUIDs directly during the grid visit so we never hold raw
-    // GameObject* pointers between the visit and dereference. Returning false
-    // skips the searcher's own container insertion — see GuidCollectorCheck
-    // in NearestUnitsValue.cpp for rationale.
-    class GameObjectGuidCollectorCheck
-    {
-    public:
-        GameObjectGuidCollectorCheck(WorldObject const* origin, float range, GuidVector& out)
-            : _origin(origin), _range(range), _out(out) {}
-
-        bool operator()(GameObject* go)
-        {
-            if (!go || !go->IsInWorld())
-                return false;
-            if (!_origin->IsWithinDistInMap(go, _range))
-                return false;
-            _out.push_back(go->GetGUID());
-            return false;
-        }
-
-    private:
-        WorldObject const* _origin;
-        float _range;
-        GuidVector& _out;
-    };
-}
-
 GuidVector NearestGameObjects::Calculate()
 {
+    std::list<GameObject*> targets;
+    AnyGameObjectInObjectRangeCheck u_check(bot, range);
+    Acore::GameObjectListSearcher<AnyGameObjectInObjectRangeCheck> searcher(bot, targets, u_check);
+    Cell::VisitObjects(bot, searcher, range);
+
     GuidVector result;
-
-    if (!bot || !bot->IsInWorld() || bot->IsDuringRemoveFromWorld() || !bot->GetMap())
-        return result;
-
-    NearestObjectCache::CacheKey key = NearestObjectCache::MakeKey(
-        bot->GetMapId(), bot->GetPositionX(), bot->GetPositionY());
-
-    NearestObjectCache::GuidSnapshot snapshot = sNearestObjectCache.TryGetGameObjects(key);
-    if (!snapshot)
+    for (GameObject* go : targets)
     {
-        // Cache miss — scan with extended radius to cover all bots in this 40y bucket.
-        float scanRange = sPlayerbotAIConfig.sightDistance + NEAREST_CACHE_BUCKET_SIZE * 1.5f;
-
-        GuidVector freshGOs;
-        std::list<GameObject*> dummy;
-        GameObjectGuidCollectorCheck go_check(bot, scanRange, freshGOs);
-        Acore::GameObjectListSearcher<GameObjectGuidCollectorCheck> searcher(bot, dummy, go_check);
-        Cell::VisitObjects(bot, searcher, scanRange);
-
-        // Store returns the same shared snapshot it just published, so we can iterate
-        // it locally without a redundant copy or a re-query through the cache.
-        snapshot = sNearestObjectCache.StoreGameObjects(key, std::move(freshGOs));
+        // if (ignoreLos || bot->IsWithinLOSInMap(go))
+        result.push_back(go->GetGUID());
     }
 
-    for (ObjectGuid const& guid : *snapshot)
-    {
-        GameObject* go = bot->GetMap()->GetGameObject(guid);
-        if (!go || !go->isSpawned() || !go->GetGOInfo())
-            continue;
-        if (!bot->IsWithinDistInMap(go, range))
-            continue;
-        result.push_back(guid);
-    }
     return result;
 }
 

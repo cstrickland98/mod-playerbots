@@ -24,9 +24,6 @@ public:
 protected:
     void FindUnits(std::list<Unit*>& targets) override;
     bool AcceptUnit(Unit* unit) override;
-    // Uses AnyUnfriendlyUnitInObjectRangeCheck — results differ per-bot by faction.
-    // Subclasses (AllTargetsValue, NearestEnemyPlayersValue, NearestAddsValue) inherit this.
-    bool UseUnitCache() const override { return false; }
 };
 
 class AllTargetsValue : public PossibleTargetsValue
@@ -50,6 +47,5 @@ public:
 protected:
     void FindUnits(std::list<Unit*>& targets) override;
     bool AcceptUnit(Unit* unit) override;
-    bool UseUnitCache() const override { return false; } // Uses AnyUnfriendlyUnitInObjectRangeCheck
 };
 #endif
