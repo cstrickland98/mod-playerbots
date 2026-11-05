@@ -22,6 +22,9 @@ public:
     {
     }
 
+protected:
+    void FindUnits(std::list<Unit*>& targets) override;
+
 public:
     bool AcceptUnit(Unit* unit) override;
 };

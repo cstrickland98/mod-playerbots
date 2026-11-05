@@ -18,25 +18,6 @@ Unit* GrindTargetValue::Calculate()
     if (group)
         memberCount = group->GetMembersCount();
 
-    Unit* target = nullptr;
-    uint32 assistCount = 0;
-    while (!target && assistCount < memberCount)
-    {
-        target = FindTargetForGrinding(assistCount++);
-    }
-
-    return target;
-}
-
-Unit* GrindTargetValue::FindTargetForGrinding(uint32 assistCount)
-{
-    Group* group = bot->GetGroup();
-    Player* master = GetMaster();
-
-    if (master && (master == bot || master->GetMapId() != bot->GetMapId() || master->IsBeingTeleported() ||
-                   !GET_PLAYERBOT_AI(master)))
-        master = nullptr;
-
     GuidVector attackers = context->GetValue<GuidVector>("attackers")->Get();
     for (ObjectGuid const guid : attackers)
     {
@@ -47,9 +28,28 @@ Unit* GrindTargetValue::FindTargetForGrinding(uint32 assistCount)
         return unit;
     }
 
-    GuidVector targets = *context->GetValue<GuidVector>("possible targets");
+    GuidVector const targets = *context->GetValue<GuidVector>("possible targets");
     if (targets.empty())
         return nullptr;
+
+    Unit* target = nullptr;
+    uint32 assistCount = 0;
+    while (!target && assistCount < memberCount)
+    {
+        target = FindTargetForGrinding(assistCount++, targets);
+    }
+
+    return target;
+}
+
+Unit* GrindTargetValue::FindTargetForGrinding(uint32 assistCount, GuidVector const& targets)
+{
+    Group* group = bot->GetGroup();
+    Player* master = GetMaster();
+
+    if (master && (master == bot || master->GetMapId() != bot->GetMapId() || master->IsBeingTeleported() ||
+                   !GET_PLAYERBOT_AI(master)))
+        master = nullptr;
 
     float distance = 0;
     Unit* result = nullptr;

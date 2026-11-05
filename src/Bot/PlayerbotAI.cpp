@@ -282,6 +282,9 @@ void PlayerbotAI::UpdateAI(uint32 elapsed, bool minimal)
             bot->SetPower(bot->getPowerType(), bot->GetMaxPower(bot->getPowerType()));
     }
 
+    // One scan per tick shared by every reader; world-thread readers (console commands) see the last tick's list.
+    aiObjectContext->GetValue<GuidVector>("possible targets")->Reset();
+
     AllowActivity();
 
     // Wake up if combat state changed (unless casting).
@@ -868,6 +871,10 @@ void PlayerbotAI::HandleTeleportAck()
     // Skip acknowledgment for SelfBots. The player's client handles that.
     if (IsSelfBot(bot))
         return;
+
+    // These lists are cached for a few seconds and would still point at the old location after landing.
+    aiObjectContext->GetValue<GuidVector>("possible new rpg targets")->Reset();
+    aiObjectContext->GetValue<GuidVector>("possible new rpg game objects")->Reset();
 
     /*
      * FAR TELEPORT (worldport / map change)

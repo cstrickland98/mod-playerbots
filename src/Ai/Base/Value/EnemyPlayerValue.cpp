@@ -5,36 +5,52 @@
  */
 
 #include "EnemyPlayerValue.h"
+#include "CellImpl.h"
 #include "CombatManager.h"
+#include "GridNotifiers.h"
+#include "GridNotifiersImpl.h"
 #include "Playerbots.h"
 #include "PvpValues.h"
 #include "ServerFacade.h"
 #include "Vehicle.h"
 
+void NearestEnemyPlayersValue::FindUnits(std::list<Unit*>& targets)
+{
+    Acore::AnyUnfriendlyUnitInObjectRangeCheck u_check(bot, bot, range);
+    Acore::PlayerListSearcher<Acore::AnyUnfriendlyUnitInObjectRangeCheck> searcher(bot, targets, u_check);
+    Cell::VisitObjects(bot, searcher, range);
+}
+
 bool NearestEnemyPlayersValue::AcceptUnit(Unit* unit)
 {
-    // Apply parent's filtering first (includes level difference checks)
-    if (!PossibleTargetsValue::AcceptUnit(unit))
+    Player* enemy = unit->ToPlayer();
+    if (!enemy || !botAI->IsOpposing(enemy) || !enemy->IsPvP())
+        return false;
+
+    if (enemy->HasFlag(UNIT_FIELD_FLAGS, UNIT_FLAG_NON_ATTACKABLE | UNIT_FLAG_NON_ATTACKABLE_2))
         return false;
 
     bool inCannon = botAI->IsInVehicle(false, true);
-    Player* enemy = dynamic_cast<Player*>(unit);
-    if (enemy && botAI->IsOpposing(enemy) && enemy->IsPvP() &&
-        !sPlayerbotAIConfig.IsPvpProhibited(enemy->GetZoneId(), enemy->GetAreaId()) &&
-        !enemy->HasFlag(UNIT_FIELD_FLAGS, UNIT_FLAG_NON_ATTACKABLE | UNIT_FLAG_NON_ATTACKABLE_2) &&
-        ((inCannon || !enemy->HasFlag(UNIT_FIELD_FLAGS, UNIT_FLAG_NOT_SELECTABLE))) &&
-        /*!enemy->HasStealthAura() && !enemy->HasInvisibilityAura()*/ (bot->InBattleground() ? bot->CanSeeOrDetect(enemy) : enemy->CanSeeOrDetect(bot)) &&
-        !(enemy->HasSpiritOfRedemptionAura()))
-    {
-        // If with master, only attack if master is PvP flagged
-        Player* master = botAI->GetMaster();
-        if (master && !master->IsPvP() && !master->IsFFAPvP())
-            return false;
+    if (!inCannon && enemy->HasFlag(UNIT_FIELD_FLAGS, UNIT_FLAG_NOT_SELECTABLE))
+        return false;
 
-        return true;
-    }
+    // If with master, only attack if master is PvP flagged
+    Player* master = botAI->GetMaster();
+    if (master && !master->IsPvP() && !master->IsFFAPvP())
+        return false;
 
-    return false;
+    // Must run before the visibility checks below: in a PvP-prohibited zone it also stops the bot's pets attacking
+    // this player.
+    if (!PossibleTargetsValue::AcceptUnit(unit))
+        return false;
+
+    if (sPlayerbotAIConfig.IsPvpProhibited(enemy->GetZoneId(), enemy->GetAreaId()))
+        return false;
+
+    if (!(bot->InBattleground() ? bot->CanSeeOrDetect(enemy) : enemy->CanSeeOrDetect(bot)))
+        return false;
+
+    return !enemy->HasSpiritOfRedemptionAura();
 }
 
 Unit* EnemyPlayerValue::Calculate()

@@ -444,7 +444,12 @@ private:
     static UntypedValue* possible_new_rpg_targets(PlayerbotAI* botAI) { return new PossibleNewRpgTargetsValue(botAI); }
     static UntypedValue* possible_new_rpg_game_objects(PlayerbotAI* botAI) { return new PossibleNewRpgGameObjectsValue(botAI); }
     static UntypedValue* new_rpg_quest_giver(PlayerbotAI* botAI) { return new NewRpgQuestGiverValue(botAI); }
-    static UntypedValue* possible_targets(PlayerbotAI* botAI) { return new PossibleTargetsValue(botAI); }
+    static UntypedValue* possible_targets(PlayerbotAI* botAI)
+    {
+        // PlayerbotAI::UpdateAI resets it every tick; the interval only has to outlast one tick.
+        return new PossibleTargetsValue(botAI, "possible targets", sPlayerbotAIConfig.SightDistance, false,
+                                        HOUR * IN_MILLISECONDS);
+    }
     static UntypedValue* possible_triggers(PlayerbotAI* botAI) { return new PossibleTriggersValue(botAI); }
     static UntypedValue* possible_targets_no_los(PlayerbotAI* botAI)
     {

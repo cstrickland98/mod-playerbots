@@ -119,7 +119,8 @@ float PossibleNewRpgTargetsValue::GetSearchRange(Player* bot)
 static const std::unordered_set<uint32> rpgRangeOverrideAreaIds = { 3526 /* Ammen Vale */, 2117 /* Deathknell */ };
 
 PossibleNewRpgTargetsValue::PossibleNewRpgTargetsValue(PlayerbotAI* botAI)
-    : NearestUnitsValue(botAI, "possible new rpg targets", sPlayerbotAIConfig.RpgTargetSearchDistance, true)
+    : NearestUnitsValue(botAI, "possible new rpg targets", sPlayerbotAIConfig.RpgTargetSearchDistance, true,
+                        5 * IN_MILLISECONDS)
 {
 }
 
