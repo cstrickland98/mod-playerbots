@@ -94,6 +94,14 @@ struct BotEventCache
     std::unordered_map<std::string, CachedEvent> events;
 };
 
+struct RandomBotCharacter
+{
+    uint32 guid = 0;
+    uint32 accountId = 0;
+    uint8 race = 0;
+    uint8 playerClass = 0;
+};
+
 // https://gist.github.com/bradley219/5373998
 
 class botPIDImpl;
@@ -264,6 +272,8 @@ private:
     std::string GetEventData(uint32 bot, std::string const& event);
     uint32 SetEventValue(uint32 bot, std::string const& event, uint32 value, uint32 validIn,
                          std::string const& data = "");
+    void PreloadEventCache();
+    void LoadRandomBotRoster();
     void GetBots();
     std::vector<uint32> GetBgBots(uint32 bracket);
     time_t BgCheckTimer;
@@ -291,6 +301,7 @@ private:
     std::map<TeamId, std::map<BattlegroundTypeId, std::vector<uint32>>> BattleMastersCache;
     std::unordered_map<uint32, ObjectGuid::LowType> BattleMasterSpawnIds;
     std::unordered_map<uint32, BotEventCache> eventCache;
+    bool _eventCachePreloaded = false;
     std::unordered_set<uint32> currentBots;
     uint32 playersLevel;
     // Written on the world thread, read from map threads.
@@ -300,6 +311,9 @@ private:
     // Account lists
     std::vector<uint32> rndBotTypeAccounts;             // Accounts marked as RNDbot (type 1)
     std::vector<uint32> addClassTypeAccounts;           // Accounts marked as AddClass (type 2)
+    // Random-bot characters are only created or deleted at startup, before AssignAccountTypes() builds this, so it
+    // stays valid; characters deleted by other means are skipped at selection through the character cache.
+    std::vector<RandomBotCharacter> _randomBotRoster;
 
     //void ScaleBotActivity();      // Deprecated function
     static inline uint32 NowSeconds() { return static_cast<uint32>(GameTime::GetGameTime().count()); }

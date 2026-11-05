@@ -682,6 +682,46 @@ void RandomPlayerbotMgr::AssignAccountTypes()
     LOG_INFO("playerbots", "Account type assignment complete: {} RNDbot accounts, {} AddClass accounts, {} unassigned",
              rndBotTypeAccounts.size(), addClassTypeAccounts.size(),
              currentAssignments.size() - rndBotTypeAccounts.size() - addClassTypeAccounts.size());
+
+    LoadRandomBotRoster();
+}
+
+void RandomPlayerbotMgr::LoadRandomBotRoster()
+{
+    _randomBotRoster.clear();
+
+    // A prepared statement cannot bind a variable-length IN list; the ids come from the login database.
+    std::string accountIds;
+    for (uint32 accountId : rndBotTypeAccounts)
+    {
+        if (!accountIds.empty())
+            accountIds += ", ";
+        accountIds += std::to_string(accountId);
+    }
+
+    QueryResult result;
+    if (!accountIds.empty())
+        result = CharacterDatabase.Query(
+            "SELECT guid, account, race, class FROM characters WHERE account IN ({}) AND deleteDate IS NULL",
+            accountIds);
+
+    if (result)
+    {
+        _randomBotRoster.reserve(result->GetRowCount());
+        do
+        {
+            Field* fields = result->Fetch();
+            RandomBotCharacter character;
+            character.guid = fields[0].Get<uint32>();
+            character.accountId = fields[1].Get<uint32>();
+            character.race = fields[2].Get<uint8>();
+            character.playerClass = fields[3].Get<uint8>();
+            _randomBotRoster.push_back(character);
+        } while (result->NextRow());
+    }
+
+    LOG_INFO("playerbots", "Random bot roster loaded: {} characters on {} RNDbot accounts", _randomBotRoster.size(),
+             rndBotTypeAccounts.size());
 }
 
 bool RandomPlayerbotMgr::IsAccountType(uint32 accountId, uint8 accountType)
@@ -727,47 +767,31 @@ uint32 RandomPlayerbotMgr::AddRandomBots()
         if (remainder && urand(1, totalRatio) <= remainder)
             allowedAllianceCount++;
 
-        // Pre-map all characters from every RNDbot account.
-        struct CharacterInfo
-        {
-            uint32 guid;
-            uint8 rClass;
-            uint8 rRace;
-            uint32 accountId;
-        };
-        std::vector<CharacterInfo> allCharacters;
+        // All characters from every RNDbot account, minus any deleted since the roster was built.
+        std::vector<RandomBotCharacter> allCharacters;
+        allCharacters.reserve(_randomBotRoster.size());
 
-        for (uint32 accountId : rndBotTypeAccounts)
+        for (RandomBotCharacter const& character : _randomBotRoster)
         {
-            CharacterDatabasePreparedStatement* stmt =
-                CharacterDatabase.GetPreparedStatement(CHAR_SEL_ACCOUNT_INFO_CHARS);
-            stmt->SetData(0, accountId);
-            PreparedQueryResult result = CharacterDatabase.Query(stmt);
-            if (!result)
-                continue;
-
-            do
+            if (!sCharacterCache->HasCharacterCacheEntry(ObjectGuid::Create<HighGuid::Player>(character.guid)))
             {
-                Field* fields = result->Fetch();
-                CharacterInfo info;
-                info.guid = fields[0].Get<uint32>();
-                info.rRace = fields[3].Get<uint8>();
-                info.rClass = fields[4].Get<uint8>();
-                info.accountId = accountId;
-                allCharacters.push_back(info);
-            } while (result->NextRow());
+                LOG_DEBUG("playerbots", "Random bot character {} no longer exists, skipped", character.guid);
+                continue;
+            }
+
+            allCharacters.push_back(character);
         }
 
         // Shuffle for class balance
         std::shuffle(allCharacters.begin(), allCharacters.end(), rng);
 
         // Separate characters by faction for phased login
-        std::vector<CharacterInfo> allianceChars;
-        std::vector<CharacterInfo> hordeChars;
+        std::vector<RandomBotCharacter> allianceChars;
+        std::vector<RandomBotCharacter> hordeChars;
 
         for (auto const& charInfo : allCharacters)
         {
-            if (IsAlliance(charInfo.rRace))
+            if (IsAlliance(charInfo.race))
                 allianceChars.push_back(charInfo);
 
             else
@@ -775,12 +799,12 @@ uint32 RandomPlayerbotMgr::AddRandomBots()
         }
 
         // Lambda to handle bot login logic
-        auto tryLoginBot = [&](CharacterInfo const& charInfo) -> bool
+        auto tryLoginBot = [&](RandomBotCharacter const& charInfo) -> bool
         {
             if (GetEventValue(charInfo.guid, "add") ||
                 GetPlayerBot(charInfo.guid) ||
                 currentBots.contains(charInfo.guid) ||
-                (sPlayerbotAIConfig.DisableDeathKnightLogin && charInfo.rClass == CLASS_DEATH_KNIGHT))
+                (sPlayerbotAIConfig.DisableDeathKnightLogin && charInfo.playerClass == CLASS_DEATH_KNIGHT))
                 return false;
 
             SetEventValue(charInfo.guid, "add", 1, YEAR);
@@ -1974,6 +1998,46 @@ void RandomPlayerbotMgr::Init()
     PlayerbotsDatabasePreparedStatement* stmt = PlayerbotsDatabase.GetPreparedStatement(PLAYERBOTS_DEL_RANDOM_BOTS_BY_EVENT);
     stmt->SetData(0, std::string("add"));
     PlayerbotsDatabase.DirectExecute(stmt);
+
+    // Must follow the delete above, or last session's add events would be cached and logged back in.
+    PreloadEventCache();
+}
+
+void RandomPlayerbotMgr::PreloadEventCache()
+{
+    PlayerbotsDatabasePreparedStatement* stmt =
+        PlayerbotsDatabase.GetPreparedStatement(PLAYERBOTS_SEL_RANDOM_BOTS_BY_OWNER);
+    stmt->SetData(0, 0);
+
+    uint32 rowCount = 0;
+    if (PreparedQueryResult result = PlayerbotsDatabase.Query(stmt))
+    {
+        do
+        {
+            Field* fields = result->Fetch();
+            BotEventCache& cache = eventCache[fields[0].Get<uint32>()];
+
+            // A bot already loaded (config reload with bots online) keeps its in-memory events.
+            if (cache.loaded)
+                continue;
+
+            CachedEvent e;
+            e.value = fields[2].Get<uint32>();
+            e.lastChangeTime = fields[3].Get<uint32>();
+            e.validIn = fields[4].Get<uint32>();
+            e.data = fields[5].Get<std::string>();
+
+            cache.events.emplace(fields[1].Get<std::string>(), std::move(e));
+            ++rowCount;
+        } while (result->NextRow());
+    }
+
+    for (auto& [bot, cache] : eventCache)
+        cache.loaded = true;
+
+    _eventCachePreloaded = true;
+
+    LOG_INFO("playerbots", "Random bot event cache preloaded: {} events for {} bots", rowCount, eventCache.size());
 }
 
 void RandomPlayerbotMgr::InitArenaTeams()
@@ -2505,23 +2569,17 @@ void RandomPlayerbotMgr::GetBots()
     if (!currentBots.empty())
         return;
 
-    PlayerbotsDatabasePreparedStatement* stmt =
-        PlayerbotsDatabase.GetPreparedStatement(PLAYERBOTS_SEL_RANDOM_BOTS_BY_OWNER_AND_EVENT);
-    stmt->SetData(0, 0);
-    stmt->SetData(1, "add");
     uint32 maxAllowedBotCount = GetEventValue(0, "bot_count");
-    if (PreparedQueryResult result = PlayerbotsDatabase.Query(stmt))
+    for (auto const& [bot, cache] : eventCache)
     {
-        do
-        {
-            Field* fields = result->Fetch();
-            uint32 bot = fields[0].Get<uint32>();
-            if (GetEventValue(bot, "add"))
-                currentBots.insert(bot);
+        if (!cache.events.contains("add"))
+            continue;
 
-            if (currentBots.size() >= maxAllowedBotCount)
-                break;
-        } while (result->NextRow());
+        if (GetEventValue(bot, "add"))
+            currentBots.insert(bot);
+
+        if (currentBots.size() >= maxAllowedBotCount)
+            break;
     }
 }
 
@@ -2557,12 +2615,18 @@ CachedEvent* RandomPlayerbotMgr::FindEvent(uint32 bot, std::string const& event)
     {
         cache.events.clear();
 
-        PlayerbotsDatabasePreparedStatement* stmt =
-            PlayerbotsDatabase.GetPreparedStatement(PLAYERBOTS_SEL_RANDOM_BOTS_BY_OWNER_AND_BOT);
-        stmt->SetData(0, 0);
-        stmt->SetData(1, bot);
+        // After the startup preload every stored event is cached, so a bot without an entry has none.
+        PreparedQueryResult result;
+        if (!_eventCachePreloaded)
+        {
+            PlayerbotsDatabasePreparedStatement* stmt =
+                PlayerbotsDatabase.GetPreparedStatement(PLAYERBOTS_SEL_RANDOM_BOTS_BY_OWNER_AND_BOT);
+            stmt->SetData(0, 0);
+            stmt->SetData(1, bot);
+            result = PlayerbotsDatabase.Query(stmt);
+        }
 
-        if (PreparedQueryResult result = PlayerbotsDatabase.Query(stmt))
+        if (result)
         {
             do
             {
@@ -2907,82 +2971,33 @@ void RandomPlayerbotMgr::OnBotLoginInternal(Player* const bot)
 
 void RandomPlayerbotMgr::OnPlayerLogin(Player* player)
 {
-    uint32 botsNearby = 0;
-
-    for (PlayerBotMap::const_iterator it = GetPlayerBotsBegin(); it != GetPlayerBotsEnd(); ++it)
+    // A bot's group lists the player only when it is the player's current group, or its original one while the
+    // player is in a battleground group, so walking those two finds every bot grouped with the player.
+    Group* currentGroup = player->GetGroup();
+    Group* originalGroup = player->GetOriginalGroup();
+    std::array<Group*, 2> const playerGroups = {currentGroup, originalGroup != currentGroup ? originalGroup : nullptr};
+    for (Group* group : playerGroups)
     {
-        Player* const bot = it->second;
-        if (player == bot /* || GET_PLAYERBOT_AI(player)*/)  // TEST
-            continue;
-
-        Cell playerCell(player->GetPositionX(), player->GetPositionY());
-        Cell botCell(bot->GetPositionX(), bot->GetPositionY());
-
-        // if (playerCell == botCell)
-        // botsNearby++;
-
-        Group* group = bot->GetGroup();
         if (!group)
             continue;
 
-        for (GroupReference* gref = group->GetFirstMember(); gref; gref = gref->next())
+        for (GroupReference* ref = group->GetFirstMember(); ref; ref = ref->next())
         {
-            Player* member = gref->GetSource();
+            Player* bot = ref->GetSource();
+            if (!bot || bot == player || bot->GetGroup() != group || !GetPlayerBot(bot->GetGUID()))
+                continue;
+
             PlayerbotAI* botAI = GET_PLAYERBOT_AI(bot);
-            if (botAI && member == player && (!botAI->GetMaster() || GET_PLAYERBOT_AI(botAI->GetMaster())))
-            {
-                if (!bot->InBattleground())
-                {
-                    botAI->SetMaster(player);
-                    botAI->ResetStrategies();
-                    botAI->TellMaster(PlayerbotTextMgr::instance().GetBotTextOrDefault(
-                        "hello", "Hello", {}));
-                }
+            if (!botAI || (botAI->GetMaster() && !GET_PLAYERBOT_AI(botAI->GetMaster())))
+                continue;
 
-                break;
-            }
+            if (bot->InBattleground())
+                continue;
+
+            botAI->SetMaster(player);
+            botAI->ResetStrategies();
+            botAI->TellMaster(PlayerbotTextMgr::instance().GetBotTextOrDefault("hello", "Hello", {}));
         }
-    }
-
-    if (botsNearby > 100 && false)
-    {
-        WorldPosition botPos(player);
-
-        // botPos.GetReachableRandomPointOnGround(player, sPlayerbotAIConfig.ReactDistance * 2, true);
-
-        // player->TeleportTo(botPos);
-        // player->Relocate(botPos.coord_x, botPos.coord_y, botPos.coord_z, botPos.orientation);
-
-        if (!player->GetFactionTemplateEntry())
-        {
-            botPos.GetReachableRandomPointOnGround(player, sPlayerbotAIConfig.ReactDistance * 2, true);
-        }
-        else
-        {
-            std::vector<TravelDestination*> dests = TravelMgr::instance().getRpgTravelDestinations(player, true, true, 200000.0f);
-
-            do
-            {
-                RpgTravelDestination* dest = (RpgTravelDestination*)dests[urand(0, dests.size() - 1)];
-                CreatureTemplate const* cInfo = dest->GetCreatureTemplate();
-                if (!cInfo)
-                    continue;
-
-                FactionTemplateEntry const* factionEntry = sFactionTemplateStore.LookupEntry(cInfo->faction);
-                ReputationRank reaction = Unit::GetFactionReactionTo(player->GetFactionTemplateEntry(), factionEntry);
-
-                if (reaction > REP_NEUTRAL && dest->nearestPoint(&botPos)->GetMapId() == player->GetMapId())
-                {
-                    botPos = *dest->nearestPoint(&botPos);
-                    break;
-                }
-            } while (true);
-        }
-
-        player->RemoveAurasWithInterruptFlags(AURA_INTERRUPT_FLAG_TELEPORTED | AURA_INTERRUPT_FLAG_CHANGE_MAP);
-        player->TeleportTo(botPos);
-
-        // player->Relocate(botPos.getX(), botPos.getY(), botPos.getZ(), botPos.getO());
     }
 
     if (IsRandomBot(player))
