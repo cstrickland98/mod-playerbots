@@ -48,6 +48,7 @@
 #include <boost/thread/thread.hpp>
 #include <cstdlib>
 #include <ctime>
+#include <fmt/ranges.h>
 #include <iomanip>
 #include <random>
 #include <set>
@@ -691,13 +692,7 @@ void RandomPlayerbotMgr::LoadRandomBotRoster()
     _randomBotRoster.clear();
 
     // A prepared statement cannot bind a variable-length IN list; the ids come from the login database.
-    std::string accountIds;
-    for (uint32 accountId : rndBotTypeAccounts)
-    {
-        if (!accountIds.empty())
-            accountIds += ", ";
-        accountIds += std::to_string(accountId);
-    }
+    std::string const accountIds = fmt::format("{}", fmt::join(rndBotTypeAccounts, ", "));
 
     QueryResult result;
     if (!accountIds.empty())
@@ -767,7 +762,6 @@ uint32 RandomPlayerbotMgr::AddRandomBots()
         if (remainder && urand(1, totalRatio) <= remainder)
             allowedAllianceCount++;
 
-        // All characters from every RNDbot account, minus any deleted since the roster was built.
         std::vector<RandomBotCharacter> allCharacters;
         allCharacters.reserve(_randomBotRoster.size());
 
