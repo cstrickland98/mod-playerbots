@@ -1099,100 +1099,83 @@ void PlayerbotFactory::Refresh()
     // {
     //     InitEquipment(true);
     // }
-    PerfMonitorOperation* pmo = sPerfMonitor.start(PERF_MON_RNDBOT, "Refresh_AttunementQuests");
-    InitAttunementQuests();
-    if (pmo)
-        pmo->finish();
-
-    pmo = sPerfMonitor.start(PERF_MON_RNDBOT, "Refresh_ClearInventory");
-    ClearInventory();
-    if (pmo)
-        pmo->finish();
-
-    pmo = sPerfMonitor.start(PERF_MON_RNDBOT, "Refresh_Ammo");
-    InitAmmo();
-    if (pmo)
-        pmo->finish();
-
-    pmo = sPerfMonitor.start(PERF_MON_RNDBOT, "Refresh_Food");
-    InitFood();
-    if (pmo)
-        pmo->finish();
-
-    pmo = sPerfMonitor.start(PERF_MON_RNDBOT, "Refresh_Reagents");
-    InitReagents();
-    if (pmo)
-        pmo->finish();
-
-    pmo = sPerfMonitor.start(PERF_MON_RNDBOT, "Refresh_Consumables");
-    InitConsumables();
-    if (pmo)
-        pmo->finish();
-
-    pmo = sPerfMonitor.start(PERF_MON_RNDBOT, "Refresh_Potions");
-    InitPotions();
-    if (pmo)
-        pmo->finish();
-
-    pmo = sPerfMonitor.start(PERF_MON_RNDBOT, "Refresh_Pet");
-    InitPet();
-    if (pmo)
-        pmo->finish();
-
-    pmo = sPerfMonitor.start(PERF_MON_RNDBOT, "Refresh_PetTalents");
-    InitPetTalents();
-    if (pmo)
-        pmo->finish();
-
-    pmo = sPerfMonitor.start(PERF_MON_RNDBOT, "Refresh_Skills");
-    InitSkills();
-    if (pmo)
-        pmo->finish();
-
-    pmo = sPerfMonitor.start(PERF_MON_RNDBOT, "Refresh_ClassSpells");
-    InitClassSpells();
-    if (pmo)
-        pmo->finish();
-
-    pmo = sPerfMonitor.start(PERF_MON_RNDBOT, "Refresh_AvailableSpells");
-    InitAvailableSpells();
-    if (pmo)
-        pmo->finish();
-
-    pmo = sPerfMonitor.start(PERF_MON_RNDBOT, "Refresh_Reputation");
-    InitReputation();
-    if (pmo)
-        pmo->finish();
-
-    pmo = sPerfMonitor.start(PERF_MON_RNDBOT, "Refresh_SpecialSpells");
-    InitSpecialSpells();
-    if (pmo)
-        pmo->finish();
-
-    pmo = sPerfMonitor.start(PERF_MON_RNDBOT, "Refresh_Mounts");
-    InitMounts();
-    if (pmo)
-        pmo->finish();
-
-    pmo = sPerfMonitor.start(PERF_MON_RNDBOT, "Refresh_Keyring");
-    InitKeyring();
-    if (pmo)
-        pmo->finish();
-
-    pmo = sPerfMonitor.start(PERF_MON_RNDBOT, "Refresh_Talents");
-    if (!sPlayerbotAIConfig.EquipAndSpecPersistence ||
-        bot->GetLevel() < sPlayerbotAIConfig.EquipAndSpecPersistenceLevel)
     {
-        InitTalentsTree(true, true, true);
+        PerfMonitorScope scope(sPerfMonitor.acquire(PERF_MON_RNDBOT, "Refresh_AttunementQuests"));
+        InitAttunementQuests();
     }
-    if (pmo)
-        pmo->finish();
-
-    pmo = sPerfMonitor.start(PERF_MON_RNDBOT, "Refresh_Enchants");
-    if (bot->GetLevel() >= sPlayerbotAIConfig.MinEnchantingBotLevel)
-        ApplyEnchantAndGemsNew();
-    if (pmo)
-        pmo->finish();
+    {
+        PerfMonitorScope scope(sPerfMonitor.acquire(PERF_MON_RNDBOT, "Refresh_ClearInventory"));
+        ClearInventory();
+    }
+    {
+        PerfMonitorScope scope(sPerfMonitor.acquire(PERF_MON_RNDBOT, "Refresh_Ammo"));
+        InitAmmo();
+    }
+    {
+        PerfMonitorScope scope(sPerfMonitor.acquire(PERF_MON_RNDBOT, "Refresh_Food"));
+        InitFood();
+    }
+    {
+        PerfMonitorScope scope(sPerfMonitor.acquire(PERF_MON_RNDBOT, "Refresh_Reagents"));
+        InitReagents();
+    }
+    {
+        PerfMonitorScope scope(sPerfMonitor.acquire(PERF_MON_RNDBOT, "Refresh_Consumables"));
+        InitConsumables();
+    }
+    {
+        PerfMonitorScope scope(sPerfMonitor.acquire(PERF_MON_RNDBOT, "Refresh_Potions"));
+        InitPotions();
+    }
+    {
+        PerfMonitorScope scope(sPerfMonitor.acquire(PERF_MON_RNDBOT, "Refresh_Pet"));
+        InitPet();
+    }
+    {
+        PerfMonitorScope scope(sPerfMonitor.acquire(PERF_MON_RNDBOT, "Refresh_PetTalents"));
+        InitPetTalents();
+    }
+    {
+        PerfMonitorScope scope(sPerfMonitor.acquire(PERF_MON_RNDBOT, "Refresh_Skills"));
+        InitSkills();
+    }
+    {
+        PerfMonitorScope scope(sPerfMonitor.acquire(PERF_MON_RNDBOT, "Refresh_ClassSpells"));
+        InitClassSpells();
+    }
+    {
+        PerfMonitorScope scope(sPerfMonitor.acquire(PERF_MON_RNDBOT, "Refresh_AvailableSpells"));
+        InitAvailableSpells();
+    }
+    {
+        PerfMonitorScope scope(sPerfMonitor.acquire(PERF_MON_RNDBOT, "Refresh_Reputation"));
+        InitReputation();
+    }
+    {
+        PerfMonitorScope scope(sPerfMonitor.acquire(PERF_MON_RNDBOT, "Refresh_SpecialSpells"));
+        InitSpecialSpells();
+    }
+    {
+        PerfMonitorScope scope(sPerfMonitor.acquire(PERF_MON_RNDBOT, "Refresh_Mounts"));
+        InitMounts();
+    }
+    {
+        PerfMonitorScope scope(sPerfMonitor.acquire(PERF_MON_RNDBOT, "Refresh_Keyring"));
+        InitKeyring();
+    }
+    {
+        PerfMonitorScope scope(sPerfMonitor.acquire(PERF_MON_RNDBOT, "Refresh_Talents"));
+        if (!sPlayerbotAIConfig.EquipAndSpecPersistence ||
+            bot->GetLevel() < sPlayerbotAIConfig.EquipAndSpecPersistenceLevel)
+        {
+            InitTalentsTree(true, true, true);
+        }
+    }
+    {
+        PerfMonitorScope scope(sPerfMonitor.acquire(PERF_MON_RNDBOT, "Refresh_Enchants"));
+        if (bot->GetLevel() >= sPlayerbotAIConfig.MinEnchantingBotLevel)
+            ApplyEnchantAndGemsNew();
+    }
 
     bot->DurabilityRepairAll(false, 1.0f, false);
     if (bot->isDead())
@@ -3648,20 +3631,17 @@ void PlayerbotFactory::BuildTrainerSpellCache()
 
         std::vector<Trainer::Spell> const& spells = trainer->GetSpells();
         TrainerSpellIndexes entry{creatureEntry, {}};
-        for (Trainer::Spell const& spell : spells)
+        for (uint32 spellIndex = 0; spellIndex < spells.size(); ++spellIndex)
         {
-            Trainer::Spell const* trainerSpell = trainer->GetSpell(spell.SpellId);
-            if (!trainerSpell)
-                continue;
-
+            Trainer::Spell const& trainerSpell = spells[spellIndex];
             if (!seenSpells
-                     .emplace(trainer->GetTrainerType(), trainerSpell->SpellId, trainerSpell->ReqLevel,
-                              trainerSpell->ReqSkillLine, trainerSpell->ReqSkillRank, trainerSpell->ReqAbility[0],
-                              trainerSpell->ReqAbility[1], trainerSpell->ReqAbility[2])
+                     .emplace(trainer->GetTrainerType(), trainerSpell.SpellId, trainerSpell.ReqLevel,
+                              trainerSpell.ReqSkillLine, trainerSpell.ReqSkillRank, trainerSpell.ReqAbility[0],
+                              trainerSpell.ReqAbility[1], trainerSpell.ReqAbility[2])
                      .second)
                 continue;
 
-            entry.SpellIndexes.push_back(static_cast<uint32>(trainerSpell - spells.data()));
+            entry.SpellIndexes.push_back({spellIndex, trainerSpell.SpellId});
         }
 
         if (!entry.SpellIndexes.empty())
@@ -3671,7 +3651,8 @@ void PlayerbotFactory::BuildTrainerSpellCache()
 
 void PlayerbotFactory::InitAvailableSpells()
 {
-    if (trainerSpellCache[bot->getClass()].empty())
+    std::vector<TrainerSpellIndexes> const& cache = trainerSpellCache[bot->getClass()];
+    if (cache.empty())
         BuildTrainerSpellCache();
 
     // Each spell is visited once per pass at its first trainer, which may list it before a prerequisite
@@ -3679,20 +3660,24 @@ void PlayerbotFactory::InitAvailableSpells()
     for (uint32 pass = 1; pass <= MAX_TRAINER_SPELL_PASSES; ++pass)
     {
         uint32 learnedCount = 0;
-        for (TrainerSpellIndexes const& entry : trainerSpellCache[bot->getClass()])
+        for (TrainerSpellIndexes const& entry : cache)
         {
             Trainer::Trainer const* trainer = sObjectMgr->GetTrainer(entry.CreatureEntry);
             if (!trainer)
                 continue;
 
             std::vector<Trainer::Spell> const& spells = trainer->GetSpells();
-            for (uint32 spellIndex : entry.SpellIndexes)
+            for (TrainerSpellRef const& ref : entry.SpellIndexes)
             {
                 // simplified version of Trainer::TeachSpell method
-                if (spellIndex >= spells.size())
-                    continue;
+                Trainer::Spell const* trainerSpell = nullptr;
+                if (ref.Index < spells.size() && spells[ref.Index].SpellId == ref.SpellId)
+                    trainerSpell = &spells[ref.Index];
+                else
+                    trainerSpell = trainer->GetSpell(ref.SpellId);
 
-                Trainer::Spell const* trainerSpell = &spells[spellIndex];
+                if (!trainerSpell)
+                    continue;
 
                 if (!IsTrainerSpellAllowedForBot(bot, trainer, trainerSpell))
                     continue;
