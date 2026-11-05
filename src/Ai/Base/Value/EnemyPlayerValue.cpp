@@ -39,8 +39,8 @@ bool NearestEnemyPlayersValue::AcceptUnit(Unit* unit)
     if (master && !master->IsPvP() && !master->IsFFAPvP())
         return false;
 
-    // Must run before the visibility checks below: in a PvP-prohibited zone it also stops the bot's pets attacking
-    // this player.
+    // Stays ahead of the zone and visibility checks below because, in a PvP-prohibited zone, it also stops the bot's
+    // pets attacking this player.
     if (!PossibleTargetsValue::AcceptUnit(unit))
         return false;
 
