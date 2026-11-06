@@ -13,6 +13,8 @@
 #include "Strategy.h"
 #include "Timer.h"
 
+#include <algorithm>
+
 Engine::Engine(PlayerbotAI* botAI, AiObjectContext* factory) : PlayerbotAIAware(botAI), aiObjectContext(factory)
 {
     lastRelevance = 0.0f;
@@ -450,7 +452,8 @@ Strategy* Engine::GetStrategy(std::string const name)
 
 void Engine::ProcessTriggers(bool minimal)
 {
-    std::unordered_map<Trigger*, Event> fires;
+    // Few triggers fire per pass; a flat list avoids the per-pass hash map allocations
+    std::vector<std::pair<Trigger*, Event>> fires;
     uint32 now = getMSTime();
     for (std::vector<TriggerNode*>::iterator i = triggers.begin(); i != triggers.end(); i++)
     {
@@ -490,7 +493,7 @@ void Engine::ProcessTriggers(bool minimal)
             if (trigger->IsBuffTrigger() && !trigger->IsDebuffTrigger())
                 botAI->forceRebuff.NoteBuffProposed();
 
-            fires[trigger] = event;
+            fires.emplace_back(trigger, event);
             LogAction("T:%s", trigger->getName().c_str());
         }
     }
@@ -499,11 +502,11 @@ void Engine::ProcessTriggers(bool minimal)
     {
         TriggerNode* node = *i;
         Trigger* trigger = node->getTrigger();
-        if (fires.find(trigger) == fires.end())
+        auto fired = std::find_if(fires.begin(), fires.end(), [trigger](auto const& f) { return f.first == trigger; });
+        if (fired == fires.end())
             continue;
 
-        Event event = fires[trigger];
-        MultiplyAndPush(node->getHandlers(), 0.0f, false, event, "trigger");
+        MultiplyAndPush(node->getHandlers(), 0.0f, false, fired->second, "trigger");
     }
 
     for (std::vector<TriggerNode*>::iterator i = triggers.begin(); i != triggers.end(); i++)
