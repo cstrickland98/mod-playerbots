@@ -109,7 +109,9 @@ void Engine::Reset()
     ownedTriggerNodes.clear();
     triggers.clear();
     nodeTriggers.clear();
-    nodeResolved.clear();
+    checkNodes.clear();
+    externalNodes.clear();
+    nodesPartitioned = false;
 
     for (Multiplier* multiplier : multipliers)
     {
@@ -200,7 +202,6 @@ void Engine::Init()
     }
 
     nodeTriggers.assign(triggers.size(), nullptr);
-    nodeResolved.assign(triggers.size(), 0);
     actionNodeCreators = SharedActionNodeCreators(strategies);
 
     if (testMode)
@@ -519,73 +520,124 @@ Strategy* Engine::GetStrategy(std::string const name)
     return i != strategies.end() ? i->second : nullptr;
 }
 
-void Engine::ProcessTriggers(bool minimal)
+// Resolves the trigger of every node once (a name the context does not know stays null) and splits
+// the nodes into the ones checked every pass and the ones that fire only after an external event.
+// The chat and packet strategies contribute about 190 of the 250 nodes of a combat engine; after
+// this they cost nothing while no command or packet is pending
+void Engine::PartitionTriggerNodes()
 {
-    // Few triggers fire per pass; a flat list avoids the per-pass hash map allocations
-    std::vector<std::pair<Trigger*, Event>> fires;
-    uint32 now = getMSTime();
+    checkNodes.clear();
+    externalNodes.clear();
     for (size_t i = 0; i < triggers.size(); ++i)
     {
         TriggerNode* node = triggers[i];
         if (!node)
             continue;
 
-        Trigger* trigger = nodeTriggers[i];
-        if (!trigger && !nodeResolved[i])
-        {
-            // A name the context does not know stays null; do not look it up again every pass
-            trigger = aiObjectContext->GetTrigger(node->getName());
-            nodeTriggers[i] = trigger;
-            nodeResolved[i] = 1;
-        }
-
+        Trigger* trigger = aiObjectContext->GetTrigger(node->getName());
+        nodeTriggers[i] = trigger;
         if (!trigger)
             continue;
 
-        // Several strategies can list the same trigger; its answer does not change within one pass
-        if (trigger->IsCheckedThisPass())
-            continue;
+        (trigger->IsExternalOnly() ? externalNodes : checkNodes).push_back(i);
+    }
 
-        if (testMode || trigger->needCheck(now))
+    nodesPartitioned = true;
+}
+
+void Engine::CheckTrigger(size_t i, uint32 now, bool minimal, std::vector<std::pair<Trigger*, Event>>& fires)
+{
+    Trigger* trigger = nodeTriggers[i];
+
+    // Several strategies can list the same trigger; its answer does not change within one pass
+    if (trigger->IsCheckedThisPass())
+        return;
+
+    if (!testMode && !trigger->needCheck(now))
+        return;
+
+    if (minimal && triggers[i]->getFirstRelevance() < 100)
+        return;
+
+    PerfMonitorOperation* pmo =
+        sPerfMonitor.start(PERF_MON_TRIGGER, trigger->getName(), &aiObjectContext->performanceStack);
+    Event event = trigger->Check();
+    trigger->SetCheckedThisPass(true);
+    if (pmo)
+        pmo->finish();
+
+    if (!event)
+        return;
+
+    if (trigger->IsBuffTrigger() && !trigger->IsDebuffTrigger())
+        botAI->forceRebuff.NoteBuffProposed();
+
+    fires.emplace_back(trigger, event);
+    LogAction("T:%s", trigger->getName().c_str());
+}
+
+void Engine::ProcessTriggers(bool minimal)
+{
+    if (!nodesPartitioned)
+        PartitionTriggerNodes();
+
+    // Few triggers fire per pass; a flat list avoids the per-pass hash map allocations
+    std::vector<std::pair<Trigger*, Event>> fires;
+    uint32 now = getMSTime();
+
+    // A pending chat command or packet is taken by the first engine that has a node for its trigger
+    // and left in the list for another engine otherwise, as when every engine checked every trigger
+    std::vector<Trigger*>& pending = aiObjectContext->GetPendingExternalTriggers();
+    std::vector<Trigger*> taken;
+    for (auto p = pending.begin(); p != pending.end();)
+    {
+        bool hasNode = false;
+        for (size_t i : externalNodes)
         {
-            if (minimal && node->getFirstRelevance() < 100)
+            if (nodeTriggers[i] != *p)
                 continue;
 
-            PerfMonitorOperation* pmo =
-                sPerfMonitor.start(PERF_MON_TRIGGER, trigger->getName(), &aiObjectContext->performanceStack);
-            Event event = trigger->Check();
-            trigger->SetCheckedThisPass(true);
-            if (pmo)
-                pmo->finish();
+            CheckTrigger(i, now, minimal, fires);
+            hasNode = true;
+        }
 
-            if (!event)
+        if (!hasNode)
+        {
+            ++p;
+            continue;
+        }
+
+        taken.push_back(*p);
+        p = pending.erase(p);
+    }
+
+    for (size_t i : checkNodes)
+        CheckTrigger(i, now, minimal, fires);
+
+    if (!fires.empty())
+    {
+        for (size_t i = 0; i < triggers.size(); ++i)
+        {
+            Trigger* trigger = nodeTriggers[i];
+            auto fired =
+                std::find_if(fires.begin(), fires.end(), [trigger](auto const& f) { return f.first == trigger; });
+            if (fired == fires.end())
                 continue;
 
-            if (trigger->IsBuffTrigger() && !trigger->IsDebuffTrigger())
-                botAI->forceRebuff.NoteBuffProposed();
-
-            fires.emplace_back(trigger, event);
-            LogAction("T:%s", trigger->getName().c_str());
+            MultiplyAndPush(triggers[i]->getHandlers(trigger), 0.0f, false, fired->second, "trigger");
         }
     }
 
-    for (size_t i = 0; i < triggers.size(); ++i)
+    for (size_t i : checkNodes)
     {
-        Trigger* trigger = nodeTriggers[i];
-        auto fired = std::find_if(fires.begin(), fires.end(), [trigger](auto const& f) { return f.first == trigger; });
-        if (fired == fires.end())
-            continue;
-
-        MultiplyAndPush(triggers[i]->getHandlers(trigger), 0.0f, false, fired->second, "trigger");
+        nodeTriggers[i]->Reset();
+        nodeTriggers[i]->SetCheckedThisPass(false);
     }
 
-    for (Trigger* trigger : nodeTriggers)
+    for (Trigger* trigger : taken)
     {
-        if (trigger)
-        {
-            trigger->Reset();
-            trigger->SetCheckedThisPass(false);
-        }
+        trigger->Reset();
+        trigger->SetCheckedThisPass(false);
     }
 }
 

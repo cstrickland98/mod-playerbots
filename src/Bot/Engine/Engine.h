@@ -109,14 +109,18 @@ protected:
     void Reset();
     void AddTriggerNodes(Strategy* strategy, bool reaction);
     void ProcessTriggers(bool minimal);
+    void PartitionTriggerNodes();
+    void CheckTrigger(size_t node, uint32 now, bool minimal, std::vector<std::pair<Trigger*, Event>>& fires);
     void PushAgain(ActionNode* actionNode, float relevance, Event event);
     virtual Action* InitializeAction(ActionNode* actionNode);
     virtual bool ListenAndExecute(Action* action, Event event);
 
     Queue queue;
     std::vector<TriggerNode*> triggers;       // shared and owned nodes, in strategy order
-    std::vector<Trigger*> nodeTriggers;       // the Trigger of this bot for each node, resolved lazily
-    std::vector<uint8> nodeResolved;          // 1 once nodeTriggers[i] was looked up, even if it is null
+    std::vector<Trigger*> nodeTriggers;       // the Trigger of this bot for each node, resolved in the first pass
+    std::vector<size_t> checkNodes;           // nodes whose trigger is checked every pass
+    std::vector<size_t> externalNodes;        // nodes whose trigger fires only after an external event
+    bool nodesPartitioned = false;
     std::vector<TriggerNode*> ownedTriggerNodes;
     std::vector<Multiplier*> multipliers;
     AiObjectContext* aiObjectContext;

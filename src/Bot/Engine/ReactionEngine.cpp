@@ -51,7 +51,6 @@ void ReactionEngine::Init()
     }
 
     nodeTriggers.assign(triggers.size(), nullptr);
-    nodeResolved.assign(triggers.size(), 0);
     actionNodeCreators = SharedActionNodeCreators(strategies);
 }
 

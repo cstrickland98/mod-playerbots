@@ -134,6 +134,14 @@ UntypedValue* AiObjectContext::GetUntypedValue(std::string const name)
     return value;
 }
 
+void AiObjectContext::QueueExternalTrigger(Trigger* trigger)
+{
+    // A second event before the first was consumed overwrites the trigger's payload, as before
+    if (std::find(pendingExternalTriggers.begin(), pendingExternalTriggers.end(), trigger) ==
+        pendingExternalTriggers.end())
+        pendingExternalTriggers.push_back(trigger);
+}
+
 // Deletes the qualified values that no lookup has touched for idleMs and that only cache a calculation
 // (UntypedValue::IsEvictable). Unqualified values are a fixed set per bot and stay. Returns the count.
 uint32 AiObjectContext::EvictIdleValues(uint32 idleMs)

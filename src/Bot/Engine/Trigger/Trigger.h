@@ -39,6 +39,10 @@ public:
     // False when Check() cannot possibly fire right now; lets the engine skip the whole check
     virtual bool needCheck(uint32 now);
 
+    // True for a trigger that fires only after ExternalEvent() (chat commands, packets). The engine
+    // leaves such triggers out of the per-pass loop and visits them only while an event is pending
+    virtual bool IsExternalOnly() const { return false; }
+
     // Set by Engine::ProcessTriggers once Check() ran in the current pass, cleared at the end of the pass
     bool IsCheckedThisPass() const { return _checkedThisPass; }
     void SetCheckedThisPass(bool checked) { _checkedThisPass = checked; }

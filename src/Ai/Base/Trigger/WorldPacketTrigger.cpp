@@ -12,6 +12,7 @@ void WorldPacketTrigger::ExternalEvent(WorldPacket& revData, Player* eventOwner)
     packet = revData;
     owner = eventOwner;
     triggered = true;
+    context->QueueExternalTrigger(this);
 }
 
 Event WorldPacketTrigger::Check()

@@ -42,6 +42,11 @@ public:
     virtual UntypedValue* GetUntypedValue(std::string const name);
     uint32 EvictIdleValues(uint32 idleMs);
 
+    // External-event triggers (Trigger::IsExternalOnly) register here when their event arrives;
+    // the engine that has a node for the trigger takes it from the list in its next pass
+    void QueueExternalTrigger(Trigger* trigger);
+    std::vector<Trigger*>& GetPendingExternalTriggers() { return pendingExternalTriggers; }
+
     template <class T>
     Value<T>* GetValue(std::string const name)
     {
@@ -112,6 +117,8 @@ protected:
     NamedObjectContextList<UntypedValue> valueContexts;
 
 private:
+    std::vector<Trigger*> pendingExternalTriggers;
+
     static SharedNamedObjectContextList<Strategy> sharedStrategyContexts;
     static SharedNamedObjectContextList<Action> sharedActionContexts;
     static SharedNamedObjectContextList<Trigger> sharedTriggerContexts;
