@@ -283,14 +283,6 @@ bool RandomTrigger::IsActive()
 
 bool AndTrigger::IsActive() { return ls && rs && ls->IsActive() && rs->IsActive(); }
 
-std::string const AndTrigger::getName()
-{
-    std::string name(ls->getName());
-    name = name + " and ";
-    name = name + rs->getName();
-    return name;
-}
-
 bool TwoTriggers::IsActive()
 {
     if (name1.empty() || name2.empty())
@@ -303,13 +295,6 @@ bool TwoTriggers::IsActive()
         return false;
 
     return trigger1->IsActive() && trigger2->IsActive();
-}
-
-std::string const TwoTriggers::getName()
-{
-    std::string name;
-    name = name1 + " and " + name2;
-    return name;
 }
 
 bool BoostTrigger::IsActive()

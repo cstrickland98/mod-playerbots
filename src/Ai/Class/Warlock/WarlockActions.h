@@ -201,7 +201,11 @@ class CastDevourMagicCleanseAction : public CastSpellAction
 {
 public:
     CastDevourMagicCleanseAction(PlayerbotAI* botAI) : CastSpellAction(botAI, "devour magic cleanse") {}
-    std::string const getName() override { return "cleanse magic on party"; }
+    std::string const& getName() const override
+    {
+        static std::string const fixedName = "cleanse magic on party";
+        return fixedName;
+    }
 };
 
 // Utility Spells

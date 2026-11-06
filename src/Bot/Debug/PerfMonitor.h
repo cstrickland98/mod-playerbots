@@ -84,7 +84,7 @@ public:
 
     static bool IsEnabled();
 
-    PerfMonitorOperation* start(PerformanceMetric metric, std::string const name,
+    PerfMonitorOperation* start(PerformanceMetric metric, std::string const& name,
                                        PerformanceStack* stack = nullptr);
     PerformanceData* acquire(PerformanceMetric metric, std::string const& name);
     static void CountBlock(PerformanceData* data);
