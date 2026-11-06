@@ -3013,6 +3013,26 @@ Player* RandomPlayerbotMgr::GetRandomPlayer()
     return players[index];
 }
 
+// Items the bot owns in equipment, bags, bank, keyring and buyback; each one is a separate Item object
+static uint32 CountOwnedItems(Player* bot)
+{
+    uint32 count = 0;
+    for (uint8 slot = EQUIPMENT_SLOT_START; slot < CURRENCYTOKEN_SLOT_END; ++slot)
+    {
+        Item* item = bot->GetItemByPos(INVENTORY_SLOT_BAG_0, slot);
+        if (!item)
+            continue;
+
+        ++count;
+        if (Bag* bag = item->ToBag())
+            for (uint32 i = 0; i < bag->GetBagSize(); ++i)
+                if (bag->GetItemByPos(i))
+                    ++count;
+    }
+
+    return count;
+}
+
 void RandomPlayerbotMgr::PrintStats()
 {
     printStatsTimer = time(nullptr);
@@ -3065,6 +3085,9 @@ void RandomPlayerbotMgr::PrintStats()
     // static NewRpgStatistic rpgStasticTotal;
     std::unordered_map<uint32, int> zoneCount;
     uint8 maxBotLevel = 0;
+    uint64 createdStrategies = 0, createdActions = 0, createdTriggers = 0, createdValues = 0;
+    uint64 ownedItems = 0;
+    std::unordered_map<std::string, uint32> valueNames;
     for (PlayerBotMap::iterator i = playerBots.begin(); i != playerBots.end(); ++i)
     {
         Player* bot = i->second;
@@ -3089,6 +3112,14 @@ void RandomPlayerbotMgr::PrintStats()
 
         if (botAI->IsActivityAllowedCached())
             ++active;
+
+        AiObjectContext::CreatedCounts created = botAI->GetAiObjectContext()->GetCreatedCounts();
+        createdStrategies += created.strategies;
+        createdActions += created.actions;
+        createdTriggers += created.triggers;
+        createdValues += created.values;
+        botAI->GetAiObjectContext()->CountCreatedValueNames(valueNames);
+        ownedItems += CountOwnedItems(bot);
         /* TODO: Review statistics on rpg merge
         if (botAI->GetAiObjectContext()->GetValue<bool>("random bot update")->Get())
             ++update;
@@ -3205,6 +3236,25 @@ void RandomPlayerbotMgr::PrintStats()
 
     LOG_INFO("playerbots", "Bots status:");
     LOG_INFO("playerbots", "    Active: {}", active);
+    if (!playerBots.empty())
+    {
+        uint32 loadedGrids = 0;
+        sMapMgr->DoForAllMaps([&loadedGrids](Map* map) { loadedGrids += map->GetLoadedGridsCount(); });
+        LOG_INFO("playerbots", "    Context objects per bot: {} strategies, {} actions, {} triggers, {} values ({} values in total)",
+            createdStrategies / playerBots.size(), createdActions / playerBots.size(),
+            createdTriggers / playerBots.size(), createdValues / playerBots.size(), createdValues);
+        LOG_INFO("playerbots", "    Loaded grids: {}", loadedGrids);
+        LOG_INFO("playerbots", "    Items per bot: {:.1f} ({} in total)", double(ownedItems) / playerBots.size(), ownedItems);
+
+        std::vector<std::pair<std::string, uint32>> topValues(valueNames.begin(), valueNames.end());
+        size_t shown = std::min<size_t>(topValues.size(), 20);
+        std::partial_sort(topValues.begin(), topValues.begin() + shown, topValues.end(),
+                          [](auto const& a, auto const& b) { return a.second > b.second; });
+        std::ostringstream names;
+        for (size_t i = 0; i < shown; ++i)
+            names << (i ? ", " : "") << topValues[i].first << " " << topValues[i].second;
+        LOG_INFO("playerbots", "    Most created values (total over all bots): {}", names.str());
+    }
     LOG_INFO("playerbots", "    Moving: {}", moving);
 
     // LOG_INFO("playerbots", "Bots to:");

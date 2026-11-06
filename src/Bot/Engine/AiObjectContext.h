@@ -62,6 +62,31 @@ public:
     }
 
     std::set<std::string> GetValues();
+
+    // Number of objects this bot has instantiated from each shared context, for the bot stats print
+    struct CreatedCounts
+    {
+        uint32 strategies = 0;
+        uint32 actions = 0;
+        uint32 triggers = 0;
+        uint32 values = 0;
+    };
+    CreatedCounts GetCreatedCounts() const
+    {
+        return { uint32(strategyContexts.created.size()), uint32(actionContexts.created.size()),
+                 uint32(triggerContexts.created.size()), uint32(valueContexts.created.size()) };
+    }
+
+    // Adds this bot's created values to counts, keyed by the value name without its "::qualifier"
+    void CountCreatedValueNames(std::unordered_map<std::string, uint32>& counts) const
+    {
+        for (auto const& entry : valueContexts.created)
+        {
+            size_t found = entry.first.find("::");
+            ++counts[found == std::string::npos ? entry.first : entry.first.substr(0, found)];
+        }
+    }
+
     std::set<std::string> GetSupportedStrategies();
     std::set<std::string> GetSupportedActions();
     std::string const FormatValues();
