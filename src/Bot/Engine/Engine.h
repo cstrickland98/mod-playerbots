@@ -107,13 +107,16 @@ protected:
     bool MultiplyAndPush(std::vector<NextAction> actions, float forceRelevance, bool skipPrerequisites, Event event,
                          char const* pushType);
     void Reset();
+    void AddTriggerNodes(Strategy* strategy, bool reaction);
     void ProcessTriggers(bool minimal);
     void PushAgain(ActionNode* actionNode, float relevance, Event event);
     virtual Action* InitializeAction(ActionNode* actionNode);
     virtual bool ListenAndExecute(Action* action, Event event);
 
     Queue queue;
-    std::vector<TriggerNode*> triggers;
+    std::vector<TriggerNode*> triggers;       // shared and owned nodes, in strategy order
+    std::vector<Trigger*> nodeTriggers;       // the Trigger of this bot for each node, resolved lazily
+    std::vector<TriggerNode*> ownedTriggerNodes;
     std::vector<Multiplier*> multipliers;
     AiObjectContext* aiObjectContext;
     std::map<std::string, Strategy*> strategies;
@@ -125,6 +128,7 @@ protected:
     using ActionNodeCreators = std::unordered_map<std::string, NamedObjectFactory<ActionNode>::ObjectCreator>;
     static std::shared_ptr<ActionNodeCreators const> SharedActionNodeCreators(
         std::map<std::string, Strategy*> const& strategies);
+    static std::vector<TriggerNode*> const& SharedTriggerNodes(Strategy* strategy, bool reaction);
     std::shared_ptr<ActionNodeCreators const> actionNodeCreators;
 };
 

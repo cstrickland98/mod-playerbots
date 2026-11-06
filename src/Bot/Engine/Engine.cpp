@@ -13,6 +13,7 @@
 #include "Strategy.h"
 #include "Timer.h"
 #include <mutex>
+#include <typeindex>
 
 #include <algorithm>
 
@@ -100,12 +101,14 @@ void Engine::Reset()
         delete action;
     }
 
-    for (TriggerNode* trigger : triggers)
+    for (TriggerNode* node : ownedTriggerNodes)
     {
-        delete trigger;
+        delete node;
     }
 
+    ownedTriggerNodes.clear();
     triggers.clear();
+    nodeTriggers.clear();
 
     for (Multiplier* multiplier : multipliers)
     {
@@ -143,6 +146,44 @@ std::shared_ptr<Engine::ActionNodeCreators const> Engine::SharedActionNodeCreato
     return cache[key] = creators;
 }
 
+std::vector<TriggerNode*> const& Engine::SharedTriggerNodes(Strategy* strategy, bool reaction)
+{
+    static std::mutex cacheLock;
+    static std::map<std::pair<std::type_index, bool>, std::vector<TriggerNode*>> cache;
+
+    std::lock_guard<std::mutex> lock(cacheLock);
+    auto key = std::make_pair(std::type_index(typeid(*strategy)), reaction);
+    auto cached = cache.find(key);
+    if (cached != cache.end())
+        return cached->second;
+
+    std::vector<TriggerNode*>& nodes = cache[key];
+    if (reaction)
+        strategy->InitReactionTriggers(nodes);
+    else
+        strategy->InitTriggers(nodes);
+
+    return nodes;
+}
+
+void Engine::AddTriggerNodes(Strategy* strategy, bool reaction)
+{
+    if (strategy->HasSharedTriggers())
+    {
+        std::vector<TriggerNode*> const& shared = SharedTriggerNodes(strategy, reaction);
+        triggers.insert(triggers.end(), shared.begin(), shared.end());
+        return;
+    }
+
+    size_t first = triggers.size();
+    if (reaction)
+        strategy->InitReactionTriggers(triggers);
+    else
+        strategy->InitTriggers(triggers);
+
+    ownedTriggerNodes.insert(ownedTriggerNodes.end(), triggers.begin() + first, triggers.end());
+}
+
 void Engine::Init()
 {
     Reset();
@@ -154,9 +195,10 @@ void Engine::Init()
         strategyTypeMask |= strategy->GetType();
         hasTargetExclusions |= strategy->HasTargetExclusions();
         strategy->InitMultipliers(multipliers);
-        strategy->InitTriggers(triggers);
+        AddTriggerNodes(strategy, false);
     }
 
+    nodeTriggers.assign(triggers.size(), nullptr);
     actionNodeCreators = SharedActionNodeCreators(strategies);
 
     if (testMode)
@@ -480,17 +522,17 @@ void Engine::ProcessTriggers(bool minimal)
     // Few triggers fire per pass; a flat list avoids the per-pass hash map allocations
     std::vector<std::pair<Trigger*, Event>> fires;
     uint32 now = getMSTime();
-    for (std::vector<TriggerNode*>::iterator i = triggers.begin(); i != triggers.end(); i++)
+    for (size_t i = 0; i < triggers.size(); ++i)
     {
-        TriggerNode* node = *i;
+        TriggerNode* node = triggers[i];
         if (!node)
             continue;
 
-        Trigger* trigger = node->getTrigger();
+        Trigger* trigger = nodeTriggers[i];
         if (!trigger)
         {
             trigger = aiObjectContext->GetTrigger(node->getName());
-            node->setTrigger(trigger);
+            nodeTriggers[i] = trigger;
         }
 
         if (!trigger)
@@ -523,20 +565,19 @@ void Engine::ProcessTriggers(bool minimal)
         }
     }
 
-    for (std::vector<TriggerNode*>::iterator i = triggers.begin(); i != triggers.end(); i++)
+    for (size_t i = 0; i < triggers.size(); ++i)
     {
-        TriggerNode* node = *i;
-        Trigger* trigger = node->getTrigger();
+        Trigger* trigger = nodeTriggers[i];
         auto fired = std::find_if(fires.begin(), fires.end(), [trigger](auto const& f) { return f.first == trigger; });
         if (fired == fires.end())
             continue;
 
-        MultiplyAndPush(node->getHandlers(), 0.0f, false, fired->second, "trigger");
+        MultiplyAndPush(triggers[i]->getHandlers(trigger), 0.0f, false, fired->second, "trigger");
     }
 
-    for (std::vector<TriggerNode*>::iterator i = triggers.begin(); i != triggers.end(); i++)
+    for (Trigger* trigger : nodeTriggers)
     {
-        if (Trigger* trigger = (*i)->getTrigger())
+        if (trigger)
         {
             trigger->Reset();
             trigger->SetCheckedThisPass(false);

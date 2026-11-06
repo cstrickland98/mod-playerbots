@@ -3495,9 +3495,7 @@ void TravelMgr::LoadQuestTravelTable()
                                         {
                                             if (Trigger* trigger = con->GetTrigger(triggerNode->getName()))
                                             {
-                                                triggerNode->setTrigger(trigger);
-
-                                                std::vector<NextAction> nextActions = triggerNode->getHandlers();
+                                                std::vector<NextAction> nextActions = triggerNode->getHandlers(trigger);
 
                                                 // for (uint32_t i = 0; i < nextActions.size(); ++i)
                                                 for (NextAction nextAction : nextActions)

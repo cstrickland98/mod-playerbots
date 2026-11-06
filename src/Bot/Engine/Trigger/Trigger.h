@@ -58,16 +58,15 @@ public:
         std::string const& name,
         std::vector<NextAction> handlers = {}
     ) :
-    trigger(nullptr),
     handlers(std::move(handlers)),
     name(name)
     {}
 
-    Trigger* getTrigger() { return trigger; }
-    void setTrigger(Trigger* trigger) { this->trigger = trigger; }
-    const std::string getName() { return name; }
+    std::string const& getName() const { return name; }
 
-    std::vector<NextAction> getHandlers()
+    // A node holds no per-bot state, so one node list can serve every bot; the engine keeps the
+    // resolved Trigger of its bot and passes it in
+    std::vector<NextAction> getHandlers(Trigger* trigger) const
     {
         std::vector<NextAction> result = this->handlers;
 
@@ -80,7 +79,7 @@ public:
         return result;
     }
 
-    float getFirstRelevance()
+    float getFirstRelevance() const
     {
         if (this->handlers.size() > 0)
             return this->handlers[0].getRelevance();
@@ -89,7 +88,6 @@ public:
     }
 
 private:
-    Trigger* trigger;
     std::vector<NextAction> handlers;
     const std::string name;
 };
