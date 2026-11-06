@@ -10,6 +10,7 @@
 #include "ObjectGuid.h"
 #include "Player.h"
 #include "PlayerbotAIBase.h"
+#include <vector>
 
 class ChatHandler;
 class PlayerbotAI;
@@ -132,7 +133,9 @@ private:
     PlayerbotsMgr(PlayerbotsMgr&&) = delete;
     PlayerbotsMgr& operator=(PlayerbotsMgr&&) = delete;
 
-    std::unordered_map<ObjectGuid, PlayerbotAIBase*> _playerbotsAIMap;
+    // Indexed by the character guid counter: GetPlayerbotAI runs for every player update and
+    // every packet sent, and a vector read is one memory access where a hash lookup is three
+    std::vector<PlayerbotAI*> _playerbotsAIByCounter;
     std::unordered_map<ObjectGuid, PlayerbotAIBase*> _playerbotsMgrMap;
 };
 

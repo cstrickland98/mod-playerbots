@@ -16,7 +16,10 @@ bool CombatStartTrigger::IsActive()
     // also catches the master pulling while the bot itself is still out of combat.
     // Edge-triggered: fire once when attackers first appear, not on every tick they persist,
     // or the reaction would keep clearing the main AI delay for a bot that is idling on purpose.
-    bool const hasAttackers = !AI_VALUE(GuidVector, "attackers").empty();
+    if (!attackers)
+        attackers = context->GetValue<GuidVector>("attackers");  // unqualified: lives as long as the context
+
+    bool const hasAttackers = !attackers->Get().empty();
     bool const started = hasAttackers && !hadAttackers;
     hadAttackers = hasAttackers;
 
