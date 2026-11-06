@@ -642,6 +642,7 @@ public:
     ForceRebuffState forceRebuff;
     // Relocation notifies since this bot last re-evaluated what it can see (see PlayerbotsPlayerScript)
     uint32 relocationsSinceVisibilityPass = 0;
+    uint32 nextValueSweepTime = 0;
 
     // Schedules a callback to run once after <delayMs> milliseconds.
     void AddTimedEvent(std::function<void()> callback, uint32 delayMs);

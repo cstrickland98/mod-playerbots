@@ -40,6 +40,7 @@ public:
     virtual Trigger* GetTrigger(std::string const name);
     virtual Action* GetAction(std::string const name);
     virtual UntypedValue* GetUntypedValue(std::string const name);
+    uint32 EvictIdleValues(uint32 idleMs);
 
     template <class T>
     Value<T>* GetValue(std::string const name)

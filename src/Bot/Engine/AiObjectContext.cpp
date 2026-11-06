@@ -127,7 +127,34 @@ Action* AiObjectContext::GetAction(std::string const name) { return actionContex
 
 UntypedValue* AiObjectContext::GetUntypedValue(std::string const name)
 {
-    return valueContexts.GetContextObject(name, botAI);
+    UntypedValue* value = valueContexts.GetContextObject(name, botAI);
+    if (value)
+        value->lastUsedTime = getMSTime();
+
+    return value;
+}
+
+// Deletes the qualified values that no lookup has touched for idleMs and that only cache a calculation
+// (UntypedValue::IsEvictable). Unqualified values are a fixed set per bot and stay. Returns the count.
+uint32 AiObjectContext::EvictIdleValues(uint32 idleMs)
+{
+    uint32 const now = getMSTime();
+    uint32 evicted = 0;
+    for (auto i = valueContexts.created.begin(); i != valueContexts.created.end();)
+    {
+        UntypedValue* value = i->second;
+        if (value && value->IsEvictable() && now - value->lastUsedTime > idleMs &&
+            i->first.find("::") != std::string::npos)
+        {
+            delete value;
+            i = valueContexts.created.erase(i);
+            ++evicted;
+        }
+        else
+            ++i;
+    }
+
+    return evicted;
 }
 
 std::set<std::string> AiObjectContext::GetValues() { return valueContexts.GetCreated(); }

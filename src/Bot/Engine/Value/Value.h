@@ -40,6 +40,13 @@ public:
     virtual std::string const Format() { return "?"; }
     virtual std::string const Save() { return "?"; }
     virtual bool Load([[maybe_unused]] std::string const value) { return false; }
+
+    // A value created for a dynamic qualifier (a spell name, an item id, an npc entry) stays in the
+    // bot's context for the bot's lifetime. One that only caches a calculation may be deleted after a
+    // period of disuse and rebuilt on the next lookup; one that holds state set from outside must not.
+    virtual bool IsEvictable() const { return false; }
+
+    uint32 lastUsedTime = 0;  // getMSTime() of the last context lookup, kept by AiObjectContext
 };
 
 template <class T>
@@ -118,6 +125,7 @@ public:
     void Set(T val) override { value = val; }
     void Update() override {}
     void Reset() override { lastCheckTime = 0; }
+    bool IsEvictable() const override { return true; }
 
 protected:
     virtual T Calculate() = 0;
@@ -160,6 +168,8 @@ public:
 
         return this->value;
     }
+
+    bool IsEvictable() const override { return false; }  // calculated once per bot lifetime
 };
 
 template <class T>
@@ -214,6 +224,8 @@ public:
         CalculatedValue<T>::Reset();
         lastChangeTime = time(0);
     }
+
+    bool IsEvictable() const override { return false; }  // remembers when the value last changed
 
 protected:
     T lastValue;
