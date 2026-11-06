@@ -109,6 +109,7 @@ void Engine::Reset()
     ownedTriggerNodes.clear();
     triggers.clear();
     nodeTriggers.clear();
+    nodeResolved.clear();
 
     for (Multiplier* multiplier : multipliers)
     {
@@ -199,6 +200,7 @@ void Engine::Init()
     }
 
     nodeTriggers.assign(triggers.size(), nullptr);
+    nodeResolved.assign(triggers.size(), 0);
     actionNodeCreators = SharedActionNodeCreators(strategies);
 
     if (testMode)
@@ -529,10 +531,12 @@ void Engine::ProcessTriggers(bool minimal)
             continue;
 
         Trigger* trigger = nodeTriggers[i];
-        if (!trigger)
+        if (!trigger && !nodeResolved[i])
         {
+            // A name the context does not know stays null; do not look it up again every pass
             trigger = aiObjectContext->GetTrigger(node->getName());
             nodeTriggers[i] = trigger;
+            nodeResolved[i] = 1;
         }
 
         if (!trigger)

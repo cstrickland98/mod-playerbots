@@ -116,6 +116,7 @@ protected:
     Queue queue;
     std::vector<TriggerNode*> triggers;       // shared and owned nodes, in strategy order
     std::vector<Trigger*> nodeTriggers;       // the Trigger of this bot for each node, resolved lazily
+    std::vector<uint8> nodeResolved;          // 1 once nodeTriggers[i] was looked up, even if it is null
     std::vector<TriggerNode*> ownedTriggerNodes;
     std::vector<Multiplier*> multipliers;
     AiObjectContext* aiObjectContext;
