@@ -36,7 +36,8 @@ public:
     virtual Value<Unit*>* GetTargetValue();
     virtual std::string const GetTargetName() { return "self target"; }
 
-    bool needCheck(uint32 now);
+    // False when Check() cannot possibly fire right now; lets the engine skip the whole check
+    virtual bool needCheck(uint32 now);
 
     // Set by Engine::ProcessTriggers once Check() ran in the current pass, cleared at the end of the pass
     bool IsCheckedThisPass() const { return _checkedThisPass; }

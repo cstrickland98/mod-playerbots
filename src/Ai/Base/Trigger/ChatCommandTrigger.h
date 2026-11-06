@@ -22,6 +22,8 @@ public:
     void ExternalEvent(std::string const param, Player* owner = nullptr) override;
     Event Check() override;
     void Reset() override;
+    // Only ExternalEvent() (a queued chat command) can make Check() fire
+    bool needCheck(uint32 /*now*/) override { return triggered; }
 
 private:
     std::string param;
