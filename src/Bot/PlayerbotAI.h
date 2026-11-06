@@ -640,6 +640,8 @@ public:
     std::unordered_set<uint32> lowPriorityQuest;
     time_t bgReleaseAttemptTime = 0;
     ForceRebuffState forceRebuff;
+    // Relocation notifies since this bot last re-evaluated what it can see (see PlayerbotsPlayerScript)
+    uint32 relocationsSinceVisibilityPass = 0;
 
     // Schedules a callback to run once after <delayMs> milliseconds.
     void AddTimedEvent(std::function<void()> callback, uint32 delayMs);
