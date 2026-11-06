@@ -152,6 +152,7 @@ public:
     int WeightTeleToShattrathCity;
     int WeightTeleToDalaran;
     std::vector<uint32> RandomBotMaps;
+    bool RandomBotBalanceMaps;
     std::vector<uint32> RandomBotQuestItems;
     std::vector<uint32> RandomBotAccounts;
     std::vector<uint32> RandomBotSpellIds;

@@ -1612,6 +1612,13 @@ Playerbots.ZoneBracket.4197 = 79,80
 # Defaults: 0 = Eastern Kingdoms, 1 = Kalimdor, 530 = Outland, 571 = Northrend
 Playerbots.RandomBotMaps = 0,1,530,571
 
+# Prefer the map with the fewest random bots among the destinations a bot's level allows.
+# Every continent updates on its own thread and a world tick lasts as long as the busiest
+# one, so an even spread keeps the tick short. Low-level bots alternate between the Eastern
+# Kingdoms and Kalimdor, high-level bots between Outland and Northrend.
+# Default: 1 (enabled)
+Playerbots.RandomBotBalanceMaps = 1
+
 # When an idle bot picks a random destination it makes ONE weighted roll across three classes,
 # so each value is an exact share of the roll (peers, not nested gates):
 #     quest giver   : ProbTeleToQuestGivers

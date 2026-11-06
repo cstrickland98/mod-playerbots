@@ -195,6 +195,7 @@ bool PlayerbotAIConfig::Initialize()
 
     RandomBotMapsAsString = sConfigMgr->GetOption<std::string>("Playerbots.RandomBotMaps", "0,1,530,571");
     LoadList<std::vector<uint32>>(RandomBotMapsAsString, RandomBotMaps);
+    RandomBotBalanceMaps = sConfigMgr->GetOption<bool>("Playerbots.RandomBotBalanceMaps", true);
     ProbTeleToBankers = sConfigMgr->GetOption<float>("Playerbots.ProbTeleToBankers", 0.25f);
     ProbTeleToQuestGivers = sConfigMgr->GetOption<float>("Playerbots.ProbTeleToQuestGivers", 0.0f);
 

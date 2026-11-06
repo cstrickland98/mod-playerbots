@@ -295,6 +295,9 @@ void RandomPlayerbotMgr::UpdateAIInternal(uint32 /*elapsed*/, bool /*minimal*/)
     if (sPlayerbotAIConfig.RandomBotConcentrateInPlayerZone)
         UpdatePlayerZones();
 
+    if (sPlayerbotAIConfig.RandomBotBalanceMaps)
+        UpdateBotsPerMap();
+
     /*if (sPlayerbotAIConfig.enablePrototypePerformanceDiff)
     {
         LOG_INFO("playerbots", "---------------------------------------");
@@ -1846,6 +1849,9 @@ void RandomPlayerbotMgr::RandomTeleport(Player* bot, std::vector<WorldLocation>&
     PerfMonitorOperation* pmo = sPerfMonitor.start(PERF_MON_RNDBOT, "RandomTeleportByLocations");
 
     std::shuffle(std::begin(tlocs), std::end(tlocs), RandomEngine::Instance());
+    if (sPlayerbotAIConfig.RandomBotBalanceMaps)
+        PreferLeastLoadedMap(tlocs);
+
     for (uint32 i = 0; i < tlocs.size(); i++)
     {
         WorldLocation loc = tlocs[i];
@@ -2136,6 +2142,49 @@ void RandomPlayerbotMgr::UpdatePlayerZones()
 
     std::lock_guard<std::mutex> lock(_playerZonesLock);
     _playerZones = std::move(playerMapZones);
+}
+
+// Counts the random bots in world per map, every 30 s on the world thread. The map threads read
+// the counts from the teleport picker; they never run while the world thread is between map updates
+void RandomPlayerbotMgr::UpdateBotsPerMap()
+{
+    time_t const now = time(nullptr);
+    if (now < nextBotsPerMapUpdate)
+        return;
+
+    nextBotsPerMapUpdate = now + 30;
+    std::unordered_map<uint32, uint32> counts;
+    for (auto const& [guid, bot] : playerBots)
+        if (bot->IsInWorld())
+            ++counts[bot->GetMapId()];
+
+    botsPerMap = std::move(counts);
+}
+
+// Moves the locations on the candidate map with the fewest random bots to the front, keeping the
+// shuffled order within each part. A world tick lasts as long as the busiest map thread, so the
+// bots should spread evenly over the maps their level allows; the rest stay as fallbacks
+void RandomPlayerbotMgr::PreferLeastLoadedMap(std::vector<WorldPosition>& locs) const
+{
+    uint32 bestMap = 0;
+    uint32 bestCount = 0;
+    bool found = false;
+    for (WorldPosition const& loc : locs)
+    {
+        uint32 const mapId = loc.GetMapId();
+        auto const count = botsPerMap.find(mapId);
+        uint32 const bots = count == botsPerMap.end() ? 0 : count->second;
+        if (!found || bots < bestCount)
+        {
+            bestMap = mapId;
+            bestCount = bots;
+            found = true;
+        }
+    }
+
+    if (found)
+        std::stable_partition(locs.begin(), locs.end(),
+                              [bestMap](WorldPosition const& loc) { return loc.GetMapId() == bestMap; });
 }
 
 void RandomPlayerbotMgr::RandomTeleportGrindForLevel(Player* bot)
@@ -3088,9 +3137,11 @@ void RandomPlayerbotMgr::PrintStats()
     uint64 createdStrategies = 0, createdActions = 0, createdTriggers = 0, createdValues = 0;
     uint64 ownedItems = 0;
     std::unordered_map<std::string, uint32> valueNames;
+    std::map<uint32, uint32> botsOnMap;
     for (PlayerBotMap::iterator i = playerBots.begin(); i != playerBots.end(); ++i)
     {
         Player* bot = i->second;
+        ++botsOnMap[bot->GetMapId()];
         if (IsAlliance(bot->getRace()))
             ++alliance[bot->GetLevel()];
         else
@@ -3244,6 +3295,11 @@ void RandomPlayerbotMgr::PrintStats()
             createdStrategies / playerBots.size(), createdActions / playerBots.size(),
             createdTriggers / playerBots.size(), createdValues / playerBots.size(), createdValues);
         LOG_INFO("playerbots", "    Loaded grids: {}", loadedGrids);
+
+        std::ostringstream perMap;
+        for (auto const& [mapId, count] : botsOnMap)
+            perMap << (perMap.tellp() ? ", " : "") << mapId << ": " << count;
+        LOG_INFO("playerbots", "    Bots per map: {}", perMap.str());
         LOG_INFO("playerbots", "    Items per bot: {:.1f} ({} in total)", double(ownedItems) / playerBots.size(), ownedItems);
 
         std::vector<std::pair<std::string, uint32>> topValues(valueNames.begin(), valueNames.end());

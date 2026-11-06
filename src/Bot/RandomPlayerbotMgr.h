@@ -283,6 +283,8 @@ private:
     uint32 GetZoneLevel(uint16 mapId, float teleX, float teleY, float teleZ);
     void UpdatePlayerZones();
     std::vector<WorldLocation> GetPlayerZoneTeleportLocations(std::vector<WorldLocation> const& locs, Player* bot);
+    void UpdateBotsPerMap();
+    void PreferLeastLoadedMap(std::vector<WorldPosition>& locs) const;
     typedef void (RandomPlayerbotMgr::*ConsoleCommandHandler)(Player*);
     std::vector<Player*> players;
 
@@ -291,6 +293,8 @@ private:
     std::map<TeamId, std::map<BattlegroundTypeId, std::vector<uint32>>> BattleMastersCache;
     std::unordered_map<uint32, ObjectGuid::LowType> BattleMasterSpawnIds;
     std::unordered_map<uint32, BotEventCache> eventCache;
+    std::unordered_map<uint32, uint32> botsPerMap;  // random bots in world per map id, see UpdateBotsPerMap
+    time_t nextBotsPerMapUpdate = 0;
     std::unordered_set<uint32> currentBots;
     uint32 playersLevel;
     // Written on the world thread, read from map threads.
