@@ -146,8 +146,9 @@ public:
 
     // A bot has no client, so its own visible set only feeds packets nobody reads; re-evaluating it on
     // every relocation notify (CanSeeOrDetect on every object in sight range) was ~15 % of map CPU.
-    // Keep every fourth pass so the set still tracks the bot's surroundings. Real players and self
-    // bots always run the pass.
+    // Keep one pass a second so the set still tracks the bot's surroundings, whatever notify delay
+    // the core's dynamic visibility settings use at the current load. Real players and self bots
+    // always run the pass.
     bool OnPlayerCanUpdateOwnVisibilityOnRelocation(Player* player) override
     {
         if (!player->GetSession()->IsHeadless())
@@ -157,10 +158,11 @@ public:
         if (!botAI || IsSelfBot(player))
             return true;
 
-        if (++botAI->relocationsSinceVisibilityPass < 4)
+        uint32 const now = getMSTime();
+        if (now - botAI->lastVisibilityPassTime < IN_MILLISECONDS)
             return false;
 
-        botAI->relocationsSinceVisibilityPass = 0;
+        botAI->lastVisibilityPassTime = now;
         return true;
     }
 
