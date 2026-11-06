@@ -468,7 +468,8 @@ void Engine::ProcessTriggers(bool minimal)
         if (!trigger)
             continue;
 
-        if (fires.find(trigger) != fires.end())
+        // Several strategies can list the same trigger; its answer does not change within one pass
+        if (trigger->IsCheckedThisPass())
             continue;
 
         if (testMode || trigger->needCheck(now))
@@ -479,6 +480,7 @@ void Engine::ProcessTriggers(bool minimal)
             PerfMonitorOperation* pmo =
                 sPerfMonitor.start(PERF_MON_TRIGGER, trigger->getName(), &aiObjectContext->performanceStack);
             Event event = trigger->Check();
+            trigger->SetCheckedThisPass(true);
             if (pmo)
                 pmo->finish();
 
@@ -507,7 +509,10 @@ void Engine::ProcessTriggers(bool minimal)
     for (std::vector<TriggerNode*>::iterator i = triggers.begin(); i != triggers.end(); i++)
     {
         if (Trigger* trigger = (*i)->getTrigger())
+        {
             trigger->Reset();
+            trigger->SetCheckedThisPass(false);
+        }
     }
 }
 

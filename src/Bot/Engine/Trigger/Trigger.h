@@ -38,9 +38,16 @@ public:
 
     bool needCheck(uint32 now);
 
+    // Set by Engine::ProcessTriggers once Check() ran in the current pass, cleared at the end of the pass
+    bool IsCheckedThisPass() const { return _checkedThisPass; }
+    void SetCheckedThisPass(bool checked) { _checkedThisPass = checked; }
+
 protected:
     int32_t checkInterval;
     uint32_t lastCheckTime;
+
+private:
+    bool _checkedThisPass;
 };
 
 class TriggerNode
