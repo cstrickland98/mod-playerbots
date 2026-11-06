@@ -87,7 +87,7 @@ public:
     virtual bool HasSharedTriggers() const { return false; }
     virtual std::string const getName() = 0;
     virtual uint32 GetType() const { return STRATEGY_TYPE_GENERIC; }
-    virtual ActionNode* GetAction(std::string const name);
+    virtual ActionNode* GetAction(std::string const& name);
     void Update() {}
     void Reset() {}
 

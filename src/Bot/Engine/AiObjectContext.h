@@ -35,11 +35,11 @@ public:
                     SharedNamedObjectContextList<UntypedValue>& sharedValueContext = sharedValueContexts);
     virtual ~AiObjectContext() {}
 
-    virtual Strategy* GetStrategy(std::string const name);
+    virtual Strategy* GetStrategy(std::string const& name);
     virtual std::set<std::string> GetSiblingStrategy(std::string const name);
-    virtual Trigger* GetTrigger(std::string const name);
-    virtual Action* GetAction(std::string const name);
-    virtual UntypedValue* GetUntypedValue(std::string const name);
+    virtual Trigger* GetTrigger(std::string const& name);
+    virtual Action* GetAction(std::string const& name);
+    virtual UntypedValue* GetUntypedValue(std::string const& name);
     uint32 EvictIdleValues(uint32 idleMs);
 
     // External-event triggers (Trigger::IsExternalOnly) register here when their event arrives;
@@ -48,19 +48,19 @@ public:
     std::vector<Trigger*>& GetPendingExternalTriggers() { return pendingExternalTriggers; }
 
     template <class T>
-    Value<T>* GetValue(std::string const name)
+    Value<T>* GetValue(std::string const& name)
     {
         return dynamic_cast<Value<T>*>(GetUntypedValue(name));
     }
 
     template <class T>
-    Value<T>* GetValue(std::string const name, std::string const param)
+    Value<T>* GetValue(std::string const& name, std::string const& param)
     {
-        return GetValue<T>((std::string(name) + "::" + param));
+        return GetValue<T>(name + "::" + param);
     }
 
     template <class T>
-    Value<T>* GetValue(std::string const name, int32 param)
+    Value<T>* GetValue(std::string const& name, int32 param)
     {
         std::ostringstream out;
         out << param;

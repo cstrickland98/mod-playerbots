@@ -111,7 +111,7 @@ void AiObjectContext::Load(std::vector<std::string> data)
     }
 }
 
-Strategy* AiObjectContext::GetStrategy(std::string const name)
+Strategy* AiObjectContext::GetStrategy(std::string const& name)
 {
     return strategyContexts.GetContextObject(name, botAI);
 }
@@ -121,11 +121,11 @@ std::set<std::string> AiObjectContext::GetSiblingStrategy(std::string const name
     return strategyContexts.GetSiblings(name);
 }
 
-Trigger* AiObjectContext::GetTrigger(std::string const name) { return triggerContexts.GetContextObject(name, botAI); }
+Trigger* AiObjectContext::GetTrigger(std::string const& name) { return triggerContexts.GetContextObject(name, botAI); }
 
-Action* AiObjectContext::GetAction(std::string const name) { return actionContexts.GetContextObject(name, botAI); }
+Action* AiObjectContext::GetAction(std::string const& name) { return actionContexts.GetContextObject(name, botAI); }
 
-UntypedValue* AiObjectContext::GetUntypedValue(std::string const name)
+UntypedValue* AiObjectContext::GetUntypedValue(std::string const& name)
 {
     UntypedValue* value = valueContexts.GetContextObject(name, botAI);
     if (value)
