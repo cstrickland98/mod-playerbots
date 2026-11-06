@@ -48,11 +48,9 @@ void ReactionEngine::Init()
         hasTargetExclusions |= strategy->HasTargetExclusions();
         strategy->InitReactionMultipliers(multipliers);
         strategy->InitReactionTriggers(triggers);
-        for (auto& iter : strategy->actionNodeFactories.creators)
-        {
-            actionNodeFactories.creators[iter.first] = iter.second;
-        }
     }
+
+    actionNodeCreators = SharedActionNodeCreators(strategies);
 }
 
 bool ReactionEngine::FindReaction(bool minimal, bool canControlSelf)

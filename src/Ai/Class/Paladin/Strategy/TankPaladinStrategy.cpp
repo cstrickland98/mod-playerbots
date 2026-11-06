@@ -62,7 +62,7 @@ private:
 
 TankPaladinStrategy::TankPaladinStrategy(PlayerbotAI* botAI) : GenericPaladinStrategy(botAI)
 {
-    actionNodeFactories.Add(new TankPaladinStrategyActionNodeFactory());
+    actionNodeFactories.Add(SharedFactory<TankPaladinStrategyActionNodeFactory>());
 }
 
 std::vector<NextAction> TankPaladinStrategy::getDefaultActions()

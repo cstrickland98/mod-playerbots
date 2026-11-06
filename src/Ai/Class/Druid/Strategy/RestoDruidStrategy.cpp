@@ -120,7 +120,7 @@ private:
 
 DruidBlanketStrategy::DruidBlanketStrategy(PlayerbotAI* botAI) : Strategy(botAI)
 {
-    actionNodeFactories.Add(new DruidBlanketStrategyActionNodeFactory());
+    actionNodeFactories.Add(SharedFactory<DruidBlanketStrategyActionNodeFactory>());
 }
 
 void DruidBlanketStrategy::InitTriggers(std::vector<TriggerNode*>& triggers)

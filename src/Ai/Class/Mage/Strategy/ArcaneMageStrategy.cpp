@@ -31,7 +31,7 @@ private:
 // ===== Single Target Strategy =====
 ArcaneMageStrategy::ArcaneMageStrategy(PlayerbotAI* botAI) : GenericMageStrategy(botAI)
 {
-    actionNodeFactories.Add(new ArcaneMageStrategyActionNodeFactory());
+    actionNodeFactories.Add(SharedFactory<ArcaneMageStrategyActionNodeFactory>());
 }
 
 // ===== Default Actions =====

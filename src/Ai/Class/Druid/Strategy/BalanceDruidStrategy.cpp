@@ -172,8 +172,8 @@ private:
 
 BalanceDruidStrategy::BalanceDruidStrategy(PlayerbotAI* botAI) : GenericDruidStrategy(botAI)
 {
-    actionNodeFactories.Add(new BalanceDruidStrategyActionNodeFactory());
-    actionNodeFactories.Add(new ShapeshiftDruidStrategyActionNodeFactory());
+    actionNodeFactories.Add(SharedFactory<BalanceDruidStrategyActionNodeFactory>());
+    actionNodeFactories.Add(SharedFactory<ShapeshiftDruidStrategyActionNodeFactory>());
 }
 
 std::vector<NextAction> BalanceDruidStrategy::getDefaultActions()

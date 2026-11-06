@@ -12,6 +12,7 @@
 #include "Queue.h"
 #include "Strategy.h"
 #include "Timer.h"
+#include <mutex>
 
 #include <algorithm>
 
@@ -113,7 +114,33 @@ void Engine::Reset()
 
     multipliers.clear();
 
-    actionNodeFactories.creators.clear();
+    actionNodeCreators.reset();
+}
+
+std::shared_ptr<Engine::ActionNodeCreators const> Engine::SharedActionNodeCreators(
+    std::map<std::string, Strategy*> const& strategies)
+{
+    // Factories are process-wide singletons, so the sequence of factory addresses identifies the union exactly
+    std::string key;
+    for (auto const& pair : strategies)
+        for (NamedObjectFactory<ActionNode>* factory : pair.second->actionNodeFactories.factories)
+            key.append(reinterpret_cast<char const*>(&factory), sizeof(factory));
+
+    static std::mutex cacheLock;
+    static std::unordered_map<std::string, std::shared_ptr<ActionNodeCreators const>> cache;
+
+    std::lock_guard<std::mutex> lock(cacheLock);
+    auto cached = cache.find(key);
+    if (cached != cache.end())
+        return cached->second;
+
+    auto creators = std::make_shared<ActionNodeCreators>();
+    for (auto const& pair : strategies)
+        for (NamedObjectFactory<ActionNode>* factory : pair.second->actionNodeFactories.factories)
+            for (auto const& creator : factory->creators)
+                (*creators)[creator.first] = creator.second;
+
+    return cache[key] = creators;
 }
 
 void Engine::Init()
@@ -128,11 +155,9 @@ void Engine::Init()
         hasTargetExclusions |= strategy->HasTargetExclusions();
         strategy->InitMultipliers(multipliers);
         strategy->InitTriggers(triggers);
-        for (auto &iter : strategy->actionNodeFactories.creators)
-        {
-            actionNodeFactories.creators[iter.first] = iter.second;
-        }
     }
+
+    actionNodeCreators = SharedActionNodeCreators(strategies);
 
     if (testMode)
     {
@@ -269,9 +294,9 @@ bool Engine::DoNextAction(Unit* /*unit*/, uint32 /*depth*/, bool minimal)
 
 ActionNode* Engine::CreateActionNode(std::string const name)
 {
-    ActionNode* node = actionNodeFactories.GetContextObject(name, botAI);
-    if (node)
-        return node;
+    if (actionNodeCreators)
+        if (ActionNode* node = NamedObjectFactory<ActionNode>::CreateFrom(*actionNodeCreators, name, botAI))
+            return node;
 
     return new ActionNode(name,
                           /*P*/ {},

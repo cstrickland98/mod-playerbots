@@ -77,7 +77,7 @@ private:
 
 ShamanNonCombatStrategy::ShamanNonCombatStrategy(PlayerbotAI* botAI) : NonCombatStrategy(botAI)
 {
-    actionNodeFactories.Add(new ShamanNonCombatStrategyActionNodeFactory());
+    actionNodeFactories.Add(SharedFactory<ShamanNonCombatStrategyActionNodeFactory>());
 }
 
 void ShamanNonCombatStrategy::InitTriggers(std::vector<TriggerNode*>& triggers)

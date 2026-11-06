@@ -83,7 +83,7 @@ private:
 
 CatDruidStrategy::CatDruidStrategy(PlayerbotAI* botAI) : FeralDruidStrategy(botAI)
 {
-    actionNodeFactories.Add(new CatDruidStrategyActionNodeFactory());
+    actionNodeFactories.Add(SharedFactory<CatDruidStrategyActionNodeFactory>());
 }
 
 std::vector<NextAction> CatDruidStrategy::getDefaultActions()
@@ -329,7 +329,7 @@ private:
 
 CatOffhealStrategy::CatOffhealStrategy(PlayerbotAI* botAI) : CombatStrategy(botAI)
 {
-    actionNodeFactories.Add(new CatOffhealStrategyActionNodeFactory());
+    actionNodeFactories.Add(SharedFactory<CatOffhealStrategyActionNodeFactory>());
 }
 
 void CatOffhealStrategy::InitTriggers(std::vector<TriggerNode*>& triggers)

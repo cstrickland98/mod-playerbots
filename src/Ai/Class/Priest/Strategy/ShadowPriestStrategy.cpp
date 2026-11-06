@@ -10,7 +10,7 @@
 
 ShadowPriestStrategy::ShadowPriestStrategy(PlayerbotAI* botAI) : GenericPriestStrategy(botAI)
 {
-    actionNodeFactories.Add(new ShadowPriestStrategyActionNodeFactory());
+    actionNodeFactories.Add(SharedFactory<ShadowPriestStrategyActionNodeFactory>());
 }
 
 std::vector<NextAction> ShadowPriestStrategy::getDefaultActions()

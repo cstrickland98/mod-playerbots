@@ -73,7 +73,7 @@ private:
 
 GenericWarlockNonCombatStrategy::GenericWarlockNonCombatStrategy(PlayerbotAI* botAI) : NonCombatStrategy(botAI)
 {
-    actionNodeFactories.Add(new GenericWarlockNonCombatStrategyActionNodeFactory());
+    actionNodeFactories.Add(SharedFactory<GenericWarlockNonCombatStrategyActionNodeFactory>());
 }
 
 void GenericWarlockNonCombatStrategy::InitTriggers(std::vector<TriggerNode*>& triggers)

@@ -50,7 +50,7 @@ private:
 AssassinationRogueStrategy::AssassinationRogueStrategy(PlayerbotAI* botAI)
     : GenericRogueStrategy(botAI)
 {
-    actionNodeFactories.Add(new AssassinationRogueStrategyActionNodeFactory());
+    actionNodeFactories.Add(SharedFactory<AssassinationRogueStrategyActionNodeFactory>());
 }
 
 std::vector<NextAction> AssassinationRogueStrategy::getDefaultActions()

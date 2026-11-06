@@ -10,7 +10,7 @@
 
 GenericPriestStrategy::GenericPriestStrategy(PlayerbotAI* botAI) : RangedCombatStrategy(botAI)
 {
-    actionNodeFactories.Add(new GenericPriestStrategyActionNodeFactory());
+    actionNodeFactories.Add(SharedFactory<GenericPriestStrategyActionNodeFactory>());
 }
 
 void GenericPriestStrategy::InitTriggers(std::vector<TriggerNode*>& triggers)
@@ -43,7 +43,7 @@ void GenericPriestStrategy::InitTriggers(std::vector<TriggerNode*>& triggers)
 
 PriestCureStrategy::PriestCureStrategy(PlayerbotAI* botAI) : Strategy(botAI)
 {
-    actionNodeFactories.Add(new CurePriestStrategyActionNodeFactory());
+    actionNodeFactories.Add(SharedFactory<CurePriestStrategyActionNodeFactory>());
 }
 
 void PriestCureStrategy::InitTriggers(std::vector<TriggerNode*>& triggers)

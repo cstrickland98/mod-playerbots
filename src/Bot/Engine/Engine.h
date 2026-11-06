@@ -13,6 +13,7 @@
 #include "Strategy.h"
 #include "Trigger.h"
 #include <map>
+#include <memory>
 
 class Action;
 class ActionNode;
@@ -120,7 +121,11 @@ protected:
     std::string lastAction;
     uint32 strategyTypeMask;
     bool hasTargetExclusions = false;
-    NamedObjectFactoryList<ActionNode> actionNodeFactories;
+    // Union of the strategies' action node creators; one shared copy per distinct strategy set
+    using ActionNodeCreators = std::unordered_map<std::string, NamedObjectFactory<ActionNode>::ObjectCreator>;
+    static std::shared_ptr<ActionNodeCreators const> SharedActionNodeCreators(
+        std::map<std::string, Strategy*> const& strategies);
+    std::shared_ptr<ActionNodeCreators const> actionNodeCreators;
 };
 
 #endif

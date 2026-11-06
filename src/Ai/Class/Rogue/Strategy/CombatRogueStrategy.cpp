@@ -39,7 +39,7 @@ private:
 
 CombatRogueStrategy::CombatRogueStrategy(PlayerbotAI* botAI) : GenericRogueStrategy(botAI)
 {
-    actionNodeFactories.Add(new CombatRogueStrategyActionNodeFactory());
+    actionNodeFactories.Add(SharedFactory<CombatRogueStrategyActionNodeFactory>());
 }
 
 std::vector<NextAction> CombatRogueStrategy::getDefaultActions()

@@ -73,8 +73,8 @@ private:
 
 FeralDruidStrategy::FeralDruidStrategy(PlayerbotAI* botAI) : GenericDruidStrategy(botAI)
 {
-    actionNodeFactories.Add(new FeralDruidStrategyActionNodeFactory());
-    actionNodeFactories.Add(new ShapeshiftDruidStrategyActionNodeFactory());
+    actionNodeFactories.Add(SharedFactory<FeralDruidStrategyActionNodeFactory>());
+    actionNodeFactories.Add(SharedFactory<ShapeshiftDruidStrategyActionNodeFactory>());
 }
 
 void FeralDruidStrategy::InitTriggers(std::vector<TriggerNode*>& triggers)

@@ -31,7 +31,7 @@ private:
 // ===== Single Target Strategy =====
 EnhancementShamanStrategy::EnhancementShamanStrategy(PlayerbotAI* botAI) : GenericShamanStrategy(botAI)
 {
-    actionNodeFactories.Add(new EnhancementShamanStrategyActionNodeFactory());
+    actionNodeFactories.Add(SharedFactory<EnhancementShamanStrategyActionNodeFactory>());
 }
 
 // ===== Default Actions =====

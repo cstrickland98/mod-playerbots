@@ -19,7 +19,7 @@ private:
 
 SubtletyRogueStrategy::SubtletyRogueStrategy(PlayerbotAI* botAI) : GenericRogueStrategy(botAI)
 {
-    actionNodeFactories.Add(new SubtletyRogueStrategyActionNodeFactory());
+    actionNodeFactories.Add(SharedFactory<SubtletyRogueStrategyActionNodeFactory>());
 }
 
 std::vector<NextAction> SubtletyRogueStrategy::getDefaultActions()

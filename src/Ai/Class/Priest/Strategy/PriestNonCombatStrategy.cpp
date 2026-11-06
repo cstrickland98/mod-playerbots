@@ -10,7 +10,7 @@
 
 PriestNonCombatStrategy::PriestNonCombatStrategy(PlayerbotAI* botAI) : NonCombatStrategy(botAI)
 {
-    actionNodeFactories.Add(new PriestNonCombatStrategyActionNodeFactory());
+    actionNodeFactories.Add(SharedFactory<PriestNonCombatStrategyActionNodeFactory>());
 }
 
 void PriestNonCombatStrategy::InitTriggers(std::vector<TriggerNode*>& triggers)

@@ -43,7 +43,7 @@ private:
 
 HunterBuffDpsStrategy::HunterBuffDpsStrategy(PlayerbotAI* botAI) : Strategy(botAI)
 {
-    actionNodeFactories.Add(new BuffHunterStrategyActionNodeFactory());
+    actionNodeFactories.Add(SharedFactory<BuffHunterStrategyActionNodeFactory>());
 }
 
 void HunterBuffDpsStrategy::InitTriggers(std::vector<TriggerNode*>& triggers)
