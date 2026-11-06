@@ -159,6 +159,7 @@ PlayerbotAI::PlayerbotAI(Player* bot)
 
     accountId = bot->GetSession()->GetAccountId();
     aiObjectContext = AiFactory::createAiObjectContext(bot, this);
+    possibleTargets = aiObjectContext->GetValue<GuidVector>("possible targets");  // unqualified: lives as long as the context
 
     engines[BOT_STATE_COMBAT] = AiFactory::createCombatEngine(bot, this, aiObjectContext);
     engines[BOT_STATE_NON_COMBAT] = AiFactory::createNonCombatEngine(bot, this, aiObjectContext);
@@ -283,7 +284,7 @@ void PlayerbotAI::UpdateAI(uint32 elapsed, bool minimal)
     }
 
     // One scan per tick shared by every reader; world-thread readers (console commands) see the last tick's list.
-    aiObjectContext->GetValue<GuidVector>("possible targets")->Reset();
+    possibleTargets->Reset();
 
     AllowActivity();
 
