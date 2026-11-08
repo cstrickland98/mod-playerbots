@@ -3793,7 +3793,9 @@ bool PlayerbotAI::CastSpell(uint32 spellId, Unit* target, Item* itemTarget)
     if (!IsValidUnit(target))
         return false;
 
-    MT_ASSERT_WRITABLE(target);
+    // a target in another task's area (far or stale group target) cannot be written this tick: no cast
+    if (!CanReadNow(target))
+        return false;
 
     SpellInfo const* spellInfo = sSpellMgr->GetSpellInfo(spellId);
     if (!spellInfo)
