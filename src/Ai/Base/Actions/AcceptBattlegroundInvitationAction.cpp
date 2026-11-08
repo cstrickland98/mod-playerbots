@@ -16,9 +16,11 @@ bool AcceptBgInvitationAction::Execute(Event /*event*/)
     uint16 unk = 0x1F90;                 // 0x1F90 constant?*/
     uint8 action = 1;
 
+    // queued, not handled here: the port handler writes the battleground queue, which the world thread owns, and this
+    // runs on a map thread (the bot session handles its queued packets on the world thread)
     WorldPacket packet(CMSG_BATTLEFIELD_PORT, 20);
     packet << type << unk2 << (uint32)bgTypeId_ << unk << action;
-    bot->GetSession()->HandleBattleFieldPortOpcode(packet);
+    bot->GetSession()->QueuePacket(new WorldPacket(packet));
 
     botAI->ResetStrategies();
 

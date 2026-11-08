@@ -676,7 +676,8 @@ bool BGStatusAction::LeaveBG(PlayerbotAI* botAI)
     packet << uint32(0);
     packet << uint16(0);
 
-    bot->GetSession()->HandleBattlefieldLeaveOpcode(packet);
+    // queued, not handled here: leaving writes the battleground and its queue, which the world thread owns
+    bot->GetSession()->QueuePacket(new WorldPacket(packet));
 
     botAI->ResetStrategies(!isRandomBot);
     botAI->GetAiObjectContext()->GetValue<uint32>("bg type")->Set(0);
