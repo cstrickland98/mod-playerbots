@@ -255,15 +255,18 @@ bool RazorscaleFuseArmorTrigger::IsActive()
         return false;
 
     // Iterate through group members to find the main tank with Fuse Armor
-    for (GroupReference* gref = group->GetFirstMember(); gref; gref = gref->next())
     {
-        Player* member = gref->GetSource();
-        if (!member || !PlayerbotAI::IsMainTank(member))
-            continue;
+        std::lock_guard<std::recursive_mutex> groupGuard(group->GetLock());
+        for (GroupReference* gref = group->GetFirstMember(); gref; gref = gref->next())
+        {
+            Player* member = gref->GetSource();
+            if (!member || !PlayerbotAI::IsMainTank(member))
+                continue;
 
-        Aura* fuseArmor = member->GetAura(RazorscaleBossHelper::SPELL_FUSEARMOR);
-        if (fuseArmor && fuseArmor->GetStackAmount() >= RazorscaleBossHelper::FUSEARMOR_THRESHOLD)
-            return true;
+            Aura* fuseArmor = member->GetAura(RazorscaleBossHelper::SPELL_FUSEARMOR);
+            if (fuseArmor && fuseArmor->GetStackAmount() >= RazorscaleBossHelper::FUSEARMOR_THRESHOLD)
+                return true;
+        }
     }
 
     return false;
@@ -704,14 +707,17 @@ bool FreyaMarkDpsTargetTrigger::IsActive()
         uint32 healthThreshold = map->Is25ManRaid() ? 7200 : 4900;  // Detonate maximum damage
 
         // Check that detonate lasher dont kill raid members
-        for (GroupReference* gref = group->GetFirstMember(); gref; gref = gref->next())
         {
-            Player* member = gref->GetSource();
-            if (!member || !member->IsAlive())
-                continue;
+            std::lock_guard<std::recursive_mutex> groupGuard(group->GetLock());
+            for (GroupReference* gref = group->GetFirstMember(); gref; gref = gref->next())
+            {
+                Player* member = gref->GetSource();
+                if (!member || !member->IsAlive())
+                    continue;
 
-            if (member->GetHealth() < healthThreshold)
-                return false;
+                if (member->GetHealth() < healthThreshold)
+                    return false;
+            }
         }
 
         return true;
@@ -831,13 +837,16 @@ bool ThorimMarkDpsTargetTrigger::IsActive()
     else if (PlayerbotAI::IsAssistTankOfIndex(bot, 0))
     {
         Player* mainTank = nullptr;
-        for (GroupReference* gref = group->GetFirstMember(); gref; gref = gref->next())
         {
-            Player* member = gref->GetSource();
-            if (member && PlayerbotAI::IsMainTank(member))
+            std::lock_guard<std::recursive_mutex> groupGuard(group->GetLock());
+            for (GroupReference* gref = group->GetFirstMember(); gref; gref = gref->next())
             {
-                mainTank = member;
-                break;
+                Player* member = gref->GetSource();
+                if (member && PlayerbotAI::IsMainTank(member))
+                {
+                    mainTank = member;
+                    break;
+                }
             }
         }
 
@@ -904,35 +913,38 @@ bool ThorimGauntletPositioningTrigger::IsActive()
         requiredHealerQuantity = 2;
     }
 
-    for (GroupReference* gref = group->GetFirstMember(); gref; gref = gref->next())
     {
-        Player* member = gref->GetSource();
-        if (!member)
-            continue;
-
-        if (requiredDpsQuantity > 0 && PlayerbotAI::IsDps(member))
+        std::lock_guard<std::recursive_mutex> groupGuard(group->GetLock());
+        for (GroupReference* gref = group->GetFirstMember(); gref; gref = gref->next())
         {
-            requiredDpsQuantity--;
-            if (bot->GetGUID() == member->GetGUID())
-                break;
-        }
+            Player* member = gref->GetSource();
+            if (!member)
+                continue;
 
-        if (requiredAssistTankQuantity > 0 && PlayerbotAI::IsAssistTankOfIndex(member, 0))
-        {
-            requiredAssistTankQuantity--;
-            if (bot->GetGUID() == member->GetGUID())
-                break;
-        }
+            if (requiredDpsQuantity > 0 && PlayerbotAI::IsDps(member))
+            {
+                requiredDpsQuantity--;
+                if (bot->GetGUID() == member->GetGUID())
+                    break;
+            }
 
-        if (requiredHealerQuantity > 0 && PlayerbotAI::IsHeal(member))
-        {
-            requiredHealerQuantity--;
-            if (bot->GetGUID() == member->GetGUID())
-                break;
-        }
+            if (requiredAssistTankQuantity > 0 && PlayerbotAI::IsAssistTankOfIndex(member, 0))
+            {
+                requiredAssistTankQuantity--;
+                if (bot->GetGUID() == member->GetGUID())
+                    break;
+            }
 
-        if (requiredDpsQuantity == 0 && requiredAssistTankQuantity == 0 && requiredHealerQuantity == 0)
-            return false;
+            if (requiredHealerQuantity > 0 && PlayerbotAI::IsHeal(member))
+            {
+                requiredHealerQuantity--;
+                if (bot->GetGUID() == member->GetGUID())
+                    break;
+            }
+
+            if (requiredDpsQuantity == 0 && requiredAssistTankQuantity == 0 && requiredHealerQuantity == 0)
+                return false;
+        }
     }
 
     Unit* master = botAI->GetMaster();
@@ -1024,35 +1036,38 @@ bool ThorimArenaPositioningTrigger::IsActive()
         requiredHealerQuantity = 2;
     }
 
-    for (GroupReference* gref = group->GetFirstMember(); gref; gref = gref->next())
     {
-        Player* member = gref->GetSource();
-        if (!member)
-            continue;
-
-        if (requiredDpsQuantity > 0 && PlayerbotAI::IsDps(member))
+        std::lock_guard<std::recursive_mutex> groupGuard(group->GetLock());
+        for (GroupReference* gref = group->GetFirstMember(); gref; gref = gref->next())
         {
-            requiredDpsQuantity--;
-            if (bot->GetGUID() == member->GetGUID())
-                return false;
-        }
+            Player* member = gref->GetSource();
+            if (!member)
+                continue;
 
-        if (requiredAssistTankQuantity > 0 && PlayerbotAI::IsAssistTankOfIndex(member, 0))
-        {
-            requiredAssistTankQuantity--;
-            if (bot->GetGUID() == member->GetGUID())
-                return false;
-        }
+            if (requiredDpsQuantity > 0 && PlayerbotAI::IsDps(member))
+            {
+                requiredDpsQuantity--;
+                if (bot->GetGUID() == member->GetGUID())
+                    return false;
+            }
 
-        if (requiredHealerQuantity > 0 && PlayerbotAI::IsHeal(member))
-        {
-            requiredHealerQuantity--;
-            if (bot->GetGUID() == member->GetGUID())
-                return false;
-        }
+            if (requiredAssistTankQuantity > 0 && PlayerbotAI::IsAssistTankOfIndex(member, 0))
+            {
+                requiredAssistTankQuantity--;
+                if (bot->GetGUID() == member->GetGUID())
+                    return false;
+            }
 
-        if (requiredDpsQuantity == 0 && requiredAssistTankQuantity == 0 && requiredHealerQuantity == 0)
-            break;
+            if (requiredHealerQuantity > 0 && PlayerbotAI::IsHeal(member))
+            {
+                requiredHealerQuantity--;
+                if (bot->GetGUID() == member->GetGUID())
+                    return false;
+            }
+
+            if (requiredDpsQuantity == 0 && requiredAssistTankQuantity == 0 && requiredHealerQuantity == 0)
+                break;
+        }
     }
 
     GuidVector targets = AI_VALUE(GuidVector, "possible targets");
@@ -1119,21 +1134,24 @@ bool ThorimPhase2PositioningTrigger::IsActive()
         return false;
 
     uint32 memberPositionNumber = 0;
-    for (GroupReference* gref = group->GetFirstMember(); gref; gref = gref->next())
     {
-        Player* member = gref->GetSource();
-        if (!member)
-            continue;
-
-        if (PlayerbotAI::IsRanged(member))
+        std::lock_guard<std::recursive_mutex> groupGuard(group->GetLock());
+        for (GroupReference* gref = group->GetFirstMember(); gref; gref = gref->next())
         {
-            if (bot->GetGUID() == member->GetGUID())
-                break;
+            Player* member = gref->GetSource();
+            if (!member)
+                continue;
 
-            memberPositionNumber++;
+            if (PlayerbotAI::IsRanged(member))
+            {
+                if (bot->GetGUID() == member->GetGUID())
+                    break;
 
-            if (memberPositionNumber == 3)
-                memberPositionNumber = 0;
+                memberPositionNumber++;
+
+                if (memberPositionNumber == 3)
+                    memberPositionNumber = 0;
+            }
         }
     }
 
@@ -1274,62 +1292,65 @@ bool MimironRapidBurstTrigger::IsActive()
 
     uint32 memberSpotNumber = 0;
     Position memberPosition;
-    for (GroupReference* gref = group->GetFirstMember(); gref; gref = gref->next())
     {
-        Player* member = gref->GetSource();
-        if (!member)
-            continue;
-
-        if (bot->GetGUID() == member->GetGUID())
+        std::lock_guard<std::recursive_mutex> groupGuard(group->GetLock());
+        for (GroupReference* gref = group->GetFirstMember(); gref; gref = gref->next())
         {
-            if (PlayerbotAI::IsRanged(bot))
+            Player* member = gref->GetSource();
+            if (!member)
+                continue;
+
+            if (bot->GetGUID() == member->GetGUID())
             {
-                switch (memberSpotNumber)
-                {
-                    case 0:
-                        memberPosition = ULDUAR_MIMIRON_PHASE2_SIDE1RANGE_SPOT;
-                        break;
-                    case 1:
-                        memberPosition = ULDUAR_MIMIRON_PHASE2_SIDE2RANGE_SPOT;
-                        break;
-                    case 2:
-                        memberPosition = ULDUAR_MIMIRON_PHASE2_SIDE3RANGE_SPOT;
-                        break;
-                    default:
-                        break;
-                }
-            }
-            else
-            {
-                if (PlayerbotAI::IsMainTank(bot) && leviathanMkII)
-                {
-                    memberPosition = ULDUAR_MIMIRON_PHASE4_TANK_SPOT;
-                }
-                else
+                if (PlayerbotAI::IsRanged(bot))
                 {
                     switch (memberSpotNumber)
                     {
                         case 0:
-                            memberPosition = ULDUAR_MIMIRON_PHASE2_SIDE1MELEE_SPOT;
+                            memberPosition = ULDUAR_MIMIRON_PHASE2_SIDE1RANGE_SPOT;
                             break;
                         case 1:
-                            memberPosition = ULDUAR_MIMIRON_PHASE2_SIDE2MELEE_SPOT;
+                            memberPosition = ULDUAR_MIMIRON_PHASE2_SIDE2RANGE_SPOT;
                             break;
                         case 2:
-                            memberPosition = ULDUAR_MIMIRON_PHASE2_SIDE3MELEE_SPOT;
+                            memberPosition = ULDUAR_MIMIRON_PHASE2_SIDE3RANGE_SPOT;
                             break;
                         default:
                             break;
                     }
                 }
+                else
+                {
+                    if (PlayerbotAI::IsMainTank(bot) && leviathanMkII)
+                    {
+                        memberPosition = ULDUAR_MIMIRON_PHASE4_TANK_SPOT;
+                    }
+                    else
+                    {
+                        switch (memberSpotNumber)
+                        {
+                            case 0:
+                                memberPosition = ULDUAR_MIMIRON_PHASE2_SIDE1MELEE_SPOT;
+                                break;
+                            case 1:
+                                memberPosition = ULDUAR_MIMIRON_PHASE2_SIDE2MELEE_SPOT;
+                                break;
+                            case 2:
+                                memberPosition = ULDUAR_MIMIRON_PHASE2_SIDE3MELEE_SPOT;
+                                break;
+                            default:
+                                break;
+                        }
+                    }
+                }
+                break;
             }
-            break;
+
+            memberSpotNumber++;
+
+            if (memberSpotNumber == 3)
+                memberSpotNumber = 0;
         }
-
-        memberSpotNumber++;
-
-        if (memberSpotNumber == 3)
-            memberSpotNumber = 0;
     }
 
     GuidVector npcs = AI_VALUE(GuidVector, "nearest npcs");
@@ -1934,18 +1955,21 @@ bool YoggSaronMoveToEnterPortalTrigger::IsActive()
     if (IsMasterIsInIllusionGroup())
         brainRoomTeamCount--;
 
-    for (GroupReference* gref = group->GetFirstMember(); gref; gref = gref->next())
     {
-        Player* member = gref->GetSource();
-        if (!member || !member->IsAlive() || PlayerbotAI::IsTank(member))
-            continue;
+        std::lock_guard<std::recursive_mutex> groupGuard(group->GetLock());
+        for (GroupReference* gref = group->GetFirstMember(); gref; gref = gref->next())
+        {
+            Player* member = gref->GetSource();
+            if (!member || !member->IsAlive() || PlayerbotAI::IsTank(member))
+                continue;
 
-        if (member->GetGUID() == bot->GetGUID())
-            return true;
+            if (member->GetGUID() == bot->GetGUID())
+                return true;
 
-        brainRoomTeamCount--;
-        if (brainRoomTeamCount == 0)
-            break;
+            brainRoomTeamCount--;
+            if (brainRoomTeamCount == 0)
+                break;
+        }
     }
 
     return false;

@@ -40,17 +40,20 @@ static std::vector<Player*> PickBoneStormRangedTargets(Player* bot)
         return result;
 
     std::vector<Player*> ranged;
-    for (GroupReference* ref = group->GetFirstMember(); ref; ref = ref->next())
     {
-        Player* member = ref->GetSource();
-        if (!IsValidLmMember(member, bot))
-            continue;
-        if (PlayerbotAI::IsTank(member))
-            continue;
-        if (!PlayerbotAI::IsRanged(member))
-            continue;
+        std::lock_guard<std::recursive_mutex> groupGuard(group->GetLock());
+        for (GroupReference* ref = group->GetFirstMember(); ref; ref = ref->next())
+        {
+            Player* member = ref->GetSource();
+            if (!IsValidLmMember(member, bot))
+                continue;
+            if (PlayerbotAI::IsTank(member))
+                continue;
+            if (!PlayerbotAI::IsRanged(member))
+                continue;
 
-        ranged.push_back(member);
+            ranged.push_back(member);
+        }
     }
 
     if (ranged.empty())
@@ -462,19 +465,22 @@ bool IccSpikeAction::HandleSpikeAssignment(std::vector<Unit*> const& spikes, Uni
 
     // Ranged / healers: balanced assignment across all spikes
     std::vector<Player*> rangedMembers;
-    for (GroupReference* itr = group->GetFirstMember(); itr; itr = itr->next())
     {
-        Player* member = itr->GetSource();
-        if (!member || !member->IsAlive() || member->HasAura(SPELL_LM_IMPALED))
-            continue;
+        std::lock_guard<std::recursive_mutex> groupGuard(group->GetLock());
+        for (GroupReference* itr = group->GetFirstMember(); itr; itr = itr->next())
+        {
+            Player* member = itr->GetSource();
+            if (!member || !member->IsAlive() || member->HasAura(SPELL_LM_IMPALED))
+                continue;
 
-        if (PlayerbotAI::IsMainTank(member) || PlayerbotAI::IsAssistTank(member))
-            continue;
+            if (PlayerbotAI::IsMainTank(member) || PlayerbotAI::IsAssistTank(member))
+                continue;
 
-        if (PlayerbotAI::IsMelee(member) && !PlayerbotAI::IsTank(member))
-            continue;
+            if (PlayerbotAI::IsMelee(member) && !PlayerbotAI::IsTank(member))
+                continue;
 
-        rangedMembers.push_back(member);
+            rangedMembers.push_back(member);
+        }
     }
 
     if (rangedMembers.empty())

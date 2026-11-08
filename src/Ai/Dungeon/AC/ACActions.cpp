@@ -77,11 +77,14 @@ bool ShirrakRangedKeepDistanceAction::Execute(Event /*event*/)
         return false;
 
     std::vector<Player*> rangedBots;
-    for (GroupReference* ref = group->GetFirstMember(); ref; ref = ref->next())
     {
-        Player* member = ref->GetSource();
-        if (member && PlayerbotAI::IsRanged(member))
-            rangedBots.push_back(member);
+        std::lock_guard<std::recursive_mutex> groupGuard(group->GetLock());
+        for (GroupReference* ref = group->GetFirstMember(); ref; ref = ref->next())
+        {
+            Player* member = ref->GetSource();
+            if (member && PlayerbotAI::IsRanged(member))
+                rangedBots.push_back(member);
+        }
     }
 
     auto findIt = std::find(rangedBots.begin(), rangedBots.end(), bot);

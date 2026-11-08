@@ -231,24 +231,27 @@ Unit* CastRejuvenationOnNotFullAction::GetTarget()
 {
     Group* group = bot->GetGroup();
     MinValueCalculator calc(100);
-    for (GroupReference* gref = group->GetFirstMember(); gref; gref = gref->next())
     {
-        Player* player = gref->GetSource();
-        if (!player)
-            continue;
-        if (player->isDead() || player->IsFullHealth())
+        std::lock_guard<std::recursive_mutex> groupGuard(group->GetLock());
+        for (GroupReference* gref = group->GetFirstMember(); gref; gref = gref->next())
         {
-            continue;
+            Player* player = gref->GetSource();
+            if (!player)
+                continue;
+            if (player->isDead() || player->IsFullHealth())
+            {
+                continue;
+            }
+            if (player->GetDistance2d(bot) > sPlayerbotAIConfig.SpellDistance)
+            {
+                continue;
+            }
+            if (botAI->HasAura("rejuvenation", player))
+            {
+                continue;
+            }
+            calc.probe(player->GetHealthPct(), player);
         }
-        if (player->GetDistance2d(bot) > sPlayerbotAIConfig.SpellDistance)
-        {
-            continue;
-        }
-        if (botAI->HasAura("rejuvenation", player))
-        {
-            continue;
-        }
-        calc.probe(player->GetHealthPct(), player);
     }
     return (Unit*)calc.param;
 }
@@ -278,21 +281,24 @@ ObjectGuid BlanketHotTargetValue::Calculate()
     Player* firstMelee  = nullptr;
     Player* firstRanged = nullptr;
 
-    for (GroupReference* ref = group->GetFirstMember(); ref; ref = ref->next())
     {
-        Player* member = ref->GetSource();
-        if (!eligible(member))
-            continue;
+        std::lock_guard<std::recursive_mutex> groupGuard(group->GetLock());
+        for (GroupReference* ref = group->GetFirstMember(); ref; ref = ref->next())
+        {
+            Player* member = ref->GetSource();
+            if (!eligible(member))
+                continue;
 
-        if (PlayerbotAI::IsTank(member))
-            return member->GetGUID();
-        else if (!firstMelee && PlayerbotAI::IsMelee(member) && !PlayerbotAI::IsTank(member))
-            firstMelee = member;
-        else if (!firstRanged && PlayerbotAI::IsRanged(member))
-            firstRanged = member;
+            if (PlayerbotAI::IsTank(member))
+                return member->GetGUID();
+            else if (!firstMelee && PlayerbotAI::IsMelee(member) && !PlayerbotAI::IsTank(member))
+                firstMelee = member;
+            else if (!firstRanged && PlayerbotAI::IsRanged(member))
+                firstRanged = member;
 
-        if (firstMelee && firstRanged)
-            break;
+            if (firstMelee && firstRanged)
+                break;
+        }
     }
 
     if (firstMelee)

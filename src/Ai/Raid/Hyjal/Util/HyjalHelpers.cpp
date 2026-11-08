@@ -279,13 +279,16 @@ std::vector<Player*> GetRangedMembers(Player* bot)
     if (!group)
         return members;
 
-    for (GroupReference* ref = group->GetFirstMember(); ref; ref = ref->next())
     {
-        Player* member = ref->GetSource();
-        if (member && member->GetMapId() == HYJAL_MAP_ID && GET_PLAYERBOT_AI(member) &&
-            PlayerbotAI::IsRanged(member))
+        std::lock_guard<std::recursive_mutex> groupGuard(group->GetLock());
+        for (GroupReference* ref = group->GetFirstMember(); ref; ref = ref->next())
         {
-            members.push_back(member);
+            Player* member = ref->GetSource();
+            if (member && member->GetMapId() == HYJAL_MAP_ID && GET_PLAYERBOT_AI(member) &&
+                PlayerbotAI::IsRanged(member))
+            {
+                members.push_back(member);
+            }
         }
     }
 
@@ -610,11 +613,14 @@ bool AnyGroupMemberHasDoom(Player* bot)
     if (!group)
         return false;
 
-    for (GroupReference* ref = group->GetFirstMember(); ref; ref = ref->next())
     {
-        Player* member = ref->GetSource();
-        if (member && IsDoomed(member))
-            return true;
+        std::lock_guard<std::recursive_mutex> groupGuard(group->GetLock());
+        for (GroupReference* ref = group->GetFirstMember(); ref; ref = ref->next())
+        {
+            Player* member = ref->GetSource();
+            if (member && IsDoomed(member))
+                return true;
+        }
     }
 
     return false;

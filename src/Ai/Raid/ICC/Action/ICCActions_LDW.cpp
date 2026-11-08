@@ -143,20 +143,23 @@ bool IccAddsLadyDeathwhisperAction::Execute(Event /*event*/)
 
     if (Group* group = bot->GetGroup())
     {
-        for (GroupReference* ref = group->GetFirstMember(); ref; ref = ref->next())
         {
-            Player* member = ref->GetSource();
-            if (!member || !member->IsAlive() || member == bot)
-                continue;
+            std::lock_guard<std::recursive_mutex> groupGuard(group->GetLock());
+            for (GroupReference* ref = group->GetFirstMember(); ref; ref = ref->next())
+            {
+                Player* member = ref->GetSource();
+                if (!member || !member->IsAlive() || member == bot)
+                    continue;
 
-            PlayerbotAI* memberBotAI = GET_PLAYERBOT_AI(member);
-            if (memberBotAI && !IsSelfBot(member))
-                continue;
+                PlayerbotAI* memberBotAI = GET_PLAYERBOT_AI(member);
+                if (memberBotAI && !IsSelfBot(member))
+                    continue;
 
-            if (botAI->HasAura("Dominate Mind", member, false, false) && !member->HasAura(SPELL_CYCLONE))
-                member->AddAura(SPELL_CYCLONE, member);
-            else if (member->HasAura(SPELL_CYCLONE) && !botAI->HasAura("Dominate Mind", member, false, false))
-                member->RemoveAura(SPELL_CYCLONE);
+                if (botAI->HasAura("Dominate Mind", member, false, false) && !member->HasAura(SPELL_CYCLONE))
+                    member->AddAura(SPELL_CYCLONE, member);
+                else if (member->HasAura(SPELL_CYCLONE) && !botAI->HasAura("Dominate Mind", member, false, false))
+                    member->RemoveAura(SPELL_CYCLONE);
+            }
         }
     }
 
@@ -227,13 +230,17 @@ bool IccAddsLadyDeathwhisperAction::Execute(Event /*event*/)
                 bool anyTankHasAggro = false;
                 if (Group* group = bot->GetGroup())
                 {
-                    for (GroupReference* ref = group->GetFirstMember(); ref; ref = ref->next())
                     {
-                        Player* member = ref->GetSource();
-                        if (member && member->IsAlive() && PlayerbotAI::IsTank(member) && boss->GetVictim() == member)
+                        std::lock_guard<std::recursive_mutex> groupGuard(group->GetLock());
+                        for (GroupReference* ref = group->GetFirstMember(); ref; ref = ref->next())
                         {
-                            anyTankHasAggro = true;
-                            break;
+                            Player* member = ref->GetSource();
+                            if (member && member->IsAlive() && PlayerbotAI::IsTank(member) &&
+                                boss->GetVictim() == member)
+                            {
+                                anyTankHasAggro = true;
+                                break;
+                            }
                         }
                     }
                 }
@@ -602,14 +609,17 @@ bool IccAddsLadyDeathwhisperAction::IsAssistTankAlive()
     if (!group)
         return false;
 
-    for (GroupReference* ref = group->GetFirstMember(); ref; ref = ref->next())
     {
-        Player* member = ref->GetSource();
-        if (!member || !member->IsAlive() || member == bot)
-            continue;
+        std::lock_guard<std::recursive_mutex> groupGuard(group->GetLock());
+        for (GroupReference* ref = group->GetFirstMember(); ref; ref = ref->next())
+        {
+            Player* member = ref->GetSource();
+            if (!member || !member->IsAlive() || member == bot)
+                continue;
 
-        if (PlayerbotAI::IsTank(member) && !PlayerbotAI::IsMainTank(member))
-            return true;
+            if (PlayerbotAI::IsTank(member) && !PlayerbotAI::IsMainTank(member))
+                return true;
+        }
     }
 
     return false;

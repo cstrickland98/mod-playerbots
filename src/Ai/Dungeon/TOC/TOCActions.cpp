@@ -235,24 +235,28 @@ std::vector<ObjectGuid> ToCMountedAction::MountedRiders(bool tramplersOnly)
     uint32 mountEntry = FactionMountEntry(bot);
     if (Group* group = bot->GetGroup())
     {
-        for (GroupReference* ref = group->GetFirstMember(); ref; ref = ref->next())
         {
-            Player* member = ref->GetSource();
-            if (!member || !member->IsAlive() || member->GetMapId() != bot->GetMapId())
-                continue;
+            std::lock_guard<std::recursive_mutex> groupGuard(group->GetLock());
+            for (GroupReference* ref = group->GetFirstMember(); ref; ref = ref->next())
+            {
+                Player* member = ref->GetSource();
+                if (!member || !member->IsAlive() || member->GetMapId() != bot->GetMapId())
+                    continue;
 
-            if (tramplersOnly && !GET_PLAYERBOT_AI(member))
-                continue;
+                if (tramplersOnly && !GET_PLAYERBOT_AI(member))
+                    continue;
 
-            Unit* base = member->GetVehicleBase();
-            if (!base)
-                continue;
+                Unit* base = member->GetVehicleBase();
+                if (!base)
+                    continue;
 
-            uint32 entry = base->GetEntry();
-            if (tramplersOnly ? entry != mountEntry : (entry != NPC_ARGENT_BATTLEWORG && entry != NPC_ARGENT_WARHORSE))
-                continue;
+                uint32 entry = base->GetEntry();
+                if (tramplersOnly ? entry != mountEntry
+                                  : (entry != NPC_ARGENT_BATTLEWORG && entry != NPC_ARGENT_WARHORSE))
+                    continue;
 
-            riders.push_back(member->GetGUID());
+                riders.push_back(member->GetGUID());
+            }
         }
     }
     else

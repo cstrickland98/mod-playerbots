@@ -59,17 +59,20 @@ Player* GetNearestNonTankPlayerInRadius(Player* bot, float radius)
     Player* nearestPlayer = nullptr;
     float nearestDistance = radius;
 
-    for (GroupReference* ref = group->GetFirstMember(); ref != nullptr; ref = ref->next())
     {
-        Player* member = ref->GetSource();
-        if (!member || member == bot || !member->IsAlive() || PlayerbotAI::IsTank(member))
-            continue;
-
-        float distance = bot->GetExactDist2d(member);
-        if (distance < nearestDistance)
+        std::lock_guard<std::recursive_mutex> groupGuard(group->GetLock());
+        for (GroupReference* ref = group->GetFirstMember(); ref != nullptr; ref = ref->next())
         {
-            nearestDistance = distance;
-            nearestPlayer = member;
+            Player* member = ref->GetSource();
+            if (!member || member == bot || !member->IsAlive() || PlayerbotAI::IsTank(member))
+                continue;
+
+            float distance = bot->GetExactDist2d(member);
+            if (distance < nearestDistance)
+            {
+                nearestDistance = distance;
+                nearestPlayer = member;
+            }
         }
     }
 

@@ -390,17 +390,20 @@ bool ChooseTravelTargetAction::SetGroupTarget(TravelTarget* target)
     Group* group = bot->GetGroup();
     if (group)
     {
-        for (GroupReference* ref = group->GetFirstMember(); ref; ref = ref->next())
         {
-            if (ref->GetSource() != bot)
+            std::lock_guard<std::recursive_mutex> groupGuard(group->GetLock());
+            for (GroupReference* ref = group->GetFirstMember(); ref; ref = ref->next())
             {
-                if (ref->getSubGroup() != bot->GetSubGroup())
+                if (ref->GetSource() != bot)
                 {
-                    groupPlayers.push_back(ref->GetSource()->GetGUID());
-                }
-                else
-                {
-                    groupPlayers.push_front(ref->GetSource()->GetGUID());
+                    if (ref->getSubGroup() != bot->GetSubGroup())
+                    {
+                        groupPlayers.push_back(ref->GetSource()->GetGUID());
+                    }
+                    else
+                    {
+                        groupPlayers.push_front(ref->GetSource()->GetGUID());
+                    }
                 }
             }
         }

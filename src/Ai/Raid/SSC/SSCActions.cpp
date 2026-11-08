@@ -1037,17 +1037,20 @@ bool FathomLordKarathressMisdirectToTanksAction::Execute(Event /*event*/)
         return false;
 
     std::vector<Player*> hunters;
-    for (GroupReference* ref = group->GetFirstMember(); ref; ref = ref->next())
     {
-        Player* member = ref->GetSource();
-        if (member && member->IsAlive() && member->GetMapId() == SSC_MAP_ID &&
-            member->getClass() == CLASS_HUNTER && GET_PLAYERBOT_AI(member))
+        std::lock_guard<std::recursive_mutex> groupGuard(group->GetLock());
+        for (GroupReference* ref = group->GetFirstMember(); ref; ref = ref->next())
         {
-            hunters.push_back(member);
-        }
+            Player* member = ref->GetSource();
+            if (member && member->IsAlive() && member->GetMapId() == SSC_MAP_ID &&
+                member->getClass() == CLASS_HUNTER && GET_PLAYERBOT_AI(member))
+            {
+                hunters.push_back(member);
+            }
 
-        if (hunters.size() >= 3)
-            break;
+            if (hunters.size() >= 3)
+                break;
+        }
     }
 
     int hunterIndex = -1;
@@ -1491,19 +1494,22 @@ bool LadyVashjAssignStationSlotsAction::Execute(Event /*event*/)
 
     std::vector<Player*> rangedSpares;
     std::vector<Player*> healerSpares;
-    for (GroupReference* ref = group->GetFirstMember(); ref; ref = ref->next())
     {
-        Player* member = ref->GetSource();
-        if (!member || !member->IsAlive() || member->GetMapId() != SSC_MAP_ID ||
-            !GET_PLAYERBOT_AI(member) || holdsSlot(member->GetGUID()))
+        std::lock_guard<std::recursive_mutex> groupGuard(group->GetLock());
+        for (GroupReference* ref = group->GetFirstMember(); ref; ref = ref->next())
         {
-            continue;
-        }
+            Player* member = ref->GetSource();
+            if (!member || !member->IsAlive() || member->GetMapId() != SSC_MAP_ID ||
+                !GET_PLAYERBOT_AI(member) || holdsSlot(member->GetGUID()))
+            {
+                continue;
+            }
 
-        if (PlayerbotAI::IsRangedDps(member))
-            rangedSpares.push_back(member);
-        else if (PlayerbotAI::IsHeal(member))
-            healerSpares.push_back(member);
+            if (PlayerbotAI::IsRangedDps(member))
+                rangedSpares.push_back(member);
+            else if (PlayerbotAI::IsHeal(member))
+                healerSpares.push_back(member);
+        }
     }
 
     bool changed = false;
@@ -2095,11 +2101,14 @@ bool LadyVashjLootTaintedCoreAction::Execute(Event /*event*/)
     if (!group)
         return false;
 
-    for (GroupReference* ref = group->GetFirstMember(); ref; ref = ref->next())
     {
-        Player* member = ref->GetSource();
-        if (member && HasTaintedCore(member))
-            return false;
+        std::lock_guard<std::recursive_mutex> groupGuard(group->GetLock());
+        for (GroupReference* ref = group->GetFirstMember(); ref; ref = ref->next())
+        {
+            Player* member = ref->GetSource();
+            if (member && HasTaintedCore(member))
+                return false;
+        }
     }
 
     int8 const coreSlot = GetTaintedCoreLootSlot(tainted);

@@ -796,17 +796,20 @@ std::vector<Player*> HighAstromancerSolarianTargetSolariumPriestsAction::GetMele
         return {};
 
     std::vector<Player*> meleeMembers;
-    for (GroupReference* ref = group->GetFirstMember(); ref; ref = ref->next())
     {
-        Player* member = ref->GetSource();
-        if (!member || !member->IsAlive() || member->GetMapId() != TK_MAP_ID ||
-            !GET_PLAYERBOT_AI(member))
+        std::lock_guard<std::recursive_mutex> groupGuard(group->GetLock());
+        for (GroupReference* ref = group->GetFirstMember(); ref; ref = ref->next())
         {
-            continue;
-        }
+            Player* member = ref->GetSource();
+            if (!member || !member->IsAlive() || member->GetMapId() != TK_MAP_ID ||
+                !GET_PLAYERBOT_AI(member))
+            {
+                continue;
+            }
 
-        if (PlayerbotAI::IsMelee(member) && !PlayerbotAI::IsMainTank(member))
-            meleeMembers.push_back(member);
+            if (PlayerbotAI::IsMelee(member) && !PlayerbotAI::IsMainTank(member))
+                meleeMembers.push_back(member);
+        }
     }
 
     return meleeMembers;
@@ -861,17 +864,20 @@ bool KaelthasSunstriderMisdirectAdvisorsToTanksAction::Execute(Event /*event*/)
         return false;
 
     std::vector<Player*> hunters;
-    for (GroupReference* ref = group->GetFirstMember(); ref; ref = ref->next())
     {
-        Player* member = ref->GetSource();
-        if (member && member->IsAlive() && member->getClass() == CLASS_HUNTER &&
-            member->GetMapId() == TK_MAP_ID && GET_PLAYERBOT_AI(member))
+        std::lock_guard<std::recursive_mutex> groupGuard(group->GetLock());
+        for (GroupReference* ref = group->GetFirstMember(); ref; ref = ref->next())
         {
-            hunters.push_back(member);
-        }
+            Player* member = ref->GetSource();
+            if (member && member->IsAlive() && member->getClass() == CLASS_HUNTER &&
+                member->GetMapId() == TK_MAP_ID && GET_PLAYERBOT_AI(member))
+            {
+                hunters.push_back(member);
+            }
 
-        if (hunters.size() >= 3)
-            break;
+            if (hunters.size() >= 3)
+                break;
+        }
     }
 
     int8 hunterIndex = -1;
@@ -1007,19 +1013,22 @@ bool KaelthasSunstriderSpreadAndMoveAwayFromCapernianAction::RangedBotsDisperse(
 
     std::vector<Player*> healers;
     std::vector<Player*> rangedDps;
-    for (GroupReference* ref = group->GetFirstMember(); ref; ref = ref->next())
     {
-        Player* member = ref->GetSource();
-        if (!member || member->GetMapId() != TK_MAP_ID || !GET_PLAYERBOT_AI(member) ||
-            !PlayerbotAI::IsRanged(member))
+        std::lock_guard<std::recursive_mutex> groupGuard(group->GetLock());
+        for (GroupReference* ref = group->GetFirstMember(); ref; ref = ref->next())
         {
-            continue;
-        }
+            Player* member = ref->GetSource();
+            if (!member || member->GetMapId() != TK_MAP_ID || !GET_PLAYERBOT_AI(member) ||
+                !PlayerbotAI::IsRanged(member))
+            {
+                continue;
+            }
 
-        if (PlayerbotAI::IsHeal(member))
-            healers.push_back(member);
-        else
-            rangedDps.push_back(member);
+            if (PlayerbotAI::IsHeal(member))
+                healers.push_back(member);
+            else
+                rangedDps.push_back(member);
+        }
     }
 
     bool const isHeal = PlayerbotAI::IsHeal(bot);
@@ -1939,19 +1948,22 @@ bool KaelthasSunstriderBreakMindControlAction::Execute(Event /*event*/)
     if (!group)
         return false;
 
-    for (GroupReference* ref = group->GetFirstMember(); ref; ref = ref->next())
     {
-        Player* member = ref->GetSource();
-        if (!member || member == bot)
-            continue;
-
-        if (member->HasAura(Id(TkSpells::SPELL_KAELTHAS_MIND_CONTROL)))
+        std::lock_guard<std::recursive_mutex> groupGuard(group->GetLock());
+        for (GroupReference* ref = group->GetFirstMember(); ref; ref = ref->next())
         {
-            float distToMcMember = bot->GetExactDist2d(member);
-            if (distToMcMember < closestDist)
+            Player* member = ref->GetSource();
+            if (!member || member == bot)
+                continue;
+
+            if (member->HasAura(Id(TkSpells::SPELL_KAELTHAS_MIND_CONTROL)))
             {
-                closestDist = distToMcMember;
-                mcTarget = member;
+                float distToMcMember = bot->GetExactDist2d(member);
+                if (distToMcMember < closestDist)
+                {
+                    closestDist = distToMcMember;
+                    mcTarget = member;
+                }
             }
         }
     }
@@ -2120,30 +2132,33 @@ bool KaelthasSunstriderSpreadOutInMidairAction::HoverAndSpread()
     float pushZ = 0.0f;
     float closestDist = std::numeric_limits<float>::max();
 
-    for (GroupReference* ref = group->GetFirstMember(); ref; ref = ref->next())
     {
-        Player* member = ref->GetSource();
-        if (!member || member == bot || !member->IsAlive())
-            continue;
-
-        float const distToMember = bot->GetExactDist(member);
-        closestDist = std::min(closestDist, distToMember);
-        if (distToMember >= safeDistance)
-            continue;
-
-        float const violation = safeDistance - distToMember;
-
-        if (distToMember < 0.1f)
+        std::lock_guard<std::recursive_mutex> groupGuard(group->GetLock());
+        for (GroupReference* ref = group->GetFirstMember(); ref; ref = ref->next())
         {
-            float const bearing = bot->GetAngle(member) + M_PI;
-            pushX += std::cos(bearing) * violation;
-            pushY += std::sin(bearing) * violation;
-            continue;
-        }
+            Player* member = ref->GetSource();
+            if (!member || member == bot || !member->IsAlive())
+                continue;
 
-        pushX += (botX - member->GetPositionX()) / distToMember * violation;
-        pushY += (botY - member->GetPositionY()) / distToMember * violation;
-        pushZ += (botZ - member->GetPositionZ()) / distToMember * violation;
+            float const distToMember = bot->GetExactDist(member);
+            closestDist = std::min(closestDist, distToMember);
+            if (distToMember >= safeDistance)
+                continue;
+
+            float const violation = safeDistance - distToMember;
+
+            if (distToMember < 0.1f)
+            {
+                float const bearing = bot->GetAngle(member) + M_PI;
+                pushX += std::cos(bearing) * violation;
+                pushY += std::sin(bearing) * violation;
+                continue;
+            }
+
+            pushX += (botX - member->GetPositionX()) / distToMember * violation;
+            pushY += (botY - member->GetPositionY()) / distToMember * violation;
+            pushZ += (botZ - member->GetPositionZ()) / distToMember * violation;
+        }
     }
 
     float const floorZ = bot->GetMapHeight(botX, botY, botZ, true, MAX_FALL_DISTANCE);

@@ -69,24 +69,27 @@ inline bool RsIsDesignatedMarker(Player* bot)
         return true;
 
     ObjectGuid lowest = bot->GetGUID();
-    for (GroupReference* itr = group->GetFirstMember(); itr; itr = itr->next())
     {
-        Player* member = itr->GetSource();
-        if (!member || !member->IsAlive())
-            continue;
+        std::lock_guard<std::recursive_mutex> groupGuard(group->GetLock());
+        for (GroupReference* itr = group->GetFirstMember(); itr; itr = itr->next())
+        {
+            Player* member = itr->GetSource();
+            if (!member || !member->IsAlive())
+                continue;
 
-        PlayerbotAI* memberAI = sPlayerbotsMgr.GetPlayerbotAI(member);
-        if (!memberAI)
-            continue;
+            PlayerbotAI* memberAI = sPlayerbotsMgr.GetPlayerbotAI(member);
+            if (!memberAI)
+                continue;
 
-        if (PlayerbotAI::IsTank(member) || PlayerbotAI::IsHeal(member))
-            continue;
+            if (PlayerbotAI::IsTank(member) || PlayerbotAI::IsHeal(member))
+                continue;
 
-        if (member->GetMapId() != bot->GetMapId() || member->GetInstanceId() != bot->GetInstanceId())
-            continue;
+            if (member->GetMapId() != bot->GetMapId() || member->GetInstanceId() != bot->GetInstanceId())
+                continue;
 
-        if (member->GetGUID() < lowest)
-            lowest = member->GetGUID();
+            if (member->GetGUID() < lowest)
+                lowest = member->GetGUID();
+        }
     }
 
     return bot->GetGUID() == lowest;

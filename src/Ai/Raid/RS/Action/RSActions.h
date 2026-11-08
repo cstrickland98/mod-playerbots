@@ -257,21 +257,24 @@ inline bool RsHalionInThrottledHalf(Player* bot)
 
     uint32 total = 0;
     uint32 rank = 0;
-    for (GroupReference* itr = group->GetFirstMember(); itr; itr = itr->next())
     {
-        Player* member = itr->GetSource();
-        if (!member || !member->IsAlive() || member->GetInstanceId() != instanceId)
-            continue;
-        if (!GET_PLAYERBOT_AI(member))
-            continue;
-        if (PlayerbotAI::IsTank(member) || PlayerbotAI::IsHeal(member))
-            continue;
-        if (RsHalionInTwilight(member) != inTwilight)
-            continue;
+        std::lock_guard<std::recursive_mutex> groupGuard(group->GetLock());
+        for (GroupReference* itr = group->GetFirstMember(); itr; itr = itr->next())
+        {
+            Player* member = itr->GetSource();
+            if (!member || !member->IsAlive() || member->GetInstanceId() != instanceId)
+                continue;
+            if (!GET_PLAYERBOT_AI(member))
+                continue;
+            if (PlayerbotAI::IsTank(member) || PlayerbotAI::IsHeal(member))
+                continue;
+            if (RsHalionInTwilight(member) != inTwilight)
+                continue;
 
-        ++total;
-        if (member->GetGUID() < selfGuid)
-            ++rank;
+            ++total;
+            if (member->GetGUID() < selfGuid)
+                ++rank;
+        }
     }
 
     return rank < total / 2;
@@ -299,18 +302,21 @@ inline bool RsHalionP3TwilightAssigned(Player* bot)
     }
 
     std::vector<ObjectGuid> melee, ranged, heals;
-    for (GroupReference* itr = group->GetFirstMember(); itr; itr = itr->next())
     {
-        Player* member = itr->GetSource();
-        if (!member || !member->IsAlive() || PlayerbotAI::IsTank(member))
-            continue;
-        ObjectGuid const guid = member->GetGUID();
-        if (PlayerbotAI::IsHeal(member))
-            heals.push_back(guid);
-        else if (PlayerbotAI::IsRanged(member))
-            ranged.push_back(guid);
-        else
-            melee.push_back(guid);
+        std::lock_guard<std::recursive_mutex> groupGuard(group->GetLock());
+        for (GroupReference* itr = group->GetFirstMember(); itr; itr = itr->next())
+        {
+            Player* member = itr->GetSource();
+            if (!member || !member->IsAlive() || PlayerbotAI::IsTank(member))
+                continue;
+            ObjectGuid const guid = member->GetGUID();
+            if (PlayerbotAI::IsHeal(member))
+                heals.push_back(guid);
+            else if (PlayerbotAI::IsRanged(member))
+                ranged.push_back(guid);
+            else
+                melee.push_back(guid);
+        }
     }
 
     auto assignHalf = [&](std::vector<ObjectGuid>& guids)
@@ -620,11 +626,14 @@ inline bool RsHalionCombustionNotClear(Player* bot)
     if (!group)
         return false;
 
-    for (GroupReference* itr = group->GetFirstMember(); itr; itr = itr->next())
     {
-        Player* member = itr->GetSource();
-        if (member && member->IsAlive() && RsHalionHasCombustion(member) && !RsHalionCombustionAtSpot(member))
-            return true;
+        std::lock_guard<std::recursive_mutex> groupGuard(group->GetLock());
+        for (GroupReference* itr = group->GetFirstMember(); itr; itr = itr->next())
+        {
+            Player* member = itr->GetSource();
+            if (member && member->IsAlive() && RsHalionHasCombustion(member) && !RsHalionCombustionAtSpot(member))
+                return true;
+        }
     }
     return false;
 }
@@ -704,12 +713,15 @@ inline bool RsHalionConsumptionNotClear(PlayerbotAI* botAI)
     if (!group)
         return false;
 
-    for (GroupReference* itr = group->GetFirstMember(); itr; itr = itr->next())
     {
-        Player* member = itr->GetSource();
-        if (member && member->IsAlive() && RsHalionHasConsumption(member) &&
-            !RsHalionConsumptionAtSpot(botAI, member))
-            return true;
+        std::lock_guard<std::recursive_mutex> groupGuard(group->GetLock());
+        for (GroupReference* itr = group->GetFirstMember(); itr; itr = itr->next())
+        {
+            Player* member = itr->GetSource();
+            if (member && member->IsAlive() && RsHalionHasConsumption(member) &&
+                !RsHalionConsumptionAtSpot(botAI, member))
+                return true;
+        }
     }
     return false;
 }
@@ -725,17 +737,20 @@ inline Player* RsHalionConsumptionHealTarget(PlayerbotAI* botAI)
         return nullptr;
 
     Player* worst = nullptr;
-    for (GroupReference* itr = group->GetFirstMember(); itr; itr = itr->next())
     {
-        Player* member = itr->GetSource();
-        if (!member || !member->IsAlive() || !RsHalionHasConsumption(member))
-            continue;
-        if (RsHalionInTwilight(member) != RsHalionInTwilight(bot))
-            continue;
-        if (member->GetHealthPct() >= RS_HALION_CONSUMPTION_HEAL_PCT)
-            continue;
-        if (!worst || member->GetHealthPct() < worst->GetHealthPct())
-            worst = member;
+        std::lock_guard<std::recursive_mutex> groupGuard(group->GetLock());
+        for (GroupReference* itr = group->GetFirstMember(); itr; itr = itr->next())
+        {
+            Player* member = itr->GetSource();
+            if (!member || !member->IsAlive() || !RsHalionHasConsumption(member))
+                continue;
+            if (RsHalionInTwilight(member) != RsHalionInTwilight(bot))
+                continue;
+            if (member->GetHealthPct() >= RS_HALION_CONSUMPTION_HEAL_PCT)
+                continue;
+            if (!worst || member->GetHealthPct() < worst->GetHealthPct())
+                worst = member;
+        }
     }
     return worst;
 }
@@ -824,17 +839,20 @@ inline Player* RsHalionPickTank(Group* group, Filter const& filter)
 {
     Player* assist = nullptr;
     Player* anyTank = nullptr;
-    for (GroupReference* itr = group->GetFirstMember(); itr; itr = itr->next())
     {
-        Player* member = itr->GetSource();
-        if (!member || !member->IsAlive() || !PlayerbotAI::IsTank(member) || !filter(member))
-            continue;
+        std::lock_guard<std::recursive_mutex> groupGuard(group->GetLock());
+        for (GroupReference* itr = group->GetFirstMember(); itr; itr = itr->next())
+        {
+            Player* member = itr->GetSource();
+            if (!member || !member->IsAlive() || !PlayerbotAI::IsTank(member) || !filter(member))
+                continue;
 
-        if (!anyTank || member->GetGUID() < anyTank->GetGUID())
-            anyTank = member;
+            if (!anyTank || member->GetGUID() < anyTank->GetGUID())
+                anyTank = member;
 
-        if (PlayerbotAI::IsAssistTank(member) && (!assist || member->GetGUID() < assist->GetGUID()))
-            assist = member;
+            if (PlayerbotAI::IsAssistTank(member) && (!assist || member->GetGUID() < assist->GetGUID()))
+                assist = member;
+        }
     }
 
     return assist ? assist : anyTank;
@@ -904,11 +922,14 @@ inline Player* RsHalionLiveMainTank(PlayerbotAI* botAI)
         return (PlayerbotAI::IsMainTank(bot) && bot->IsAlive()) ? bot : nullptr;
     }
 
-    for (GroupReference* itr = group->GetFirstMember(); itr; itr = itr->next())
     {
-        Player* member = itr->GetSource();
-        if (member && member->IsAlive() && PlayerbotAI::IsMainTank(member))
-            return member;
+        std::lock_guard<std::recursive_mutex> groupGuard(group->GetLock());
+        for (GroupReference* itr = group->GetFirstMember(); itr; itr = itr->next())
+        {
+            Player* member = itr->GetSource();
+            if (member && member->IsAlive() && PlayerbotAI::IsMainTank(member))
+                return member;
+        }
     }
 
     return nullptr;
@@ -924,14 +945,17 @@ inline Player* RsHalionBossTankUncached(PlayerbotAI* botAI)
         return nullptr;
 
     Player* anyTank = nullptr;
-    for (GroupReference* itr = group->GetFirstMember(); itr; itr = itr->next())
     {
-        Player* member = itr->GetSource();
-        if (!member || !member->IsAlive() || !PlayerbotAI::IsTank(member))
-            continue;
+        std::lock_guard<std::recursive_mutex> groupGuard(group->GetLock());
+        for (GroupReference* itr = group->GetFirstMember(); itr; itr = itr->next())
+        {
+            Player* member = itr->GetSource();
+            if (!member || !member->IsAlive() || !PlayerbotAI::IsTank(member))
+                continue;
 
-        if (!anyTank || member->GetGUID() < anyTank->GetGUID())
-            anyTank = member;
+            if (!anyTank || member->GetGUID() < anyTank->GetGUID())
+                anyTank = member;
+        }
     }
 
     return anyTank;

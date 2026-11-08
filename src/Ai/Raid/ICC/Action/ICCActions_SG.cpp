@@ -25,14 +25,17 @@ bool SgMajorityLostMysticBuffet(Player* bot, PlayerbotAI* botAI)
 
     uint32 total = 0;
     uint32 without = 0;
-    for (GroupReference* itr = group->GetFirstMember(); itr != nullptr; itr = itr->next())
     {
-        Player* member = itr->GetSource();
-        if (!member || !member->IsAlive())
-            continue;
-        ++total;
-        if (!botAI->GetAura("mystic buffet", member))
-            ++without;
+        std::lock_guard<std::recursive_mutex> groupGuard(group->GetLock());
+        for (GroupReference* itr = group->GetFirstMember(); itr != nullptr; itr = itr->next())
+        {
+            Player* member = itr->GetSource();
+            if (!member || !member->IsAlive())
+                continue;
+            ++total;
+            if (!botAI->GetAura("mystic buffet", member))
+                ++without;
+        }
     }
 
     if (total == 0)
@@ -201,13 +204,16 @@ bool IccSindragosaGroupPositionAction::HandleNonTankPositioning()
 
     // Collect all alive raid members
     std::vector<Player*> raidMembers;
-    for (GroupReference* itr = group->GetFirstMember(); itr != nullptr; itr = itr->next())
     {
-        Player* member = itr->GetSource();
-        if (!member || !member->IsAlive())
-            continue;
+        std::lock_guard<std::recursive_mutex> groupGuard(group->GetLock());
+        for (GroupReference* itr = group->GetFirstMember(); itr != nullptr; itr = itr->next())
+        {
+            Player* member = itr->GetSource();
+            if (!member || !member->IsAlive())
+                continue;
 
-        raidMembers.push_back(member);
+            raidMembers.push_back(member);
+        }
     }
 
     uint32 const totalMembers = static_cast<uint32>(raidMembers.size());
@@ -416,19 +422,22 @@ bool IccSindragosaFrostBeaconAction::TryDropTombFlares(Unit const* boss)
     // sidesteps the item cooldown — each marker only casts once per phase.
     std::vector<Player*> preferred;  // non-beaconed
     std::vector<Player*> fallback;   // beaconed allowed
-    for (GroupReference* itr = group->GetFirstMember(); itr != nullptr; itr = itr->next())
     {
-        Player* member = itr->GetSource();
-        if (!member || !member->IsAlive())
-            continue;
-        PlayerbotAI* memberAI = sPlayerbotsMgr.GetPlayerbotAI(member);
-        if (!memberAI)
-            continue;  // real player
-        if (PlayerbotAI::IsTank(member))
-            continue;
-        fallback.push_back(member);
-        if (!member->HasAura(SPELL_FROST_BEACON))
-            preferred.push_back(member);
+        std::lock_guard<std::recursive_mutex> groupGuard(group->GetLock());
+        for (GroupReference* itr = group->GetFirstMember(); itr != nullptr; itr = itr->next())
+        {
+            Player* member = itr->GetSource();
+            if (!member || !member->IsAlive())
+                continue;
+            PlayerbotAI* memberAI = sPlayerbotsMgr.GetPlayerbotAI(member);
+            if (!memberAI)
+                continue;  // real player
+            if (PlayerbotAI::IsTank(member))
+                continue;
+            fallback.push_back(member);
+            if (!member->HasAura(SPELL_FROST_BEACON))
+                preferred.push_back(member);
+        }
     }
 
     auto byGuid = [](Player* a, Player* b) { return a->GetGUID() < b->GetGUID(); };
@@ -548,18 +557,21 @@ bool IccSindragosaFrostBeaconAction::HandleSupportActions()
     // Tank support - Paladin Hand of Freedom
     if (group && bot->getClass() == CLASS_PALADIN)
     {
-        for (GroupReference* itr = group->GetFirstMember(); itr != nullptr; itr = itr->next())
         {
-            Player* member = itr->GetSource();
-            if (!member || !member->IsAlive() || !PlayerbotAI::IsTank(member))
+            std::lock_guard<std::recursive_mutex> groupGuard(group->GetLock());
+            for (GroupReference* itr = group->GetFirstMember(); itr != nullptr; itr = itr->next())
             {
-                continue;
-            }
+                Player* member = itr->GetSource();
+                if (!member || !member->IsAlive() || !PlayerbotAI::IsTank(member))
+                {
+                    continue;
+                }
 
-            if (botAI->GetAura("Frost Breath", member) && !member->HasAura(SPELL_HAND_OF_FREEDOM))
-            {
-                botAI->CastSpell(SPELL_HAND_OF_FREEDOM, member);
-                break;
+                if (botAI->GetAura("Frost Breath", member) && !member->HasAura(SPELL_HAND_OF_FREEDOM))
+                {
+                    botAI->CastSpell(SPELL_HAND_OF_FREEDOM, member);
+                    break;
+                }
             }
         }
     }
@@ -625,11 +637,14 @@ bool IccSindragosaFrostBeaconAction::HandleBeaconedPlayer(Unit const* boss)
 
     // Collect and sort beaconed players by GUID for deterministic assignment
     std::vector<Player*> beaconedPlayers;
-    for (GroupReference* itr = group->GetFirstMember(); itr != nullptr; itr = itr->next())
     {
-        Player* member = itr->GetSource();
-        if (member && member->IsAlive() && member->HasAura(SPELL_FROST_BEACON))
-            beaconedPlayers.push_back(member);
+        std::lock_guard<std::recursive_mutex> groupGuard(group->GetLock());
+        for (GroupReference* itr = group->GetFirstMember(); itr != nullptr; itr = itr->next())
+        {
+            Player* member = itr->GetSource();
+            if (member && member->IsAlive() && member->HasAura(SPELL_FROST_BEACON))
+                beaconedPlayers.push_back(member);
+        }
     }
 
     std::sort(beaconedPlayers.begin(), beaconedPlayers.end(),
@@ -1294,12 +1309,15 @@ int IccSindragosaFrostBombAction::ResolveGroupIndex(Group* group) const
     uint32 const instanceId = bot->GetInstanceId();
     auto& s_groupAssignments = IcecrownHelpers::IccState(instanceId).sgGroupAssignments;
     std::vector<ObjectGuid> currentGuids;
-    for (GroupReference* itr = group->GetFirstMember(); itr != nullptr; itr = itr->next())
     {
-        Player* member = itr->GetSource();
-        if (!member || !sPlayerbotsMgr.GetPlayerbotAI(member))
-            continue;
-        currentGuids.push_back(member->GetGUID());
+        std::lock_guard<std::recursive_mutex> groupGuard(group->GetLock());
+        for (GroupReference* itr = group->GetFirstMember(); itr != nullptr; itr = itr->next())
+        {
+            Player* member = itr->GetSource();
+            if (!member || !sPlayerbotsMgr.GetPlayerbotAI(member))
+                continue;
+            currentGuids.push_back(member->GetGUID());
+        }
     }
     std::sort(currentGuids.begin(), currentGuids.end());
 

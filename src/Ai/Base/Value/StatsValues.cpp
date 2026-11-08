@@ -190,17 +190,21 @@ bool IsInCombatValue::Calculate()
     {
         if (Group* group = bot->GetGroup())
         {
-            Group::MemberSlotList const& groupSlot = group->GetMemberSlots();
-            for (Group::member_citerator itr = groupSlot.begin(); itr != groupSlot.end(); itr++)
             {
-                Player* member = ObjectAccessor::FindPlayer(itr->guid);
-                if (!member || member == bot)
-                    continue;
+                std::lock_guard<std::recursive_mutex> groupGuard(group->GetLock());
+                Group::MemberSlotList const& groupSlot = group->GetMemberSlots();
+                for (Group::member_citerator itr = groupSlot.begin(); itr != groupSlot.end(); itr++)
+                {
+                    Player* member = ObjectAccessor::FindPlayer(itr->guid);
+                    if (!member || member == bot)
+                        continue;
 
-                if (member->IsInCombat() &&
-                    ServerFacade::instance().IsDistanceLessOrEqualThan(ServerFacade::instance().GetDistance2d(member, bot),
-                                                             PlayerbotAIConfig::Instance().ReactDistance))
-                    return true;
+                    if (member->IsInCombat() &&
+                        ServerFacade::instance().IsDistanceLessOrEqualThan(
+                            ServerFacade::instance().GetDistance2d(member, bot),
+                            PlayerbotAIConfig::Instance().ReactDistance))
+                        return true;
+                }
             }
         }
     }

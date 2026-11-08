@@ -28,14 +28,17 @@ static Player* FindGroupPlayerByName(Player* player, std::string const& playerNa
     if (!group)
         return nullptr;
 
-    for (GroupReference* gref = group->GetFirstMember(); gref; gref = gref->next())
     {
-        Player* member = gref->GetSource();
-        if (member)
+        std::lock_guard<std::recursive_mutex> groupGuard(group->GetLock());
+        for (GroupReference* gref = group->GetFirstMember(); gref; gref = gref->next())
         {
-            std::string memberName = member->GetName();
-            if (LowercaseString(memberName) == playerName)
-                return member;
+            Player* member = gref->GetSource();
+            if (member)
+            {
+                std::string memberName = member->GetName();
+                if (LowercaseString(memberName) == playerName)
+                    return member;
+            }
         }
     }
 

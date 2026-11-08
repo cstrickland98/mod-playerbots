@@ -35,13 +35,16 @@ bool IccRotfaceTankPositionAction::Execute(Event /*event*/)
         bool assistTankAlive = false;
         if (Group* group = bot->GetGroup())
         {
-            for (GroupReference* itr = group->GetFirstMember(); itr != nullptr; itr = itr->next())
             {
-                Player* member = itr->GetSource();
-                if (member && member->IsAlive() && member != bot && PlayerbotAI::IsAssistTank(member))
+                std::lock_guard<std::recursive_mutex> groupGuard(group->GetLock());
+                for (GroupReference* itr = group->GetFirstMember(); itr != nullptr; itr = itr->next())
                 {
-                    assistTankAlive = true;
-                    break;
+                    Player* member = itr->GetSource();
+                    if (member && member->IsAlive() && member != bot && PlayerbotAI::IsAssistTank(member))
+                    {
+                        assistTankAlive = true;
+                        break;
+                    }
                 }
             }
         }
@@ -199,17 +202,20 @@ Unit* IccRotfaceTankPositionAction::FindAssignedBigOoze(Unit* /*boss*/, std::vec
         ObjectGuid oozeGuid = ooze->GetGUID();
 
         bool isAssignedToOther = false;
-        for (GroupReference* itr = group->GetFirstMember(); itr != nullptr; itr = itr->next())
         {
-            Player* member = itr->GetSource();
-            if (!member || !member->IsInWorld() || member == bot)
-                continue;
-
-            Unit* memberTarget = botAI->GetUnit(member->GetTarget());
-            if (memberTarget && memberTarget->GetGUID() == oozeGuid)
+            std::lock_guard<std::recursive_mutex> groupGuard(group->GetLock());
+            for (GroupReference* itr = group->GetFirstMember(); itr != nullptr; itr = itr->next())
             {
-                isAssignedToOther = true;
-                break;
+                Player* member = itr->GetSource();
+                if (!member || !member->IsInWorld() || member == bot)
+                    continue;
+
+                Unit* memberTarget = botAI->GetUnit(member->GetTarget());
+                if (memberTarget && memberTarget->GetGUID() == oozeGuid)
+                {
+                    isAssignedToOther = true;
+                    break;
+                }
             }
         }
 
@@ -408,22 +414,25 @@ bool IccRotfaceGroupPositionAction::HandleOozeTargeting()
     Player* mainTankWithOoze = nullptr;
     if (Group* group = bot->GetGroup())
     {
-        for (GroupReference* itr = group->GetFirstMember(); itr != nullptr; itr = itr->next())
         {
-            Player* member = itr->GetSource();
-            if (!member || !member->IsAlive() || !PlayerbotAI::IsMainTank(member))
-                continue;
-
-            for (auto const& guid : npcs)
+            std::lock_guard<std::recursive_mutex> groupGuard(group->GetLock());
+            for (GroupReference* itr = group->GetFirstMember(); itr != nullptr; itr = itr->next())
             {
-                Unit* unit = botAI->GetUnit(guid);
-                if (unit && unit->IsAlive() && unit->GetEntry() == NPC_SMALL_OOZE && unit->GetVictim() == member)
+                Player* member = itr->GetSource();
+                if (!member || !member->IsAlive() || !PlayerbotAI::IsMainTank(member))
+                    continue;
+
+                for (auto const& guid : npcs)
                 {
-                    mainTankWithOoze = member;
-                    break;
+                    Unit* unit = botAI->GetUnit(guid);
+                    if (unit && unit->IsAlive() && unit->GetEntry() == NPC_SMALL_OOZE && unit->GetVictim() == member)
+                    {
+                        mainTankWithOoze = member;
+                        break;
+                    }
                 }
+                break;
             }
-            break;
         }
     }
 
@@ -433,23 +442,26 @@ bool IccRotfaceGroupPositionAction::HandleOozeTargeting()
     Player* assistTankKiting = nullptr;
     if (Group* group = bot->GetGroup())
     {
-        for (GroupReference* itr = group->GetFirstMember(); itr != nullptr; itr = itr->next())
         {
-            Player* member = itr->GetSource();
-            if (!member || !member->IsAlive() || !PlayerbotAI::IsAssistTank(member))
-                continue;
-
-            for (auto const& guid : npcs)
+            std::lock_guard<std::recursive_mutex> groupGuard(group->GetLock());
+            for (GroupReference* itr = group->GetFirstMember(); itr != nullptr; itr = itr->next())
             {
-                Unit* unit = botAI->GetUnit(guid);
-                if (unit && unit->IsAlive() && unit->GetEntry() == NPC_BIG_OOZE && unit->GetVictim() == member)
+                Player* member = itr->GetSource();
+                if (!member || !member->IsAlive() || !PlayerbotAI::IsAssistTank(member))
+                    continue;
+
+                for (auto const& guid : npcs)
                 {
-                    assistTankKiting = member;
-                    break;
+                    Unit* unit = botAI->GetUnit(guid);
+                    if (unit && unit->IsAlive() && unit->GetEntry() == NPC_BIG_OOZE && unit->GetVictim() == member)
+                    {
+                        assistTankKiting = member;
+                        break;
+                    }
                 }
+                if (assistTankKiting)
+                    break;
             }
-            if (assistTankKiting)
-                break;
         }
     }
 
@@ -634,24 +646,27 @@ bool IccRotfaceGroupPositionAction::PositionHeroicGrid(Unit* boss)
     std::vector<ObjectGuid> hunterGuids;
     std::vector<ObjectGuid> rangedGuids;
     std::vector<ObjectGuid> healerGuids;
-    for (GroupReference* itr = group->GetFirstMember(); itr != nullptr; itr = itr->next())
     {
-        Player* member = itr->GetSource();
-        if (!member || !member->IsAlive() || PlayerbotAI::IsTank(member))
-            continue;
-
-        if (!GET_PLAYERBOT_AI(member))
-            continue;
-
-        ObjectGuid const guid = member->GetGUID();
-        if (PlayerbotAI::IsHeal(member))
-            healerGuids.push_back(guid);
-        else if (PlayerbotAI::IsRanged(member))
+        std::lock_guard<std::recursive_mutex> groupGuard(group->GetLock());
+        for (GroupReference* itr = group->GetFirstMember(); itr != nullptr; itr = itr->next())
         {
-            if (member->getClass() == CLASS_HUNTER)
-                hunterGuids.push_back(guid);
-            else
-                rangedGuids.push_back(guid);
+            Player* member = itr->GetSource();
+            if (!member || !member->IsAlive() || PlayerbotAI::IsTank(member))
+                continue;
+
+            if (!GET_PLAYERBOT_AI(member))
+                continue;
+
+            ObjectGuid const guid = member->GetGUID();
+            if (PlayerbotAI::IsHeal(member))
+                healerGuids.push_back(guid);
+            else if (PlayerbotAI::IsRanged(member))
+            {
+                if (member->getClass() == CLASS_HUNTER)
+                    hunterGuids.push_back(guid);
+                else
+                    rangedGuids.push_back(guid);
+            }
         }
     }
     std::sort(hunterGuids.begin(), hunterGuids.end());
@@ -733,28 +748,32 @@ bool IccRotfaceGroupPositionAction::PositionHeroicGrid(Unit* boss)
 
     if (Group* grp = bot->GetGroup())
     {
-        for (GroupReference* itr = grp->GetFirstMember(); itr != nullptr; itr = itr->next())
         {
-            Player* member = itr->GetSource();
-            if (!member || !member->IsAlive() || member == bot)
-                continue;
-            if (PlayerbotAI::IsMainTank(member))
+            std::lock_guard<std::recursive_mutex> groupGuard(grp->GetLock());
+            for (GroupReference* itr = grp->GetFirstMember(); itr != nullptr; itr = itr->next())
             {
-                if (bot->getClass() == CLASS_HUNTER)
+                Player* member = itr->GetSource();
+                if (!member || !member->IsAlive() || member == bot)
+                    continue;
+                if (PlayerbotAI::IsMainTank(member))
                 {
-                    float const distToTank = bot->GetExactDist2d(member->GetPositionX(), member->GetPositionY());
-                    if (distToTank <= 12.0f)
-                        return false;
+                    if (bot->getClass() == CLASS_HUNTER)
+                    {
+                        float const distToTank = bot->GetExactDist2d(member->GetPositionX(), member->GetPositionY());
+                        if (distToTank <= 12.0f)
+                            return false;
 
-                    if (!bot->HasAura(SPELL_NITRO_BOOSTS))
-                        bot->AddAura(SPELL_NITRO_BOOSTS, bot);
+                        if (!bot->HasAura(SPELL_NITRO_BOOSTS))
+                            bot->AddAura(SPELL_NITRO_BOOSTS, bot);
 
-                    return MoveTo(bot->GetMapId(), member->GetPositionX(), member->GetPositionY(),
-                                  member->GetPositionZ(), false, false, false, true, MovementPriority::MOVEMENT_COMBAT);
+                        return MoveTo(bot->GetMapId(), member->GetPositionX(), member->GetPositionY(),
+                                      member->GetPositionZ(), false, false, false, true,
+                                      MovementPriority::MOVEMENT_COMBAT);
+                    }
+
+                    Position const mainTankPos(member->GetPositionX(), member->GetPositionY(), member->GetPositionZ());
+                    return moveTowardSpot(mainTankPos);
                 }
-
-                Position const mainTankPos(member->GetPositionX(), member->GetPositionY(), member->GetPositionZ());
-                return moveTowardSpot(mainTankPos);
             }
         }
     }

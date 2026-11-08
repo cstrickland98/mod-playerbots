@@ -62,30 +62,34 @@ Unit* CastHysteriaAction::GetTarget()
     Unit* rangedDps = nullptr;
     Unit* tank = nullptr;
 
-    for (GroupReference* ref = group->GetFirstMember(); ref; ref = ref->next())
     {
-        Player* member = ref->GetSource();
-        if (!member || !member->IsAlive())
-            continue;
+        std::lock_guard<std::recursive_mutex> groupGuard(group->GetLock());
+        for (GroupReference* ref = group->GetFirstMember(); ref; ref = ref->next())
+        {
+            Player* member = ref->GetSource();
+            if (!member || !member->IsAlive())
+                continue;
 
-        if (member->GetMap() != bot->GetMap() || bot->GetDistance(member) > sPlayerbotAIConfig.SpellDistance)
-            continue;
+            if (member->GetMap() != bot->GetMap() || bot->GetDistance(member) > sPlayerbotAIConfig.SpellDistance)
+                continue;
 
-        // Skip if already has hysteria
-        if (member->HasAura(49016))
-            continue;
+            // Skip if already has hysteria
+            if (member->HasAura(49016))
+                continue;
 
-        // Priority 1: Melee DPS
-        if (PlayerbotAI::IsMelee(member) && PlayerbotAI::IsDps(member))
-            return member;
+            // Priority 1: Melee DPS
+            if (PlayerbotAI::IsMelee(member) && PlayerbotAI::IsDps(member))
+                return member;
 
-        // Priority 2: Ranged DPS (physical, not casters)
-        if (!rangedDps && PlayerbotAI::IsRanged(member) && PlayerbotAI::IsDps(member) && !PlayerbotAI::IsCaster(member))
-            rangedDps = member;
+            // Priority 2: Ranged DPS (physical, not casters)
+            if (!rangedDps && PlayerbotAI::IsRanged(member) && PlayerbotAI::IsDps(member) &&
+                !PlayerbotAI::IsCaster(member))
+                rangedDps = member;
 
-        // Priority 3: Tank
-        if (!tank && PlayerbotAI::IsTank(member))
-            tank = member;
+            // Priority 3: Tank
+            if (!tank && PlayerbotAI::IsTank(member))
+                tank = member;
+        }
     }
 
     if (rangedDps)

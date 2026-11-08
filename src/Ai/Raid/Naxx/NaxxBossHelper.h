@@ -284,14 +284,17 @@ public:
         if (!group)
             return false;
 
-        for (GroupReference* ref = group->GetFirstMember(); ref; ref = ref->next())
         {
-            Player* member = ref->GetSource();
-            if (member &&
-                (NaxxSpellIds::HasAnyAura(member, {NaxxSpellIds::Icebolt10, NaxxSpellIds::Icebolt25}) ||
-                 botAI->HasAura("icebolt", member, false, false, -1, true)))
+            std::lock_guard<std::recursive_mutex> groupGuard(group->GetLock());
+            for (GroupReference* ref = group->GetFirstMember(); ref; ref = ref->next())
             {
-                return true;
+                Player* member = ref->GetSource();
+                if (member &&
+                    (NaxxSpellIds::HasAnyAura(member, {NaxxSpellIds::Icebolt10, NaxxSpellIds::Icebolt25}) ||
+                     botAI->HasAura("icebolt", member, false, false, -1, true)))
+                {
+                    return true;
+                }
             }
         }
         return false;

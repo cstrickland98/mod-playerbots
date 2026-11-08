@@ -170,14 +170,17 @@ bool IckAndKrickAction::ExplosiveBarrage(bool /*explosiveBarrage*/, Unit* boss)
         Group* group = bot->GetGroup();
         if (group)
         {
-            for (GroupReference* ref = group->GetFirstMember(); ref; ref = ref->next())
             {
-                if (Player* member = ref->GetSource())
+                std::lock_guard<std::recursive_mutex> groupGuard(group->GetLock());
+                for (GroupReference* ref = group->GetFirstMember(); ref; ref = ref->next())
                 {
-                    if (member != bot && member->IsAlive() && bot->GetMap() == member->GetMap() &&
-                        bot->GetExactDist2d(member) < 20.0f)
+                    if (Player* member = ref->GetSource())
                     {
-                        playerPositions.push_back(member->GetPosition());
+                        if (member != bot && member->IsAlive() && bot->GetMap() == member->GetMap() &&
+                            bot->GetExactDist2d(member) < 20.0f)
+                        {
+                            playerPositions.push_back(member->GetPosition());
+                        }
                     }
                 }
             }

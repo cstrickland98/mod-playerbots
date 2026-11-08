@@ -59,42 +59,45 @@ bool AutoShareQuestAction::Execute(Event /*event*/)
 
         bool partyNeedsQuest = false;
 
-        for (GroupReference* itr = bot->GetGroup()->GetFirstMember(); itr != nullptr; itr = itr->next())
         {
-            Player* player = itr->GetSource();
-
-            if (!player || player == bot || !player->IsInWorld() || !botAI->IsSafe(player)) // skip self
-                continue;
-
-            if (bot->GetDistance(player) > 10)
-                continue;
-
-            if (!player->SatisfyQuestStatus(quest, false))
-                continue;
-
-            if (player->GetQuestStatus(logQuest) == QUEST_STATUS_COMPLETE)
-                continue;
-
-            if (!player->CanTakeQuest(quest, false))
-                continue;
-
-            if (!player->SatisfyQuestLog(false))
-                continue;
-
-            if (player->GetDivider())
-                continue;
-
-            if (auto botAI = GET_PLAYERBOT_AI(player))
+            std::lock_guard<std::recursive_mutex> groupGuard(bot->GetGroup()->GetLock());
+            for (GroupReference* itr = bot->GetGroup()->GetFirstMember(); itr != nullptr; itr = itr->next())
             {
-                if (PAI_VALUE(uint8, "free quest log slots") < 15 || !urand(0,5))
+                Player* player = itr->GetSource();
+
+                if (!player || player == bot || !player->IsInWorld() || !botAI->IsSafe(player)) // skip self
+                    continue;
+
+                if (bot->GetDistance(player) > 10)
+                    continue;
+
+                if (!player->SatisfyQuestStatus(quest, false))
+                    continue;
+
+                if (player->GetQuestStatus(logQuest) == QUEST_STATUS_COMPLETE)
+                    continue;
+
+                if (!player->CanTakeQuest(quest, false))
+                    continue;
+
+                if (!player->SatisfyQuestLog(false))
+                    continue;
+
+                if (player->GetDivider())
+                    continue;
+
+                if (auto botAI = GET_PLAYERBOT_AI(player))
                 {
-                    WorldPacket packet(CMSG_PUSHQUESTTOPARTY, 20);
-                    packet << logQuest;
-                    botAI->HandleMasterIncomingPacket(packet);
+                    if (PAI_VALUE(uint8, "free quest log slots") < 15 || !urand(0,5))
+                    {
+                        WorldPacket packet(CMSG_PUSHQUESTTOPARTY, 20);
+                        packet << logQuest;
+                        botAI->HandleMasterIncomingPacket(packet);
+                    }
                 }
+                else
+                    partyNeedsQuest = true;
             }
-            else
-                partyNeedsQuest = true;
         }
 
         if (!partyNeedsQuest)

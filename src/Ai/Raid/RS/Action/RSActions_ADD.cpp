@@ -24,20 +24,23 @@ namespace
         if (!group)
             return;
 
-        for (GroupReference* itr = group->GetFirstMember(); itr; itr = itr->next())
         {
-            Player* member = itr->GetSource();
-            if (!member || !member->IsAlive())
-                continue;
+            std::lock_guard<std::recursive_mutex> groupGuard(group->GetLock());
+            for (GroupReference* itr = group->GetFirstMember(); itr; itr = itr->next())
+            {
+                Player* member = itr->GetSource();
+                if (!member || !member->IsAlive())
+                    continue;
 
-            if (!mainTank && PlayerbotAI::IsMainTank(member))
-                mainTank = member;
+                if (!mainTank && PlayerbotAI::IsMainTank(member))
+                    mainTank = member;
 
-            if (!assistTank && PlayerbotAI::IsAssistTank(member))
-                assistTank = member;
+                if (!assistTank && PlayerbotAI::IsAssistTank(member))
+                    assistTank = member;
 
-            if (mainTank && assistTank)
-                break;
+                if (mainTank && assistTank)
+                    break;
+            }
         }
     }
 
@@ -87,21 +90,24 @@ namespace
             float sx = 0.0f;
             float sy = 0.0f;
             int count = 0;
-            for (GroupReference* itr = group->GetFirstMember(); itr; itr = itr->next())
             {
-                Player* member = itr->GetSource();
-                if (!member || !member->IsAlive())
-                    continue;
+                std::lock_guard<std::recursive_mutex> groupGuard(group->GetLock());
+                for (GroupReference* itr = group->GetFirstMember(); itr; itr = itr->next())
+                {
+                    Player* member = itr->GetSource();
+                    if (!member || !member->IsAlive())
+                        continue;
 
-                if (member->GetMapId() != bot->GetMapId() || member->GetInstanceId() != bot->GetInstanceId())
-                    continue;
+                    if (member->GetMapId() != bot->GetMapId() || member->GetInstanceId() != bot->GetInstanceId())
+                        continue;
 
-                if (PlayerbotAI::IsTank(member) || !PlayerbotAI::IsRanged(member))
-                    continue;
+                    if (PlayerbotAI::IsTank(member) || !PlayerbotAI::IsRanged(member))
+                        continue;
 
-                sx += member->GetPositionX();
-                sy += member->GetPositionY();
-                ++count;
+                    sx += member->GetPositionX();
+                    sy += member->GetPositionY();
+                    ++count;
+                }
             }
 
             if (count > 0)
@@ -359,23 +365,26 @@ bool RsTrashRangedAction::Execute(Event )
 
     Player* nearestTank = nullptr;
     float nd = std::numeric_limits<float>::max();
-    for (GroupReference* itr = group->GetFirstMember(); itr; itr = itr->next())
     {
-        Player* member = itr->GetSource();
-        if (!member || !member->IsAlive() || member == bot)
-            continue;
-
-        if (!PlayerbotAI::IsTank(member))
-            continue;
-
-        if (member->GetMapId() != bot->GetMapId() || member->GetInstanceId() != bot->GetInstanceId())
-            continue;
-
-        float const d = bot->GetExactDist2d(member);
-        if (d < nd)
+        std::lock_guard<std::recursive_mutex> groupGuard(group->GetLock());
+        for (GroupReference* itr = group->GetFirstMember(); itr; itr = itr->next())
         {
-            nd = d;
-            nearestTank = member;
+            Player* member = itr->GetSource();
+            if (!member || !member->IsAlive() || member == bot)
+                continue;
+
+            if (!PlayerbotAI::IsTank(member))
+                continue;
+
+            if (member->GetMapId() != bot->GetMapId() || member->GetInstanceId() != bot->GetInstanceId())
+                continue;
+
+            float const d = bot->GetExactDist2d(member);
+            if (d < nd)
+            {
+                nd = d;
+                nearestTank = member;
+            }
         }
     }
 

@@ -162,24 +162,27 @@ bool BwlVaelastraszMoveAwayAction::CalculateFleeDirection(Unit const* boss, floa
 
     if (Group const* group = bot->GetGroup())
     {
-        for (GroupReference const* gref = group->GetFirstMember(); gref; gref = gref->next())
         {
-            Player* p = gref->GetSource();
-            if (!p || p == bot || !p->IsAlive() || p->GetMapId() != bot->GetMapId())
-                continue;
-
-            // Boss alive: ignore other Burning Adrenaline bots so they can group together
-            if (!bossDead && p->HasAura(static_cast<uint32>(BlackwingLairSpells::SPELL_BURNING_ADRENALINE)))
-                continue;
-
-            // Compute a flee direction via weighted repulsion from other bots.
-            // Weighted repulsion: closer = stronger push (linear falloff to 20y)
-            float dist = bot->GetDistance2d(p);
-            if (dist < VAELASTRASZ_REPULSION_RANGE && dist > 0.1f)
+            std::lock_guard<std::recursive_mutex> groupGuard(group->GetLock());
+            for (GroupReference const* gref = group->GetFirstMember(); gref; gref = gref->next())
             {
-                float weight = 1.0f - dist / VAELASTRASZ_REPULSION_RANGE;
-                fleeX += (bot->GetPositionX() - p->GetPositionX()) / dist * weight;
-                fleeY += (bot->GetPositionY() - p->GetPositionY()) / dist * weight;
+                Player* p = gref->GetSource();
+                if (!p || p == bot || !p->IsAlive() || p->GetMapId() != bot->GetMapId())
+                    continue;
+
+                // Boss alive: ignore other Burning Adrenaline bots so they can group together
+                if (!bossDead && p->HasAura(static_cast<uint32>(BlackwingLairSpells::SPELL_BURNING_ADRENALINE)))
+                    continue;
+
+                // Compute a flee direction via weighted repulsion from other bots.
+                // Weighted repulsion: closer = stronger push (linear falloff to 20y)
+                float dist = bot->GetDistance2d(p);
+                if (dist < VAELASTRASZ_REPULSION_RANGE && dist > 0.1f)
+                {
+                    float weight = 1.0f - dist / VAELASTRASZ_REPULSION_RANGE;
+                    fleeX += (bot->GetPositionX() - p->GetPositionX()) / dist * weight;
+                    fleeY += (bot->GetPositionY() - p->GetPositionY()) / dist * weight;
+                }
             }
         }
     }

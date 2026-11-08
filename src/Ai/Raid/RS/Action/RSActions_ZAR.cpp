@@ -152,20 +152,23 @@ bool RsZarithrianTankAction::Execute(Event )
     Player* assistTankPlayer = nullptr;
     if (Group* group = bot->GetGroup())
     {
-        for (GroupReference* itr = group->GetFirstMember(); itr; itr = itr->next())
         {
-            Player* member = itr->GetSource();
-            if (!member || !member->IsAlive())
-                continue;
+            std::lock_guard<std::recursive_mutex> groupGuard(group->GetLock());
+            for (GroupReference* itr = group->GetFirstMember(); itr; itr = itr->next())
+            {
+                Player* member = itr->GetSource();
+                if (!member || !member->IsAlive())
+                    continue;
 
-            if (!mainTankPlayer && PlayerbotAI::IsMainTank(member))
-                mainTankPlayer = member;
+                if (!mainTankPlayer && PlayerbotAI::IsMainTank(member))
+                    mainTankPlayer = member;
 
-            if (!assistTankPlayer && PlayerbotAI::IsAssistTank(member))
-                assistTankPlayer = member;
+                if (!assistTankPlayer && PlayerbotAI::IsAssistTank(member))
+                    assistTankPlayer = member;
 
-            if (mainTankPlayer && assistTankPlayer)
-                break;
+                if (mainTankPlayer && assistTankPlayer)
+                    break;
+            }
         }
     }
 

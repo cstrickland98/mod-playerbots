@@ -292,17 +292,20 @@ bool MaidenOfVirtueTankPositionBossAction::Execute(Event /*event*/)
         return false;
 
     Player* healer = nullptr;
-    for (GroupReference* ref = group->GetFirstMember(); ref; ref = ref->next())
     {
-        Player* member = ref->GetSource();
-        if (!member || !member->IsAlive() || !PlayerbotAI::IsHeal(member) ||
-            !member->HasAura(Id(KaraSpells::SPELL_REPENTANCE)))
+        std::lock_guard<std::recursive_mutex> groupGuard(group->GetLock());
+        for (GroupReference* ref = group->GetFirstMember(); ref; ref = ref->next())
         {
-            continue;
-        }
+            Player* member = ref->GetSource();
+            if (!member || !member->IsAlive() || !PlayerbotAI::IsHeal(member) ||
+                !member->HasAura(Id(KaraSpells::SPELL_REPENTANCE)))
+            {
+                continue;
+            }
 
-        healer = member;
-        break;
+            healer = member;
+            break;
+        }
     }
 
     if (healer)
@@ -358,21 +361,24 @@ bool MaidenOfVirtuePositionRangedBetweenPillarsAction::Execute(Event /*event*/)
     constexpr uint8 maxIndex = 7;
     uint8 index = 0;
 
-    for (GroupReference* ref = group->GetFirstMember(); ref; ref = ref->next())
     {
-        Player* member = ref->GetSource();
-        if (!member || !PlayerbotAI::IsRanged(member))
-            continue;
-
-        if (member == bot)
-            break;
-
-        if (index >= maxIndex)
+        std::lock_guard<std::recursive_mutex> groupGuard(group->GetLock());
+        for (GroupReference* ref = group->GetFirstMember(); ref; ref = ref->next())
         {
-            index = 0;
-            continue;
+            Player* member = ref->GetSource();
+            if (!member || !PlayerbotAI::IsRanged(member))
+                continue;
+
+            if (member == bot)
+                break;
+
+            if (index >= maxIndex)
+            {
+                index = 0;
+                continue;
+            }
+            index++;
         }
-        index++;
     }
 
     Position const& position = MAIDEN_OF_VIRTUE_RANGED_POSITIONS[index];
@@ -1257,23 +1263,26 @@ bool NightbaneGroundPhaseCoordinateRangedMovementAction::Execute(Event /*event*/
         return false;
 
     Player* rangedLeader = nullptr;
-    for (GroupReference* ref = group->GetFirstMember(); ref; ref = ref->next())
     {
-        Player* member = ref->GetSource();
-        if (!member || member->GetMapId() != KARA_MAP_ID ||
-            !member->IsAlive() || !PlayerbotAI::IsRanged(member))
+        std::lock_guard<std::recursive_mutex> groupGuard(group->GetLock());
+        for (GroupReference* ref = group->GetFirstMember(); ref; ref = ref->next())
         {
-            continue;
-        }
+            Player* member = ref->GetSource();
+            if (!member || member->GetMapId() != KARA_MAP_ID ||
+                !member->IsAlive() || !PlayerbotAI::IsRanged(member))
+            {
+                continue;
+            }
 
-        if (group->IsAssistant(member->GetGUID()))
-        {
-            rangedLeader = member;
-            break;
-        }
+            if (group->IsAssistant(member->GetGUID()))
+            {
+                rangedLeader = member;
+                break;
+            }
 
-        if (!rangedLeader || member->GetGUID() < rangedLeader->GetGUID())
-            rangedLeader = member;
+            if (!rangedLeader || member->GetGUID() < rangedLeader->GetGUID())
+                rangedLeader = member;
+        }
     }
 
     if (!rangedLeader)

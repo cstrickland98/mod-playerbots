@@ -170,16 +170,19 @@ bool HighWarlordNajentusRemoveImpalingSpineAction::Execute(Event /*event*/)
         return false;
 
     Player* impaledPlayer = nullptr;
-    for (GroupReference* ref = group->GetFirstMember(); ref; ref = ref->next())
     {
-        Player* member = ref->GetSource();
-        if (!member || !member->IsAlive())
-            continue;
-
-        if (member->HasAura(static_cast<uint32>(BlackTempleSpells::SPELL_IMPALING_SPINE)))
+        std::lock_guard<std::recursive_mutex> groupGuard(group->GetLock());
+        for (GroupReference* ref = group->GetFirstMember(); ref; ref = ref->next())
         {
-            impaledPlayer = member;
-            break;
+            Player* member = ref->GetSource();
+            if (!member || !member->IsAlive())
+                continue;
+
+            if (member->HasAura(static_cast<uint32>(BlackTempleSpells::SPELL_IMPALING_SPINE)))
+            {
+                impaledPlayer = member;
+                break;
+            }
         }
     }
     if (!impaledPlayer)
@@ -283,11 +286,14 @@ bool SupremusMisdirectBossToMainTankAction::Execute(Event /*event*/)
         return false;
 
     std::vector<Player*> hunters;
-    for (GroupReference* ref = group->GetFirstMember(); ref && hunters.size() < 3; ref = ref->next())
     {
-        Player* member = ref->GetSource();
-        if (member && member->IsAlive() && member->getClass() == CLASS_HUNTER)
-            hunters.push_back(member);
+        std::lock_guard<std::recursive_mutex> groupGuard(group->GetLock());
+        for (GroupReference* ref = group->GetFirstMember(); ref && hunters.size() < 3; ref = ref->next())
+        {
+            Player* member = ref->GetSource();
+            if (member && member->IsAlive() && member->getClass() == CLASS_HUNTER)
+                hunters.push_back(member);
+        }
     }
 
     if (hunters.empty())
@@ -599,13 +605,16 @@ bool TeronGorefiendPositionRangedOnBalconyAction::Execute(Event /*event*/)
         return false;
 
     std::vector<Player*> rangedMembers;
-    for (GroupReference* ref = group->GetFirstMember(); ref; ref = ref->next())
     {
-        Player* member = ref->GetSource();
-        if (!member || !PlayerbotAI::IsRanged(member))
-            continue;
+        std::lock_guard<std::recursive_mutex> groupGuard(group->GetLock());
+        for (GroupReference* ref = group->GetFirstMember(); ref; ref = ref->next())
+        {
+            Player* member = ref->GetSource();
+            if (!member || !PlayerbotAI::IsRanged(member))
+                continue;
 
-        rangedMembers.push_back(member);
+            rangedMembers.push_back(member);
+        }
     }
 
     if (rangedMembers.empty())
@@ -908,14 +917,17 @@ bool GurtoggBloodboilRangedMoveAwayFromEnragedPlayerAction::Execute(Event /*even
         return false;
 
     Player* enragedPlayer = nullptr;
-    for (GroupReference* ref = group->GetFirstMember(); ref; ref = ref->next())
     {
-        Player* member = ref->GetSource();
-        if (member && member->HasAura(
-                static_cast<uint32>(BlackTempleSpells::SPELL_PLAYER_FEL_RAGE)))
+        std::lock_guard<std::recursive_mutex> groupGuard(group->GetLock());
+        for (GroupReference* ref = group->GetFirstMember(); ref; ref = ref->next())
         {
-            enragedPlayer = member;
-            break;
+            Player* member = ref->GetSource();
+            if (member && member->HasAura(
+                    static_cast<uint32>(BlackTempleSpells::SPELL_PLAYER_FEL_RAGE)))
+            {
+                enragedPlayer = member;
+                break;
+            }
         }
     }
 
@@ -1305,13 +1317,16 @@ std::vector<Player*> MotherShahrazRunAwayToBreakFatalAttractionAction::GetAttrac
     if (!group)
         return attractedPlayers;
 
-    for (GroupReference* ref = group->GetFirstMember(); ref; ref = ref->next())
     {
-        Player* member = ref->GetSource();
-        if (member && member->HasAura(static_cast<uint32>(
-            BlackTempleSpells::SPELL_FATAL_ATTRACTION)))
+        std::lock_guard<std::recursive_mutex> groupGuard(group->GetLock());
+        for (GroupReference* ref = group->GetFirstMember(); ref; ref = ref->next())
         {
-            attractedPlayers.push_back(member);
+            Player* member = ref->GetSource();
+            if (member && member->HasAura(static_cast<uint32>(
+                BlackTempleSpells::SPELL_FATAL_ATTRACTION)))
+            {
+                attractedPlayers.push_back(member);
+            }
         }
     }
 
@@ -1332,17 +1347,20 @@ bool IllidariCouncilMisdirectBossesToTanksAction::Execute(Event /*event*/)
         return false;
 
     std::vector<Player*> hunters;
-    for (GroupReference* ref = group->GetFirstMember(); ref; ref = ref->next())
     {
-        Player* member = ref->GetSource();
-        if (member && member->IsAlive() && member->getClass() == CLASS_HUNTER &&
-            GET_PLAYERBOT_AI(member))
+        std::lock_guard<std::recursive_mutex> groupGuard(group->GetLock());
+        for (GroupReference* ref = group->GetFirstMember(); ref; ref = ref->next())
         {
-            hunters.push_back(member);
-        }
+            Player* member = ref->GetSource();
+            if (member && member->IsAlive() && member->getClass() == CLASS_HUNTER &&
+                GET_PLAYERBOT_AI(member))
+            {
+                hunters.push_back(member);
+            }
 
-        if (hunters.size() >= 4)
-            break;
+            if (hunters.size() >= 4)
+                break;
+        }
     }
 
     int8 hunterIndex = -1;
@@ -1367,36 +1385,45 @@ bool IllidariCouncilMisdirectBossesToTanksAction::Execute(Event /*event*/)
     else if (hunterIndex == 1)
     {
         councilTarget = AI_VALUE2(Unit*, "find target", "lady malande");
-        for (GroupReference* ref = group->GetFirstMember(); ref; ref = ref->next())
         {
-            if (Player* member = GetGroupAssistTank(bot, 0))
+            std::lock_guard<std::recursive_mutex> groupGuard(group->GetLock());
+            for (GroupReference* ref = group->GetFirstMember(); ref; ref = ref->next())
             {
-                tankTarget = member;
-                break;
+                if (Player* member = GetGroupAssistTank(bot, 0))
+                {
+                    tankTarget = member;
+                    break;
+                }
             }
         }
     }
     else if (hunterIndex == 2)
     {
         councilTarget = AI_VALUE2(Unit*, "find target", "gathios the shatterer");
-        for (GroupReference* ref = group->GetFirstMember(); ref; ref = ref->next())
         {
-            if (Player* member = GetGroupMainTank(bot))
+            std::lock_guard<std::recursive_mutex> groupGuard(group->GetLock());
+            for (GroupReference* ref = group->GetFirstMember(); ref; ref = ref->next())
             {
-                tankTarget = member;
-                break;
+                if (Player* member = GetGroupMainTank(bot))
+                {
+                    tankTarget = member;
+                    break;
+                }
             }
         }
     }
     else if (hunterIndex == 3)
     {
         councilTarget = AI_VALUE2(Unit*, "find target", "veras darkshadow");
-        for (GroupReference* ref = group->GetFirstMember(); ref; ref = ref->next())
         {
-            if (Player* member = GetGroupAssistTank(bot, 1))
+            std::lock_guard<std::recursive_mutex> groupGuard(group->GetLock());
+            for (GroupReference* ref = group->GetFirstMember(); ref; ref = ref->next())
             {
-                tankTarget = member;
-                break;
+                if (Player* member = GetGroupAssistTank(bot, 1))
+                {
+                    tankTarget = member;
+                    break;
+                }
             }
         }
     }
@@ -1774,17 +1801,20 @@ bool IllidanStormrageMisdirectToTankAction::Execute(Event /*event*/)
 bool IllidanStormrageMisdirectToTankAction::TryMisdirectToFlameTanks(Group* group)
 {
     std::vector<Player*> hunters;
-    for (GroupReference* ref = group->GetFirstMember(); ref; ref = ref->next())
     {
-        Player* member = ref->GetSource();
-        if (member && member->IsAlive() && member->getClass() == CLASS_HUNTER &&
-            GET_PLAYERBOT_AI(member))
+        std::lock_guard<std::recursive_mutex> groupGuard(group->GetLock());
+        for (GroupReference* ref = group->GetFirstMember(); ref; ref = ref->next())
         {
-            hunters.push_back(member);
-        }
+            Player* member = ref->GetSource();
+            if (member && member->IsAlive() && member->getClass() == CLASS_HUNTER &&
+                GET_PLAYERBOT_AI(member))
+            {
+                hunters.push_back(member);
+            }
 
-        if (hunters.size() >= 2)
-            break;
+            if (hunters.size() >= 2)
+                break;
+        }
     }
 
     int8 hunterIndex = -1;
@@ -2449,13 +2479,16 @@ bool IllidanStormragePositionAboveGrateAction::Execute(Event /*event*/)
         return false;
 
     std::vector<Player*> bots;
-    for (GroupReference* ref = group->GetFirstMember(); ref; ref = ref->next())
     {
-        Player* member = ref->GetSource();
-        if (member && !PlayerbotAI::IsAssistTankOfIndex(member, 0, true) &&
-            !PlayerbotAI::IsAssistTankOfIndex(member, 1, true))
+        std::lock_guard<std::recursive_mutex> groupGuard(group->GetLock());
+        for (GroupReference* ref = group->GetFirstMember(); ref; ref = ref->next())
         {
-            bots.push_back(member);
+            Player* member = ref->GetSource();
+            if (member && !PlayerbotAI::IsAssistTankOfIndex(member, 0, true) &&
+                !PlayerbotAI::IsAssistTankOfIndex(member, 1, true))
+            {
+                bots.push_back(member);
+            }
         }
     }
 
@@ -2554,16 +2587,19 @@ bool IllidanStormrageDisperseRangedAction::FanOutBehindInHumanPhase(
 
     std::vector<Player*> healers;
     std::vector<Player*> rangedDps;
-    for (GroupReference* ref = group->GetFirstMember(); ref; ref = ref->next())
     {
-        Player* member = ref->GetSource();
-        if (!member || !PlayerbotAI::IsRanged(member))
-            continue;
+        std::lock_guard<std::recursive_mutex> groupGuard(group->GetLock());
+        for (GroupReference* ref = group->GetFirstMember(); ref; ref = ref->next())
+        {
+            Player* member = ref->GetSource();
+            if (!member || !PlayerbotAI::IsRanged(member))
+                continue;
 
-        if (PlayerbotAI::IsHeal(member))
-            healers.push_back(member);
-        else
-            rangedDps.push_back(member);
+            if (PlayerbotAI::IsHeal(member))
+                healers.push_back(member);
+            else
+                rangedDps.push_back(member);
+        }
     }
 
     constexpr float arcSpan = M_PI;
@@ -2631,13 +2667,16 @@ bool IllidanStormrageDisperseRangedAction::SpreadInCircleInDemonPhase(
     }
 
     std::vector<Player*> rangedBots;
-    for (GroupReference* ref = group->GetFirstMember(); ref; ref = ref->next())
     {
-        Player* member = ref->GetSource();
-        if (!member || !PlayerbotAI::IsRanged(member))
-            continue;
+        std::lock_guard<std::recursive_mutex> groupGuard(group->GetLock());
+        for (GroupReference* ref = group->GetFirstMember(); ref; ref = ref->next())
+        {
+            Player* member = ref->GetSource();
+            if (!member || !PlayerbotAI::IsRanged(member))
+                continue;
 
-        rangedBots.push_back(member);
+            rangedBots.push_back(member);
+        }
     }
 
     if (rangedBots.empty())

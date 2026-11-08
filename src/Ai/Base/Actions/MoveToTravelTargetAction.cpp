@@ -19,57 +19,61 @@ bool MoveToTravelTargetAction::Execute(Event /*event*/)
     Group* group = bot->GetGroup();
     if (group && !urand(0, 1) && bot == botAI->GetGroupLeader() && !bot->IsInCombat())
     {
-        for (GroupReference* ref = group->GetFirstMember(); ref; ref = ref->next())
         {
-            Player* member = ref->GetSource();
-            if (member == bot)
-                continue;
-
-            if (!member->IsAlive())
-                continue;
-
-            if (!member->isMoving())
-                continue;
-
-            PlayerbotAI* memberBotAI = GET_PLAYERBOT_AI(member);
-            if (memberBotAI && !memberBotAI->HasStrategy("follow", BOT_STATE_NON_COMBAT))
-                continue;
-
-            WorldPosition memberPos(member);
-            // unused while the angle-based filter below stays commented out
-            [[maybe_unused]] WorldPosition targetPos = *target->getPosition();
-
-            float memberDistance = botLocation.distance(memberPos);
-
-            if (memberDistance < 50.0f)
-                continue;
-            if (memberDistance > sPlayerbotAIConfig.ReactDistance * 20)
-                continue;
-
-            // float memberAngle = botLocation.getAngleBetween(targetPos, memberPos);
-
-            // if (botLocation.getMapId() == targetPos.getMapId() && botLocation.getMapId() == memberPos.getMapId() &&
-            // memberAngle < static_cast<float>(M_PI) / 2) //We are heading that direction anyway.
-            //     continue;
-
-            if (!urand(0, 5))
+            std::lock_guard<std::recursive_mutex> groupGuard(group->GetLock());
+            for (GroupReference* ref = group->GetFirstMember(); ref; ref = ref->next())
             {
-                std::ostringstream out;
-                if (botAI->GetMaster() && !bot->GetGroup()->IsMember(botAI->GetMaster()->GetGUID()))
-                    out << "Waiting a bit for ";
-                else
-                    out << "Please hurry up ";
+                Player* member = ref->GetSource();
+                if (member == bot)
+                    continue;
 
-                out << member->GetName();
+                if (!member->IsAlive())
+                    continue;
 
-                botAI->TellMasterNoFacing(out);
+                if (!member->isMoving())
+                    continue;
+
+                PlayerbotAI* memberBotAI = GET_PLAYERBOT_AI(member);
+                if (memberBotAI && !memberBotAI->HasStrategy("follow", BOT_STATE_NON_COMBAT))
+                    continue;
+
+                WorldPosition memberPos(member);
+                // unused while the angle-based filter below stays commented out
+                [[maybe_unused]] WorldPosition targetPos = *target->getPosition();
+
+                float memberDistance = botLocation.distance(memberPos);
+
+                if (memberDistance < 50.0f)
+                    continue;
+                if (memberDistance > sPlayerbotAIConfig.ReactDistance * 20)
+                    continue;
+
+                // float memberAngle = botLocation.getAngleBetween(targetPos, memberPos);
+
+                // if (botLocation.getMapId() == targetPos.getMapId() &&
+                // botLocation.getMapId() == memberPos.getMapId() &&
+                // memberAngle < static_cast<float>(M_PI) / 2) //We are heading that direction anyway.
+                //     continue;
+
+                if (!urand(0, 5))
+                {
+                    std::ostringstream out;
+                    if (botAI->GetMaster() && !bot->GetGroup()->IsMember(botAI->GetMaster()->GetGUID()))
+                        out << "Waiting a bit for ";
+                    else
+                        out << "Please hurry up ";
+
+                    out << member->GetName();
+
+                    botAI->TellMasterNoFacing(out);
+                }
+
+                target->setExpireIn(target->getTimeLeft() + sPlayerbotAIConfig.MaxWaitForMove);
+
+                botAI->SetNextCheckDelay(sPlayerbotAIConfig.MaxWaitForMove);
+
+                return true;
             }
-
-            target->setExpireIn(target->getTimeLeft() + sPlayerbotAIConfig.MaxWaitForMove);
-
-            botAI->SetNextCheckDelay(sPlayerbotAIConfig.MaxWaitForMove);
-
-            return true;
         }
     }
 

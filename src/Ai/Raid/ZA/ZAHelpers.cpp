@@ -90,11 +90,14 @@ Player* GetElectricalStormTarget(Player* bot)
     if (!group)
         return nullptr;
 
-    for (GroupReference* ref = group->GetFirstMember(); ref; ref = ref->next())
     {
-        Player* member = ref->GetSource();
-        if (member && member->HasAura(Id(ZaSpells::SPELL_ELECTRICAL_STORM)))
-            return member;
+        std::lock_guard<std::recursive_mutex> groupGuard(group->GetLock());
+        for (GroupReference* ref = group->GetFirstMember(); ref; ref = ref->next())
+        {
+            Player* member = ref->GetSource();
+            if (member && member->HasAura(Id(ZaSpells::SPELL_ELECTRICAL_STORM)))
+                return member;
+        }
     }
 
     return nullptr;
@@ -262,16 +265,19 @@ bool GetZuljinSpreadSlotIndex(Player* bot, size_t slotCount, size_t& slotIndex)
 
     std::vector<Player*> healers;
     std::vector<Player*> rangedDps;
-    for (GroupReference* ref = group->GetFirstMember(); ref; ref = ref->next())
     {
-        Player* member = ref->GetSource();
-        if (!member || member->GetMapId() != ZA_MAP_ID || !PlayerbotAI::IsRanged(member))
-            continue;
+        std::lock_guard<std::recursive_mutex> groupGuard(group->GetLock());
+        for (GroupReference* ref = group->GetFirstMember(); ref; ref = ref->next())
+        {
+            Player* member = ref->GetSource();
+            if (!member || member->GetMapId() != ZA_MAP_ID || !PlayerbotAI::IsRanged(member))
+                continue;
 
-        if (PlayerbotAI::IsHeal(member))
-            healers.push_back(member);
-        else
-            rangedDps.push_back(member);
+            if (PlayerbotAI::IsHeal(member))
+                healers.push_back(member);
+            else
+                rangedDps.push_back(member);
+        }
     }
 
     auto const healerIt = std::find(healers.begin(), healers.end(), bot);
@@ -300,17 +306,20 @@ Player* GetZuljinCreepingParalysisDispelTarget(Player* bot)
     Player* closestTarget = nullptr;
     float closestDistance = std::numeric_limits<float>::max();
 
-    for (GroupReference* ref = group->GetFirstMember(); ref; ref = ref->next())
     {
-        Player* member = ref->GetSource();
-        if (!member || !member->HasAura(Id(ZaSpells::SPELL_CREEPING_PARALYSIS)))
-            continue;
-
-        float distance = bot->GetExactDist(member);
-        if (distance < closestDistance)
+        std::lock_guard<std::recursive_mutex> groupGuard(group->GetLock());
+        for (GroupReference* ref = group->GetFirstMember(); ref; ref = ref->next())
         {
-            closestTarget = member;
-            closestDistance = distance;
+            Player* member = ref->GetSource();
+            if (!member || !member->HasAura(Id(ZaSpells::SPELL_CREEPING_PARALYSIS)))
+                continue;
+
+            float distance = bot->GetExactDist(member);
+            if (distance < closestDistance)
+            {
+                closestTarget = member;
+                closestDistance = distance;
+            }
         }
     }
 

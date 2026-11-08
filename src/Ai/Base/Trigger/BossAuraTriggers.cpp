@@ -44,17 +44,20 @@ bool BossFireResistanceTrigger::IsActive()
         return false;
 
     // Iterate through group members to find the first alive paladin
-    for (GroupReference* gref = group->GetFirstMember(); gref; gref = gref->next())
     {
-        Player* member = gref->GetSource();
-        if (!member || !member->IsAlive())
-            continue;
-
-        // Check if the member is a paladin
-        if (member->getClass() == CLASS_PALADIN)
+        std::lock_guard<std::recursive_mutex> groupGuard(group->GetLock());
+        for (GroupReference* gref = group->GetFirstMember(); gref; gref = gref->next())
         {
-            // Return true only if the current bot is the first alive paladin
-            return member == bot;
+            Player* member = gref->GetSource();
+            if (!member || !member->IsAlive())
+                continue;
+
+            // Check if the member is a paladin
+            if (member->getClass() == CLASS_PALADIN)
+            {
+                // Return true only if the current bot is the first alive paladin
+                return member == bot;
+            }
         }
     }
 
@@ -95,17 +98,20 @@ bool BossFrostResistanceTrigger::IsActive()
         return false;
 
     // Iterate through group members to find the first alive paladin
-    for (GroupReference* gref = group->GetFirstMember(); gref; gref = gref->next())
     {
-        Player* member = gref->GetSource();
-        if (!member || !member->IsAlive())
-            continue;
-
-        // Check if the member is a paladin
-        if (member->getClass() == CLASS_PALADIN)
+        std::lock_guard<std::recursive_mutex> groupGuard(group->GetLock());
+        for (GroupReference* gref = group->GetFirstMember(); gref; gref = gref->next())
         {
-            // Return true only if the current bot is the first alive paladin
-            return member == bot;
+            Player* member = gref->GetSource();
+            if (!member || !member->IsAlive())
+                continue;
+
+            // Check if the member is a paladin
+            if (member->getClass() == CLASS_PALADIN)
+            {
+                // Return true only if the current bot is the first alive paladin
+                return member == bot;
+            }
         }
     }
 
@@ -149,17 +155,20 @@ bool BossNatureResistanceTrigger::IsActive()
         return false;
 
     // Iterate through group members to find the first alive hunter
-    for (GroupReference* gref = group->GetFirstMember(); gref; gref = gref->next())
     {
-        Player* member = gref->GetSource();
-        if (!member || !member->IsAlive())
-            continue;
-
-        // Check if the member is a hunter
-        if (member->getClass() == CLASS_HUNTER)
+        std::lock_guard<std::recursive_mutex> groupGuard(group->GetLock());
+        for (GroupReference* gref = group->GetFirstMember(); gref; gref = gref->next())
         {
-            // Return true only if the current bot is the first alive hunter
-            return member == bot;
+            Player* member = gref->GetSource();
+            if (!member || !member->IsAlive())
+                continue;
+
+            // Check if the member is a hunter
+            if (member->getClass() == CLASS_HUNTER)
+            {
+                // Return true only if the current bot is the first alive hunter
+                return member == bot;
+            }
         }
     }
 
@@ -200,17 +209,20 @@ bool BossShadowResistanceTrigger::IsActive()
         return false;
 
     // Iterate through group members to find the first alive paladin
-    for (GroupReference* gref = group->GetFirstMember(); gref; gref = gref->next())
     {
-        Player* member = gref->GetSource();
-        if (!member || !member->IsAlive())
-            continue;
-
-        // Check if the member is a paladin
-        if (member->getClass() == CLASS_PALADIN)
+        std::lock_guard<std::recursive_mutex> groupGuard(group->GetLock());
+        for (GroupReference* gref = group->GetFirstMember(); gref; gref = gref->next())
         {
-            // Return true only if the current bot is the first alive paladin
-            return member == bot;
+            Player* member = gref->GetSource();
+            if (!member || !member->IsAlive())
+                continue;
+
+            // Check if the member is a paladin
+            if (member->getClass() == CLASS_PALADIN)
+            {
+                // Return true only if the current bot is the first alive paladin
+                return member == bot;
+            }
         }
     }
 

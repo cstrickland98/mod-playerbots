@@ -77,16 +77,19 @@ bool SapphironFlightPositionAction::MoveToNearestIcebolt()
 
     Player* playerWithIcebolt = nullptr;
     float minDistance;
-    for (GroupReference* ref = group->GetFirstMember(); ref; ref = ref->next())
     {
-        Player* member = ref->GetSource();
-        if (NaxxSpellIds::HasAnyAura(member, {NaxxSpellIds::Icebolt10, NaxxSpellIds::Icebolt25}) ||
-            botAI->HasAura("icebolt", member, false, false, -1, true))
+        std::lock_guard<std::recursive_mutex> groupGuard(group->GetLock());
+        for (GroupReference* ref = group->GetFirstMember(); ref; ref = ref->next())
         {
-            if (!playerWithIcebolt || minDistance > bot->GetDistance(member))
+            Player* member = ref->GetSource();
+            if (NaxxSpellIds::HasAnyAura(member, {NaxxSpellIds::Icebolt10, NaxxSpellIds::Icebolt25}) ||
+                botAI->HasAura("icebolt", member, false, false, -1, true))
             {
-                playerWithIcebolt = member;
-                minDistance = bot->GetDistance(member);
+                if (!playerWithIcebolt || minDistance > bot->GetDistance(member))
+                {
+                    playerWithIcebolt = member;
+                    minDistance = bot->GetDistance(member);
+                }
             }
         }
     }

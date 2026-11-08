@@ -68,20 +68,23 @@ bool McMoveFromLavaAction::Execute(Event /*event*/)
 
     if (Group* group = bot->GetGroup())
     {
-        for (GroupReference* ref = group->GetFirstMember(); ref; ref = ref->next())
         {
-            Player* member = ref->GetSource();
-            if (!member || member == bot || !member->IsAlive() || member->GetMapId() != bot->GetMapId())
-                continue;
-
-            if (member->GetLiquidData().Flags & MAP_LIQUID_TYPE_MAGMA)
-                continue;
-
-            float dist = bot->GetDistance(member);
-            if (dist < bestDist)
+            std::lock_guard<std::recursive_mutex> groupGuard(group->GetLock());
+            for (GroupReference* ref = group->GetFirstMember(); ref; ref = ref->next())
             {
-                bestDist = dist;
-                dryTarget = member;
+                Player* member = ref->GetSource();
+                if (!member || member == bot || !member->IsAlive() || member->GetMapId() != bot->GetMapId())
+                    continue;
+
+                if (member->GetLiquidData().Flags & MAP_LIQUID_TYPE_MAGMA)
+                    continue;
+
+                float dist = bot->GetDistance(member);
+                if (dist < bestDist)
+                {
+                    bestDist = dist;
+                    dryTarget = member;
+                }
             }
         }
     }

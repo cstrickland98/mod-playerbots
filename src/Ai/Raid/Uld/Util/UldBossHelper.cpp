@@ -166,13 +166,16 @@ bool RazorscaleBossHelper::AreRolesAssigned() const
         return false;
 
     // Retrieve the group member slot list (GUID + flags + other info)
-    Group::MemberSlotList const& slots = group->GetMemberSlots();
-    for (auto const& slot : slots)
     {
-        // Check if this member has the MAINTANK flag
-        if (slot.flags & MEMBER_FLAG_MAINTANK)
+        std::lock_guard<std::recursive_mutex> groupGuard(group->GetLock());
+        Group::MemberSlotList const& slots = group->GetMemberSlots();
+        for (auto const& slot : slots)
         {
-            return true;
+            // Check if this member has the MAINTANK flag
+            if (slot.flags & MEMBER_FLAG_MAINTANK)
+            {
+                return true;
+            }
         }
     }
 
@@ -213,17 +216,20 @@ void RazorscaleBossHelper::AssignRolesBasedOnHealth()
 
     // Gather all tank-capable players (bots + real players), excluding those with too many Fuse Armor stacks
     std::vector<Player*> tankCandidates;
-    for (GroupReference* ref = group->GetFirstMember(); ref; ref = ref->next())
     {
-        Player* member = ref->GetSource();
-        if (!member || !PlayerbotAI::IsTank(member, true) || !member->IsAlive())
-            continue;
+        std::lock_guard<std::recursive_mutex> groupGuard(group->GetLock());
+        for (GroupReference* ref = group->GetFirstMember(); ref; ref = ref->next())
+        {
+            Player* member = ref->GetSource();
+            if (!member || !PlayerbotAI::IsTank(member, true) || !member->IsAlive())
+                continue;
 
-        Aura* fuseArmor = member->GetAura(SPELL_FUSEARMOR);
-        if (fuseArmor && fuseArmor->GetStackAmount() >= FUSEARMOR_THRESHOLD)
-            continue;
+            Aura* fuseArmor = member->GetAura(SPELL_FUSEARMOR);
+            if (fuseArmor && fuseArmor->GetStackAmount() >= FUSEARMOR_THRESHOLD)
+                continue;
 
-        tankCandidates.push_back(member);
+            tankCandidates.push_back(member);
+        }
     }
 
     // If there are no viable tanks, do nothing
@@ -244,11 +250,14 @@ void RazorscaleBossHelper::AssignRolesBasedOnHealth()
         return;
 
     // Unflag everyone from main tank
-    for (GroupReference* ref = group->GetFirstMember(); ref; ref = ref->next())
     {
-        Player* member = ref->GetSource();
-        if (member && PlayerbotAI::IsMainTank(member))
-            group->SetGroupMemberFlag(member->GetGUID(), false, MEMBER_FLAG_MAINTANK);
+        std::lock_guard<std::recursive_mutex> groupGuard(group->GetLock());
+        for (GroupReference* ref = group->GetFirstMember(); ref; ref = ref->next())
+        {
+            Player* member = ref->GetSource();
+            if (member && PlayerbotAI::IsMainTank(member))
+                group->SetGroupMemberFlag(member->GetGUID(), false, MEMBER_FLAG_MAINTANK);
+        }
     }
 
     // Assign the single main tank

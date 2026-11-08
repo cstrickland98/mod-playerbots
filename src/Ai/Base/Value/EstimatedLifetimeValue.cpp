@@ -35,26 +35,29 @@ float EstimatedGroupDpsValue::Calculate()
     std::vector<Player*> groupPlayer = {bot};
     if (Group* group = bot->GetGroup())
     {
-        for (GroupReference* gref = group->GetFirstMember(); gref; gref = gref->next())
         {
-            Player* member = gref->GetSource();
-            if (member == bot)  // calculated
-                continue;
+            std::lock_guard<std::recursive_mutex> groupGuard(group->GetLock());
+            for (GroupReference* gref = group->GetFirstMember(); gref; gref = gref->next())
+            {
+                Player* member = gref->GetSource();
+                if (member == bot)  // calculated
+                    continue;
 
-            // Ignore real players and SelfBots as they may not help with damage.
-            if (!GET_PLAYERBOT_AI(member) || IsSelfBot(member))
-                continue;
+                // Ignore real players and SelfBots as they may not help with damage.
+                if (!GET_PLAYERBOT_AI(member) || IsSelfBot(member))
+                    continue;
 
-            if (!member || !member->IsInWorld() || !member->IsAlive())
-                continue;
+                if (!member || !member->IsInWorld() || !member->IsAlive())
+                    continue;
 
-            if (member->GetMapId() != bot->GetMapId())
-                continue;
+                if (member->GetMapId() != bot->GetMapId())
+                    continue;
 
-            if (member->GetExactDist(bot) > sPlayerbotAIConfig.SightDistance)
-                continue;
+                if (member->GetExactDist(bot) > sPlayerbotAIConfig.SightDistance)
+                    continue;
 
-            groupPlayer.push_back(member);
+                groupPlayer.push_back(member);
+            }
         }
     }
     for (Player* player : groupPlayer)

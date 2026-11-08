@@ -61,14 +61,17 @@ std::vector<std::vector<Player*>> GetGurtoggRangedRotationGroups(Player* bot)
     if (!group)
         return groups;
 
-    for (GroupReference* ref = group->GetFirstMember(); ref; ref = ref->next())
     {
-        Player* member = ref->GetSource();
-        if (member && member->IsAlive())
+        std::lock_guard<std::recursive_mutex> groupGuard(group->GetLock());
+        for (GroupReference* ref = group->GetFirstMember(); ref; ref = ref->next())
         {
-            PlayerbotAI* memberAI = GET_PLAYERBOT_AI(member);
-            if (memberAI && PlayerbotAI::IsRanged(member))
-                rangedMembers.push_back(member);
+            Player* member = ref->GetSource();
+            if (member && member->IsAlive())
+            {
+                PlayerbotAI* memberAI = GET_PLAYERBOT_AI(member);
+                if (memberAI && PlayerbotAI::IsRanged(member))
+                    rangedMembers.push_back(member);
+            }
         }
     }
 
@@ -145,17 +148,20 @@ Player* GetZerevorMageTank(Player* bot)
 
     Player* fallbackMage = nullptr;
 
-    for (GroupReference* ref = group->GetFirstMember(); ref; ref = ref->next())
     {
-        Player* member = ref->GetSource();
-        if (!member || !member->IsAlive() || member->getClass() != CLASS_MAGE)
-            continue;
+        std::lock_guard<std::recursive_mutex> groupGuard(group->GetLock());
+        for (GroupReference* ref = group->GetFirstMember(); ref; ref = ref->next())
+        {
+            Player* member = ref->GetSource();
+            if (!member || !member->IsAlive() || member->getClass() != CLASS_MAGE)
+                continue;
 
-        if (group->IsAssistant(member->GetGUID()))
-            return member;
+            if (group->IsAssistant(member->GetGUID()))
+                return member;
 
-        if (!fallbackMage && GET_PLAYERBOT_AI(member))
-            fallbackMage = member;
+            if (!fallbackMage && GET_PLAYERBOT_AI(member))
+                fallbackMage = member;
+        }
     }
 
     return fallbackMage;
@@ -324,17 +330,20 @@ Player* GetIllidanWarlockTank(Player* bot)
 
     Player* fallbackWarlock = nullptr;
 
-    for (GroupReference* ref = group->GetFirstMember(); ref; ref = ref->next())
     {
-        Player* member = ref->GetSource();
-        if (!member || !member->IsAlive() || member->getClass() != CLASS_WARLOCK)
-            continue;
+        std::lock_guard<std::recursive_mutex> groupGuard(group->GetLock());
+        for (GroupReference* ref = group->GetFirstMember(); ref; ref = ref->next())
+        {
+            Player* member = ref->GetSource();
+            if (!member || !member->IsAlive() || member->getClass() != CLASS_WARLOCK)
+                continue;
 
-        if (group->IsAssistant(member->GetGUID()))
-            return member;
+            if (group->IsAssistant(member->GetGUID()))
+                return member;
 
-        if (!fallbackWarlock && GET_PLAYERBOT_AI(member))
-            fallbackWarlock = member;
+            if (!fallbackWarlock && GET_PLAYERBOT_AI(member))
+                fallbackWarlock = member;
+        }
     }
 
     return fallbackWarlock;
@@ -360,13 +369,16 @@ Player* GetIllidanTrapperHunter(Player* bot)
     if (!group)
             return nullptr;
 
-    for (GroupReference* ref = group->GetFirstMember(); ref; ref = ref->next())
     {
-        Player* member = ref->GetSource();
-        if (member && member->IsAlive() && member->getClass() == CLASS_HUNTER &&
-            GET_PLAYERBOT_AI(member) && !HasParasiticShadowfiend(member))
+        std::lock_guard<std::recursive_mutex> groupGuard(group->GetLock());
+        for (GroupReference* ref = group->GetFirstMember(); ref; ref = ref->next())
         {
-            return member;
+            Player* member = ref->GetSource();
+            if (member && member->IsAlive() && member->getClass() == CLASS_HUNTER &&
+                GET_PLAYERBOT_AI(member) && !HasParasiticShadowfiend(member))
+            {
+                return member;
+            }
         }
     }
 
@@ -379,13 +391,16 @@ Player* GetBotWithParasiticShadowfiend(Player* bot)
     if (!group)
         return nullptr;
 
-    for (GroupReference* ref = group->GetFirstMember(); ref; ref = ref->next())
     {
-        Player* member = ref->GetSource();
-        if (member && member->IsAlive() && GET_PLAYERBOT_AI(member) &&
-            HasParasiticShadowfiend(member))
+        std::lock_guard<std::recursive_mutex> groupGuard(group->GetLock());
+        for (GroupReference* ref = group->GetFirstMember(); ref; ref = ref->next())
         {
-            return member;
+            Player* member = ref->GetSource();
+            if (member && member->IsAlive() && GET_PLAYERBOT_AI(member) &&
+                HasParasiticShadowfiend(member))
+            {
+                return member;
+            }
         }
     }
 

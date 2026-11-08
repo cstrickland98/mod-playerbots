@@ -73,17 +73,20 @@ bool RsSavianaConflagrationAction::Execute(Event )
     std::set<int> reserved;
     if (Group* group = bot->GetGroup())
     {
-        for (GroupReference* itr = group->GetFirstMember(); itr != nullptr; itr = itr->next())
         {
-            Player* member = itr->GetSource();
-            if (!member || member == bot || !member->IsAlive())
-                continue;
-            if (!member->HasAura(SPELL_FLAME_BEACON))
-                continue;
+            std::lock_guard<std::recursive_mutex> groupGuard(group->GetLock());
+            for (GroupReference* itr = group->GetFirstMember(); itr != nullptr; itr = itr->next())
+            {
+                Player* member = itr->GetSource();
+                if (!member || member == bot || !member->IsAlive())
+                    continue;
+                if (!member->HasAura(SPELL_FLAME_BEACON))
+                    continue;
 
-            auto it = g_savianaBeaconSlot.find(std::make_pair(instanceId, member->GetGUID()));
-            if (it != g_savianaBeaconSlot.end())
-                reserved.insert(it->second);
+                auto it = g_savianaBeaconSlot.find(std::make_pair(instanceId, member->GetGUID()));
+                if (it != g_savianaBeaconSlot.end())
+                    reserved.insert(it->second);
+            }
         }
     }
 
@@ -253,21 +256,24 @@ bool RsSavianaMeleeSpreadAction::Execute(Event )
     std::vector<Position> beacons;
     if (Group* group = bot->GetGroup())
     {
-        for (GroupReference* itr = group->GetFirstMember(); itr != nullptr; itr = itr->next())
         {
-            Player* member = itr->GetSource();
-            if (!member || member == bot || !member->IsAlive())
-                continue;
-
-            if (member->HasAura(SPELL_FLAME_BEACON))
+            std::lock_guard<std::recursive_mutex> groupGuard(group->GetLock());
+            for (GroupReference* itr = group->GetFirstMember(); itr != nullptr; itr = itr->next())
             {
-                beacons.push_back(member->GetPosition());
-                continue;
-            }
+                Player* member = itr->GetSource();
+                if (!member || member == bot || !member->IsAlive())
+                    continue;
 
-            auto it = g_savianaMeleeSlot.find(std::make_pair(instanceId, member->GetGUID()));
-            if (it != g_savianaMeleeSlot.end())
-                reserved.insert(it->second);
+                if (member->HasAura(SPELL_FLAME_BEACON))
+                {
+                    beacons.push_back(member->GetPosition());
+                    continue;
+                }
+
+                auto it = g_savianaMeleeSlot.find(std::make_pair(instanceId, member->GetGUID()));
+                if (it != g_savianaMeleeSlot.end())
+                    reserved.insert(it->second);
+            }
         }
     }
 

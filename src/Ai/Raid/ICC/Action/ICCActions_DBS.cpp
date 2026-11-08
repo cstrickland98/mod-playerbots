@@ -197,29 +197,32 @@ bool IccDbsTankPositionAction::PositionInRangedFormation()
     int32 currentIndex = 0;
     std::vector<int> reservedSlots;
 
-    for (GroupReference* itr = group->GetFirstMember(); itr != nullptr; itr = itr->next())
     {
-        Player* member = itr->GetSource();
-        if (!member)
-            continue;
-
-        if (member != bot)
+        std::lock_guard<std::recursive_mutex> groupGuard(group->GetLock());
+        for (GroupReference* itr = group->GetFirstMember(); itr != nullptr; itr = itr->next())
         {
-            auto it = botSlotMemory.find(member->GetGUID());
-            if (it != botSlotMemory.end() && it->second >= 0 && it->second < totalSlots)
-                reservedSlots.push_back(it->second);
-        }
+            Player* member = itr->GetSource();
+            if (!member)
+                continue;
 
-        if (!member->IsAlive())
-            continue;
-
-        if ((PlayerbotAI::IsRanged(member) || PlayerbotAI::IsHeal(member)) && !PlayerbotAI::IsTank(member))
-        {
-            if (member == bot)
+            if (member != bot)
             {
-                myIndex = currentIndex;
+                auto it = botSlotMemory.find(member->GetGUID());
+                if (it != botSlotMemory.end() && it->second >= 0 && it->second < totalSlots)
+                    reservedSlots.push_back(it->second);
             }
-            currentIndex++;
+
+            if (!member->IsAlive())
+                continue;
+
+            if ((PlayerbotAI::IsRanged(member) || PlayerbotAI::IsHeal(member)) && !PlayerbotAI::IsTank(member))
+            {
+                if (member == bot)
+                {
+                    myIndex = currentIndex;
+                }
+                currentIndex++;
+            }
         }
     }
 
@@ -265,21 +268,24 @@ bool IccDbsTankPositionAction::PositionInRangedFormation()
         Player* anchor = nullptr;
         float anchorDist = 0.0f;
         uint64 anchorGuidRaw = 0;
-        for (GroupReference* itr = group->GetFirstMember(); itr != nullptr; itr = itr->next())
         {
-            Player* member = itr->GetSource();
-            if (!member || member == bot || !member->IsAlive())
-                continue;
-            if (!PlayerbotAI::IsMelee(member) || PlayerbotAI::IsTank(member))
-                continue;
-
-            float d = bot->GetExactDist2d(member);
-            uint64 g = member->GetGUID().GetRawValue();
-            if (!anchor || d < anchorDist || (d == anchorDist && g < anchorGuidRaw))
+            std::lock_guard<std::recursive_mutex> groupGuard(group->GetLock());
+            for (GroupReference* itr = group->GetFirstMember(); itr != nullptr; itr = itr->next())
             {
-                anchor = member;
-                anchorDist = d;
-                anchorGuidRaw = g;
+                Player* member = itr->GetSource();
+                if (!member || member == bot || !member->IsAlive())
+                    continue;
+                if (!PlayerbotAI::IsMelee(member) || PlayerbotAI::IsTank(member))
+                    continue;
+
+                float d = bot->GetExactDist2d(member);
+                uint64 g = member->GetGUID().GetRawValue();
+                if (!anchor || d < anchorDist || (d == anchorDist && g < anchorGuidRaw))
+                {
+                    anchor = member;
+                    anchorDist = d;
+                    anchorGuidRaw = g;
+                }
             }
         }
 

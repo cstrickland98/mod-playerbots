@@ -23,29 +23,32 @@ namespace GundrakSladran
 static bool IsClosestSnakeWrapFreer(Player* bot, Unit* snakeWrap, float distance)
 {
     Group* group = bot->GetGroup();
-    for (GroupReference* ref = group->GetFirstMember(); ref; ref = ref->next())
     {
-        Player* member = ref->GetSource();
-        if (!member || member == bot || !member->IsAlive() || !member->IsInCombat() ||
-            !GET_PLAYERBOT_AI(member) || member->GetMap() != bot->GetMap() ||
-            !PlayerbotAI::IsDps(member) || member->HasAura(SPELL_SNAKE_WRAP))
+        std::lock_guard<std::recursive_mutex> groupGuard(group->GetLock());
+        for (GroupReference* ref = group->GetFirstMember(); ref; ref = ref->next())
         {
-            continue;
-        }
+            Player* member = ref->GetSource();
+            if (!member || member == bot || !member->IsAlive() || !member->IsInCombat() ||
+                !GET_PLAYERBOT_AI(member) || member->GetMap() != bot->GetMap() ||
+                !PlayerbotAI::IsDps(member) || member->HasAura(SPELL_SNAKE_WRAP))
+            {
+                continue;
+            }
 
-        float memberDistance = member->GetExactDist2d(snakeWrap);
-        if (memberDistance > distance ||
-            (memberDistance == distance && bot->GetGUID() < member->GetGUID()))
-        {
-            continue;
-        }
+            float memberDistance = member->GetExactDist2d(snakeWrap);
+            if (memberDistance > distance ||
+                (memberDistance == distance && bot->GetGUID() < member->GetGUID()))
+            {
+                continue;
+            }
 
-        if (!member->IsWithinLOSInMap(snakeWrap))
-        {
-            continue;
-        }
+            if (!member->IsWithinLOSInMap(snakeWrap))
+            {
+                continue;
+            }
 
-        return false;
+            return false;
+        }
     }
 
     return true;

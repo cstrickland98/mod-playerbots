@@ -51,17 +51,20 @@ namespace
 
         float sx = 0.0f, sy = 0.0f;
         int n = 0;
-        for (GroupReference* ref = group->GetFirstMember(); ref; ref = ref->next())
         {
-            Player* member = ref->GetSource();
-            if (!member || member == bot || !member->IsAlive() ||
-                member->GetMapId() != bot->GetMapId())
-                continue;
-            if (bot->GetExactDist2d(member) > 60.0f)
-                continue;
-            sx += member->GetPositionX();
-            sy += member->GetPositionY();
-            ++n;
+            std::lock_guard<std::recursive_mutex> groupGuard(group->GetLock());
+            for (GroupReference* ref = group->GetFirstMember(); ref; ref = ref->next())
+            {
+                Player* member = ref->GetSource();
+                if (!member || member == bot || !member->IsAlive() ||
+                    member->GetMapId() != bot->GetMapId())
+                    continue;
+                if (bot->GetExactDist2d(member) > 60.0f)
+                    continue;
+                sx += member->GetPositionX();
+                sy += member->GetPositionY();
+                ++n;
+            }
         }
         if (n == 0)
             return false;
@@ -78,21 +81,24 @@ namespace
 
         float best = 1e18f;
         bool found = false;
-        for (GroupReference* ref = group->GetFirstMember(); ref; ref = ref->next())
         {
-            Player* member = ref->GetSource();
-            if (!member || member == bot || !member->IsAlive() ||
-                member->GetMapId() != bot->GetMapId())
-                continue;
-            if (!PlayerbotAI::IsTank(member))
-                continue;
-            float const d = bot->GetExactDist2d(member);
-            if (d < best)
+            std::lock_guard<std::recursive_mutex> groupGuard(group->GetLock());
+            for (GroupReference* ref = group->GetFirstMember(); ref; ref = ref->next())
             {
-                best = d;
-                tx = member->GetPositionX();
-                ty = member->GetPositionY();
-                found = true;
+                Player* member = ref->GetSource();
+                if (!member || member == bot || !member->IsAlive() ||
+                    member->GetMapId() != bot->GetMapId())
+                    continue;
+                if (!PlayerbotAI::IsTank(member))
+                    continue;
+                float const d = bot->GetExactDist2d(member);
+                if (d < best)
+                {
+                    best = d;
+                    tx = member->GetPositionX();
+                    ty = member->GetPositionY();
+                    found = true;
+                }
             }
         }
         return found;

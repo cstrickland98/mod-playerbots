@@ -274,18 +274,21 @@ bool IccBpcEmpoweredVortexAction::MaintainRangedSpacing()
         return false;
 
     std::vector<Player*> rangedBots;
-    for (GroupReference* itr = group->GetFirstMember(); itr != nullptr; itr = itr->next())
     {
-        Player* member = itr->GetSource();
-        if (!member || !member->IsAlive())
-            continue;
-        if (PlayerbotAI::IsTank(member))
-            continue;
-        PlayerbotAI* memberAI = GET_PLAYERBOT_AI(member);
-        if (!memberAI)
-            continue;
-        if (PlayerbotAI::IsRanged(member) || PlayerbotAI::IsHeal(member))
-            rangedBots.push_back(member);
+        std::lock_guard<std::recursive_mutex> groupGuard(group->GetLock());
+        for (GroupReference* itr = group->GetFirstMember(); itr != nullptr; itr = itr->next())
+        {
+            Player* member = itr->GetSource();
+            if (!member || !member->IsAlive())
+                continue;
+            if (PlayerbotAI::IsTank(member))
+                continue;
+            PlayerbotAI* memberAI = GET_PLAYERBOT_AI(member);
+            if (!memberAI)
+                continue;
+            if (PlayerbotAI::IsRanged(member) || PlayerbotAI::IsHeal(member))
+                rangedBots.push_back(member);
+        }
     }
 
     if (rangedBots.empty())
@@ -424,14 +427,17 @@ bool IccBpcEmpoweredVortexAction::HandleEmpoweredVortexSpread()
         return false;
 
     std::vector<Player*> spreadBots;
-    for (GroupReference* itr = group->GetFirstMember(); itr != nullptr; itr = itr->next())
     {
-        Player* member = itr->GetSource();
-        if (!member || !member->IsAlive())
-            continue;
-        if (PlayerbotAI::IsTank(member))
-            continue;
-        spreadBots.push_back(member);
+        std::lock_guard<std::recursive_mutex> groupGuard(group->GetLock());
+        for (GroupReference* itr = group->GetFirstMember(); itr != nullptr; itr = itr->next())
+        {
+            Player* member = itr->GetSource();
+            if (!member || !member->IsAlive())
+                continue;
+            if (PlayerbotAI::IsTank(member))
+                continue;
+            spreadBots.push_back(member);
+        }
     }
 
     if (spreadBots.empty())
@@ -622,11 +628,14 @@ Unit* IccBpcKineticBombAction::FindNearestBomb()
     Group* group = bot->GetGroup();
     if (group)
     {
-        for (GroupReference* itr = group->GetFirstMember(); itr != nullptr; itr = itr->next())
         {
-            Player* member = itr->GetSource();
-            if (member && member->IsAlive() && GET_PLAYERBOT_AI(member) && PlayerbotAI::IsRangedDps(member))
-                rangedDps.push_back(member);
+            std::lock_guard<std::recursive_mutex> groupGuard(group->GetLock());
+            for (GroupReference* itr = group->GetFirstMember(); itr != nullptr; itr = itr->next())
+            {
+                Player* member = itr->GetSource();
+                if (member && member->IsAlive() && GET_PLAYERBOT_AI(member) && PlayerbotAI::IsRangedDps(member))
+                    rangedDps.push_back(member);
+            }
         }
     }
     else

@@ -490,9 +490,12 @@ bool StoreLootAction::Execute(Event event)
                 sRandomPlayerbotMgr.AddTradeDiscount(bot, master, price);
 
             if (Group* group = bot->GetGroup())
+            {
+                std::lock_guard<std::recursive_mutex> groupGuard(group->GetLock());
                 for (GroupReference* ref = group->GetFirstMember(); ref; ref = ref->next())
                     if (ref->GetSource() != bot)
                         GuildTaskMgr::instance().CheckItemTask(itemid, itemcount, ref->GetSource(), bot);
+            }
         }
 
         WorldPacket* packet = new WorldPacket(CMSG_AUTOSTORE_LOOT_ITEM, 1);

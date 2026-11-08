@@ -87,14 +87,17 @@ public:
             uint32 count = 0;
             if (group)
             {
-                for (GroupReference* ref = group->GetFirstMember(); ref; ref = ref->next())
                 {
-                    Player* member = ref->GetSource();
-                    if (member == bot)
-                        index = count;
+                    std::lock_guard<std::recursive_mutex> groupGuard(group->GetLock());
+                    for (GroupReference* ref = group->GetFirstMember(); ref; ref = ref->next())
+                    {
+                        Player* member = ref->GetSource();
+                        if (member == bot)
+                            index = count;
 
-                    if (member && !PlayerbotAI::IsRanged(member) && !PlayerbotAI::IsTank(member))
-                        count++;
+                        if (member && !PlayerbotAI::IsRanged(member) && !PlayerbotAI::IsTank(member))
+                            count++;
+                    }
                 }
             }
 
@@ -139,14 +142,17 @@ public:
         float angle = 0.0f;
         if (Group* group = bot->GetGroup())
         {
-            for (GroupReference* ref = group->GetFirstMember(); ref; ref = ref->next())
             {
-                if (Player* member = ref->GetSource())
-                    if (member != bot && PlayerbotAI::IsRanged(member))
-                    {
-                        angle += target->GetAngle(member);
-                        ++count;
-                    }
+                std::lock_guard<std::recursive_mutex> groupGuard(group->GetLock());
+                for (GroupReference* ref = group->GetFirstMember(); ref; ref = ref->next())
+                {
+                    if (Player* member = ref->GetSource())
+                        if (member != bot && PlayerbotAI::IsRanged(member))
+                        {
+                            angle += target->GetAngle(member);
+                            ++count;
+                        }
+                }
             }
         }
 
@@ -170,15 +176,18 @@ public:
         uint32 count = 0;
         if (Group* group = bot->GetGroup())
         {
-            for (GroupReference* ref = group->GetFirstMember(); ref; ref = ref->next())
             {
-                if (Player* member = ref->GetSource())
+                std::lock_guard<std::recursive_mutex> groupGuard(group->GetLock());
+                for (GroupReference* ref = group->GetFirstMember(); ref; ref = ref->next())
                 {
-                    if (member == bot)
-                        index = count;
+                    if (Player* member = ref->GetSource())
+                    {
+                        if (member == bot)
+                            index = count;
 
-                    if (!PlayerbotAI::IsRanged(member) && !PlayerbotAI::IsTank(member))
-                        ++count;
+                        if (!PlayerbotAI::IsRanged(member) && !PlayerbotAI::IsTank(member))
+                            ++count;
+                    }
                 }
             }
         }
