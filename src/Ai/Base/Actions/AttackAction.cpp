@@ -9,7 +9,6 @@
 #include "Event.h"
 #include "LastMovementValue.h"
 #include "LootObjectStack.h"
-#include "MapThreading.h"
 #include "PlayerbotAI.h"
 #include "PlayerbotTextMgr.h"
 #include "Playerbots.h"
@@ -75,6 +74,11 @@ bool AttackAction::Attack(Unit* target, bool /*with_pet*/ /*true*/)
 
         return false;
     }
+
+    // Attacking links the target both ways (attacker list, combat, threat). A target in a grid that another thread
+    // of the map is updating now (parallel map update) is not attacked; the action fails and is retried.
+    if (!PlayerbotAI::CanReadNow(target))
+        return false;
 
     if (bot->GetMotionMaster()->GetCurrentMovementGeneratorType() == FLIGHT_MOTION_TYPE ||
         bot->HasUnitState(UNIT_STATE_IN_FLIGHT))
@@ -196,7 +200,6 @@ bool AttackAction::Attack(Unit* target, bool /*with_pet*/ /*true*/)
 
     botAI->ChangeEngine(BOT_STATE_COMBAT);
 
-    MT_ASSERT_WRITABLE(target);
     if (!WaitForAttackStrategy::ShouldWait(botAI))
         bot->Attack(target, shouldMelee);
     /* prevent pet dead immediately in group */
