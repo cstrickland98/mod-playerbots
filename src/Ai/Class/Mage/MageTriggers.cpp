@@ -83,14 +83,17 @@ bool NoFocusMagicTrigger::IsActive()
     if (!group)
         return false;
 
-    for (GroupReference* ref = group->GetFirstMember(); ref; ref = ref->next())
     {
-        Player* member = ref->GetSource();
-        if (!member || member == bot || !member->IsAlive())
-            continue;
+        std::lock_guard<std::recursive_mutex> groupGuard(group->GetLock());
+        for (GroupReference* ref = group->GetFirstMember(); ref; ref = ref->next())
+        {
+            Player* member = ref->GetSource();
+            if (!member || member == bot || !member->IsAlive() || !PlayerbotAI::CanReadNow(member))
+                continue;
 
-        if (member->HasAura(SPELL_FOCUS_MAGIC, bot->GetGUID()))
-            return false;
+            if (member->HasAura(SPELL_FOCUS_MAGIC, bot->GetGUID()))
+                return false;
+        }
     }
     return true;
 }

@@ -15,9 +15,12 @@ GuidVector GroupMembersValue::Calculate()
     Group* group = bot->GetGroup();
     if (group)
     {
-        for (GroupReference* ref = group->GetFirstMember(); ref; ref = ref->next())
         {
-            members.push_back(ref->GetSource()->GetGUID());
+            std::lock_guard<std::recursive_mutex> groupGuard(group->GetLock());
+            for (GroupReference* ref = group->GetFirstMember(); ref; ref = ref->next())
+            {
+                members.push_back(ref->GetSource()->GetGUID());
+            }
         }
     }
     else
@@ -77,7 +80,7 @@ uint32 GroupBoolCountValue::Calculate()
         if (player->GetMapId() != bot->GetMapId())
             continue;
 
-        if (!GET_PLAYERBOT_AI(player))
+        if (!GET_PLAYERBOT_AI(player) || !PlayerbotAI::CanReadNow(player))
             continue;
 
         if (PAI_VALUE2(bool, "and", getQualifier()))
@@ -99,7 +102,7 @@ bool GroupBoolANDValue::Calculate()
         if (player->GetMapId() != bot->GetMapId())
             continue;
 
-        if (!GET_PLAYERBOT_AI(player))
+        if (!GET_PLAYERBOT_AI(player) || !PlayerbotAI::CanReadNow(player))
             continue;
 
         if (!PAI_VALUE2(bool, "and", getQualifier()))
@@ -121,7 +124,7 @@ bool GroupBoolORValue::Calculate()
         if (player->GetMapId() != bot->GetMapId())
             continue;
 
-        if (!GET_PLAYERBOT_AI(player))
+        if (!GET_PLAYERBOT_AI(player) || !PlayerbotAI::CanReadNow(player))
             continue;
 
         if (PAI_VALUE2(bool, "and", getQualifier()))

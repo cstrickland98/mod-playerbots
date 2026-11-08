@@ -226,12 +226,15 @@ bool TooCloseToPlayerWithDebuffTrigger::TooCloseToPlayerWithDebuff(uint32 spellI
 
     std::vector<Player*> debuffedPlayers;
 
-    for (GroupReference* gref = group->GetFirstMember(); gref; gref = gref->next())
     {
-        Player* player = gref->GetSource();
-        if (player && player->IsAlive() && player->HasAura(spellId))
+        std::lock_guard<std::recursive_mutex> groupGuard(group->GetLock());
+        for (GroupReference* gref = group->GetFirstMember(); gref; gref = gref->next())
         {
-            debuffedPlayers.push_back(player);
+            Player* player = gref->GetSource();
+            if (player && player->IsAlive() && PlayerbotAI::CanReadNow(player) && player->HasAura(spellId))
+            {
+                debuffedPlayers.push_back(player);
+            }
         }
     }
 
@@ -262,13 +265,16 @@ bool TooFarFromPlayerWithAuraTrigger::TooFarFromPlayerWithAura(uint32 spellId, f
 
     std::vector<Player*> debuffedPlayers;
 
-    for (GroupReference* gref = group->GetFirstMember(); gref; gref = gref->next())
     {
-        Player* player = gref->GetSource();
-        if (player && player->IsAlive() && player->HasAura(spellId) &&
-            (selfInclude || (!selfInclude && player->GetGUID() != bot->GetGUID())))
+        std::lock_guard<std::recursive_mutex> groupGuard(group->GetLock());
+        for (GroupReference* gref = group->GetFirstMember(); gref; gref = gref->next())
         {
-            debuffedPlayers.push_back(player);
+            Player* player = gref->GetSource();
+            if (player && player->IsAlive() && PlayerbotAI::CanReadNow(player) && player->HasAura(spellId) &&
+                (selfInclude || (!selfInclude && player->GetGUID() != bot->GetGUID())))
+            {
+                debuffedPlayers.push_back(player);
+            }
         }
     }
 

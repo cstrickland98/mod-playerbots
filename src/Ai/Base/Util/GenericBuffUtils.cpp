@@ -64,21 +64,24 @@ namespace ai::buff
             return false;
 
         uint32 missingCount = 0;
-        for (GroupReference* gref = group->GetFirstMember(); gref; gref = gref->next())
         {
-            Player* member = gref->GetSource();
-            if (!member || !member->IsInWorld() || !member->IsAlive() ||
-                member->GetMap() != bot->GetMap() || !groupSpellInfo->GetAuraRankForLevel(member->GetLevel()))
+            std::lock_guard<std::recursive_mutex> groupGuard(group->GetLock());
+            for (GroupReference* gref = group->GetFirstMember(); gref; gref = gref->next())
             {
-                continue;
+                Player* member = gref->GetSource();
+                if (!member || !member->IsInWorld() || !member->IsAlive() || member->GetMap() != bot->GetMap() ||
+                    !PlayerbotAI::CanReadNow(member) || !groupSpellInfo->GetAuraRankForLevel(member->GetLevel()))
+                {
+                    continue;
+                }
+
+                if (!BuffBelowRefreshTarget(botAI, botAI->GetAura(baseName, member), 0) ||
+                    !BuffBelowRefreshTarget(botAI, botAI->GetAura(groupName, member), 0))
+                    continue;
+
+                if (++missingCount >= requiredCount)
+                    return true;
             }
-
-            if (!BuffBelowRefreshTarget(botAI, botAI->GetAura(baseName, member), 0) ||
-                !BuffBelowRefreshTarget(botAI, botAI->GetAura(groupName, member), 0))
-                continue;
-
-            if (++missingCount >= requiredCount)
-                return true;
         }
 
         return false;

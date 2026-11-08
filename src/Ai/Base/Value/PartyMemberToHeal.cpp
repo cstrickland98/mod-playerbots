@@ -53,7 +53,8 @@ Unit* PartyMemberToHeal::Calculate()
         for (ObjectGuid const& focusHealTarget : focusHealTargets)
         {
             Player* player = ObjectAccessor::FindPlayer(focusHealTarget);
-            if (!player || !player->IsInWorld() || !player->IsAlive() || !player->IsInSameGroupWith(bot))
+            if (!player || !player->IsInWorld() || !player->IsAlive() || !PlayerbotAI::CanReadNow(player) ||
+                !player->IsInSameGroupWith(bot))
                 continue;
 
             float health = player->GetHealthPct();
@@ -74,62 +75,65 @@ Unit* PartyMemberToHeal::Calculate()
         return (Unit*)calc.param;
     }
 
-    for (GroupReference* gref = group->GetFirstMember(); gref; gref = gref->next())
     {
-        Player* player = gref->GetSource();
-        if (!player || player->IsGameMaster())
-            continue;
-        if (player && player->IsAlive())
+        std::lock_guard<std::recursive_mutex> groupGuard(group->GetLock());
+        for (GroupReference* gref = group->GetFirstMember(); gref; gref = gref->next())
         {
-            float health = player->GetHealthPct();
-            if (isRaid || health < sPlayerbotAIConfig.MediumHealth || !IsTargetOfSpellCast(player, predicate))
+            Player* player = gref->GetSource();
+            if (!player || player->IsGameMaster() || !PlayerbotAI::CanReadNow(player))
+                continue;
+            if (player && player->IsAlive())
             {
+                float health = player->GetHealthPct();
+                if (isRaid || health < sPlayerbotAIConfig.MediumHealth || !IsTargetOfSpellCast(player, predicate))
+                {
+                    float probeValue = 100.0f;
+                    if (player->GetDistance2d(bot) > sPlayerbotAIConfig.HealDistance)
+                    {
+                        probeValue = health + 30.0f;
+                    }
+                    else
+                    {
+                        probeValue = health + player->GetDistance2d(bot) / 10.0f;
+                    }
+                    constexpr float carrierPriority = 15.0f;
+                    if (!carrierGuid.IsEmpty() && player->GetGUID() == carrierGuid &&
+                        player->GetHealthPct() < sPlayerbotAIConfig.MediumHealth &&
+                        player->GetDistance2d(bot) <= sPlayerbotAIConfig.HealDistance && player->IsInWorld() &&
+                        player->GetMap() == bot->GetMap())
+                        probeValue -= carrierPriority;
+                    // delay Check player to here for better performance
+                    if (probeValue < calc.minValue && Check(player))
+                        calc.probe(probeValue, player);
+                }
+            }
+
+            Pet* pet = player->GetPet();
+            if (pet && pet->IsAlive())
+            {
+                float health = ((Unit*)pet)->GetHealthPct();
                 float probeValue = 100.0f;
-                if (player->GetDistance2d(bot) > sPlayerbotAIConfig.HealDistance)
-                {
+                if (isRaid || health < sPlayerbotAIConfig.MediumHealth)
                     probeValue = health + 30.0f;
-                }
-                else
+                // delay Check pet to here for better performance
+                if (probeValue < calc.minValue && Check(pet))
                 {
-                    probeValue = health + player->GetDistance2d(bot) / 10.0f;
+                    calc.probe(probeValue, pet);
                 }
-                constexpr float carrierPriority = 15.0f;
-                if (!carrierGuid.IsEmpty() && player->GetGUID() == carrierGuid &&
-                    player->GetHealthPct() < sPlayerbotAIConfig.MediumHealth &&
-                    player->GetDistance2d(bot) <= sPlayerbotAIConfig.HealDistance && player->IsInWorld() &&
-                    player->GetMap() == bot->GetMap())
-                    probeValue -= carrierPriority;
-                // delay Check player to here for better performance
-                if (probeValue < calc.minValue && Check(player))
-                    calc.probe(probeValue, player);
             }
-        }
 
-        Pet* pet = player->GetPet();
-        if (pet && pet->IsAlive())
-        {
-            float health = ((Unit*)pet)->GetHealthPct();
-            float probeValue = 100.0f;
-            if (isRaid || health < sPlayerbotAIConfig.MediumHealth)
-                probeValue = health + 30.0f;
-            // delay Check pet to here for better performance
-            if (probeValue < calc.minValue && Check(pet))
+            Unit* charm = player->GetCharm();
+            if (charm && charm->IsAlive())
             {
-                calc.probe(probeValue, pet);
-            }
-        }
-
-        Unit* charm = player->GetCharm();
-        if (charm && charm->IsAlive())
-        {
-            float health = charm->GetHealthPct();
-            float probeValue = 100.0f;
-            if (isRaid || health < sPlayerbotAIConfig.MediumHealth)
-                probeValue = health + 30.0f;
-            // delay Check charm to here for better performance
-            if (probeValue < calc.minValue && Check(charm))
-            {
-                calc.probe(probeValue, charm);
+                float health = charm->GetHealthPct();
+                float probeValue = 100.0f;
+                if (isRaid || health < sPlayerbotAIConfig.MediumHealth)
+                    probeValue = health + 30.0f;
+                // delay Check charm to here for better performance
+                if (probeValue < calc.minValue && Check(charm))
+                {
+                    calc.probe(probeValue, charm);
+                }
             }
         }
     }
@@ -153,19 +157,22 @@ Unit* HealerLowMana::Calculate()
 
     MinValueCalculator calc(100);
 
-    for (GroupReference* gref = group->GetFirstMember(); gref; gref = gref->next())
     {
-        Player* player = gref->GetSource();
-        if (!player || player == bot)
-            continue;
-        if (player->IsGameMaster() || !player->IsAlive())
-            continue;
-        if (!PlayerbotAI::IsHeal(player))
-            continue;
+        std::lock_guard<std::recursive_mutex> groupGuard(group->GetLock());
+        for (GroupReference* gref = group->GetFirstMember(); gref; gref = gref->next())
+        {
+            Player* player = gref->GetSource();
+            if (!player || player == bot)
+                continue;
+            if (player->IsGameMaster() || !player->IsAlive() || !PlayerbotAI::CanReadNow(player))
+                continue;
+            if (!PlayerbotAI::IsHeal(player))
+                continue;
 
-        float mana = player->GetPowerPct(POWER_MANA);
-        if (mana < calc.minValue)
-            calc.probe(mana, player);
+            float mana = player->GetPowerPct(POWER_MANA);
+            if (mana < calc.minValue)
+                calc.probe(mana, player);
+        }
     }
 
     return (Unit*)calc.param;

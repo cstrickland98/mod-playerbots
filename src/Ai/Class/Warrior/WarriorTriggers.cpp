@@ -32,16 +32,19 @@ bool VigilanceTrigger::IsActive()
     if (!group)
         return false;
 
-    for (GroupReference* ref = group->GetFirstMember(); ref; ref = ref->next())
     {
-        Player* member = ref->GetSource();
-        if (!member || member == bot || !member->IsAlive())
-            continue;
+        std::lock_guard<std::recursive_mutex> groupGuard(group->GetLock());
+        for (GroupReference* ref = group->GetFirstMember(); ref; ref = ref->next())
+        {
+            Player* member = ref->GetSource();
+            if (!member || member == bot || !member->IsAlive() || !PlayerbotAI::CanReadNow(member))
+                continue;
 
-        // The action casts Vigilance on dps, but the trigger fails if any party member has
-        // Vigilance from the bot (so the player can have a bot cast Vigilance on any group member).
-        if (member->HasAura(SPELL_VIGILANCE, bot->GetGUID()))
-            return false;
+            // The action casts Vigilance on dps, but the trigger fails if any party member has
+            // Vigilance from the bot (so the player can have a bot cast Vigilance on any group member).
+            if (member->HasAura(SPELL_VIGILANCE, bot->GetGUID()))
+                return false;
+        }
     }
 
     return true;

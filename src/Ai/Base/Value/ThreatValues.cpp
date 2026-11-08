@@ -48,18 +48,21 @@ uint8 ThreatValue::Calculate(Unit* target)
     float maxThreat = -1.0f;
     bool hasTank = false;
 
-    for (GroupReference* gref = group->GetFirstMember(); gref; gref = gref->next())
     {
-        Player* player = gref->GetSource();
-        if (!player || !player->IsAlive() || player == bot)
-            continue;
-
-        if (PlayerbotAI::IsTank(player))
+        std::lock_guard<std::recursive_mutex> groupGuard(group->GetLock());
+        for (GroupReference* gref = group->GetFirstMember(); gref; gref = gref->next())
         {
-            hasTank = true;
-            float threat = target->GetThreatMgr().GetThreat(player);
-            if (maxThreat < threat)
-                maxThreat = threat;
+            Player* player = gref->GetSource();
+            if (!player || !player->IsAlive() || player == bot || !PlayerbotAI::CanReadNow(player))
+                continue;
+
+            if (PlayerbotAI::IsTank(player))
+            {
+                hasTank = true;
+                float threat = target->GetThreatMgr().GetThreat(player);
+                if (maxThreat < threat)
+                    maxThreat = threat;
+            }
         }
     }
 

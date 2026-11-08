@@ -16,6 +16,10 @@ Unit* PartyMemberValue::FindPartyMember(std::vector<Player*>* party, FindPlayerP
 {
     for (Player* player : *party)
     {
+        // a member another thread may be updating is out of range for Check anyway
+        if (!PlayerbotAI::CanReadNow(player))
+            continue;
+
         if (predicate.Check(player) && Check(player))
             return player;
 
@@ -37,15 +41,18 @@ Unit* PartyMemberValue::FindPartyMember(FindPlayerPredicate& predicate, bool /*i
     GuidList nearestGroupPlayers;
     if (Group* group = bot->GetGroup())
     {
-        for (GroupReference* ref = group->GetFirstMember(); ref; ref = ref->next())
         {
-            if (ref->getSubGroup() != bot->GetSubGroup())
+            std::lock_guard<std::recursive_mutex> groupGuard(group->GetLock());
+            for (GroupReference* ref = group->GetFirstMember(); ref; ref = ref->next())
             {
-                nearestGroupPlayers.push_back(ref->GetSource()->GetGUID());
-            }
-            else
-            {
-                nearestGroupPlayers.push_front(ref->GetSource()->GetGUID());
+                if (ref->getSubGroup() != bot->GetSubGroup())
+                {
+                    nearestGroupPlayers.push_back(ref->GetSource()->GetGUID());
+                }
+                else
+                {
+                    nearestGroupPlayers.push_front(ref->GetSource()->GetGUID());
+                }
             }
         }
     }
@@ -74,7 +81,7 @@ Unit* PartyMemberValue::FindPartyMember(FindPlayerPredicate& predicate, bool /*i
     for (ObjectGuid const guid : nearestGroupPlayers)
     {
         Player* player = botAI->GetPlayer(guid);
-        if (!player)
+        if (!player || !PlayerbotAI::CanReadNow(player))
             continue;
 
         if (PlayerbotAI::IsHeal(player))
@@ -124,25 +131,28 @@ bool PartyMemberValue::IsTargetOfSpellCast(Player* target, SpellEntryPredicate& 
     {
         return false;
     }
-    for (GroupReference* gref = group->GetFirstMember(); gref; gref = gref->next())
     {
-        Player* player = gref->GetSource();
-        if (!player || player == bot)
-            continue;
-
-        if (player->IsNonMeleeSpellCast(true))
+        std::lock_guard<std::recursive_mutex> groupGuard(group->GetLock());
+        for (GroupReference* gref = group->GetFirstMember(); gref; gref = gref->next())
         {
-            for (uint8 type = CURRENT_GENERIC_SPELL; type < CURRENT_MAX_SPELL; type++)
+            Player* player = gref->GetSource();
+            if (!player || player == bot || !PlayerbotAI::CanReadNow(player))
+                continue;
+
+            if (player->IsNonMeleeSpellCast(true))
             {
-                Spell* spell = player->GetCurrentSpell((CurrentSpellTypes)type);
-                if (spell && predicate.Check(spell->m_spellInfo))
+                for (uint8 type = CURRENT_GENERIC_SPELL; type < CURRENT_MAX_SPELL; type++)
                 {
-                    ObjectGuid unitTarget = spell->m_targets.GetUnitTargetGUID();
-                    if (unitTarget && unitTarget == targetGuid)
-                        return true;
-                    ObjectGuid corpseTarget = spell->m_targets.GetCorpseTargetGUID();
-                    if (corpseTarget && corpseTarget == corpseGuid)
-                        return true;
+                    Spell* spell = player->GetCurrentSpell((CurrentSpellTypes)type);
+                    if (spell && predicate.Check(spell->m_spellInfo))
+                    {
+                        ObjectGuid unitTarget = spell->m_targets.GetUnitTargetGUID();
+                        if (unitTarget && unitTarget == targetGuid)
+                            return true;
+                        ObjectGuid corpseTarget = spell->m_targets.GetCorpseTargetGUID();
+                        if (corpseTarget && corpseTarget == corpseGuid)
+                            return true;
+                    }
                 }
             }
         }

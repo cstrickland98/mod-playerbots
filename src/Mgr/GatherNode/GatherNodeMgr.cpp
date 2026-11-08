@@ -195,6 +195,7 @@ GatherNodeSpawn const* GatherNodeMgr::GetNextNode(Player* bot, std::unordered_se
 
 GameObject* GatherNodeMgr::FindLiveNode(Map* map, ObjectGuid::LowType spawnId)
 {
+    auto const storeGuard = map->LockObjectsStoreForRead();
     auto bounds = map->GetGameObjectBySpawnIdStore().equal_range(spawnId);
     for (auto it = bounds.first; it != bounds.second; ++it)
         if (it->second->isSpawned() && it->second->GetGoState() == GO_STATE_READY)

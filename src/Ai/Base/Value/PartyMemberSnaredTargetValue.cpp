@@ -42,20 +42,23 @@ Unit* PartyMemberSnaredTargetValue::Calculate()
     Player* bestTarget = nullptr;
     float closestDistanceSq = std::numeric_limits<float>::max();
 
-    for (GroupReference* gref = group->GetFirstMember(); gref; gref = gref->next())
     {
-        Player* member = gref->GetSource();
-        if (!member)
-            continue;
-
-        if (!predicate.Check(member))
-            continue;
-
-        float const distanceSq = bot->GetExactDist2dSq(member->GetPositionX(), member->GetPositionY());
-        if (distanceSq < closestDistanceSq)
+        std::lock_guard<std::recursive_mutex> groupGuard(group->GetLock());
+        for (GroupReference* gref = group->GetFirstMember(); gref; gref = gref->next())
         {
-            closestDistanceSq = distanceSq;
-            bestTarget = member;
+            Player* member = gref->GetSource();
+            if (!member || !PlayerbotAI::CanReadNow(member))
+                continue;
+
+            if (!predicate.Check(member))
+                continue;
+
+            float const distanceSq = bot->GetExactDist2dSq(member->GetPositionX(), member->GetPositionY());
+            if (distanceSq < closestDistanceSq)
+            {
+                closestDistanceSq = distanceSq;
+                bestTarget = member;
+            }
         }
     }
 

@@ -8,6 +8,7 @@
 #include "CellImpl.h"
 #include "GridNotifiers.h"
 #include "GridNotifiersImpl.h"
+#include "MapThreading.h"
 #include "Playerbots.h"
 #include "ReputationMgr.h"
 #include "ServerFacade.h"
@@ -68,15 +69,19 @@ GuidVector AttackersValue::Calculate()
 
 void AttackersValue::AddAttackersOf(Group* group, std::unordered_set<Unit*>& targets)
 {
-    Group::MemberSlotList const& groupSlot = group->GetMemberSlots();
-    for (Group::member_citerator itr = groupSlot.begin(); itr != groupSlot.end(); itr++)
     {
-        Player* member = ObjectAccessor::FindPlayer(itr->guid);
-        if (!member || !member->IsAlive() || member == bot || member->GetMapId() != bot->GetMapId() ||
-            ServerFacade::instance().GetDistance2d(bot, member) > sPlayerbotAIConfig.SightDistance)
-            continue;
+        std::lock_guard<std::recursive_mutex> groupGuard(group->GetLock());
+        Group::MemberSlotList const& groupSlot = group->GetMemberSlots();
+        for (Group::member_citerator itr = groupSlot.begin(); itr != groupSlot.end(); itr++)
+        {
+            Player* member = ObjectAccessor::FindPlayer(itr->guid);
+            if (!member || !member->IsAlive() || member == bot || member->GetMapId() != bot->GetMapId() ||
+                ServerFacade::instance().GetDistance2d(bot, member) > sPlayerbotAIConfig.SightDistance ||
+                !PlayerbotAI::CanReadNow(member))
+                continue;
 
-        AddAttackersOf(member, targets);
+            AddAttackersOf(member, targets);
+        }
     }
 }
 
@@ -189,6 +194,7 @@ bool AttackersValue::IsPossibleTarget(Unit* attacker, Player* bot, float /*range
             Creature* creature = dynamic_cast<Creature*>(*itr);
             if (creature && creature->GetVictim() == attacker)
             {
+                MT_ASSERT_WRITABLE(creature);
                 creature->AttackStop();
                 if (CharmInfo* charmInfo = creature->GetCharmInfo())
                     charmInfo->SetIsCommandAttack(false);

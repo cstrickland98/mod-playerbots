@@ -315,33 +315,14 @@ bool UseSoulstoneTankAction::Execute(Event /*event*/)
     // First: Try to soulstone the main tank
     if (group)
     {
-        for (GroupReference* gref = group->GetFirstMember(); gref; gref = gref->next())
         {
-            Player* member = gref->GetSource();
-            if (member && member->IsAlive() && PlayerbotAI::IsTank(member) && PlayerbotAI::IsMainTank(member) &&
-                !HasSoulstoneAura(member))
-            {
-                std::lock_guard<std::mutex> lock(soulstoneReservationsMutex);
-                if (soulstoneReservations.count(member->GetGUID()) && soulstoneReservations[member->GetGUID()] > now)
-                    continue;  // Already being soulstoned
-
-                float distance = ServerFacade::instance().GetDistance2d(bot, member);
-                if (distance < 30.0f && bot->IsWithinLOSInMap(member))
-                {
-                    chosenTank = member;
-                    soulstoneReservations[chosenTank->GetGUID()] = now + 2500;  // Reserve for 2.5 seconds
-                    break;
-                }
-            }
-        }
-
-        // If no main tank found, soulstone another tank
-        if (!chosenTank)
-        {
+            std::lock_guard<std::recursive_mutex> groupGuard(group->GetLock());
             for (GroupReference* gref = group->GetFirstMember(); gref; gref = gref->next())
             {
                 Player* member = gref->GetSource();
-                if (member && member->IsAlive() && PlayerbotAI::IsTank(member) && !HasSoulstoneAura(member))
+                if (member && member->IsAlive() && PlayerbotAI::CanReadNow(member) && PlayerbotAI::IsTank(member) &&
+                    PlayerbotAI::IsMainTank(member) &&
+                    !HasSoulstoneAura(member))
                 {
                     std::lock_guard<std::mutex> lock(soulstoneReservationsMutex);
                     if (soulstoneReservations.count(member->GetGUID()) &&
@@ -354,6 +335,34 @@ bool UseSoulstoneTankAction::Execute(Event /*event*/)
                         chosenTank = member;
                         soulstoneReservations[chosenTank->GetGUID()] = now + 2500;  // Reserve for 2.5 seconds
                         break;
+                    }
+                }
+            }
+        }
+
+        // If no main tank found, soulstone another tank
+        if (!chosenTank)
+        {
+            {
+                std::lock_guard<std::recursive_mutex> groupGuard(group->GetLock());
+                for (GroupReference* gref = group->GetFirstMember(); gref; gref = gref->next())
+                {
+                    Player* member = gref->GetSource();
+                    if (member && member->IsAlive() && PlayerbotAI::CanReadNow(member) && PlayerbotAI::IsTank(member) &&
+                        !HasSoulstoneAura(member))
+                    {
+                        std::lock_guard<std::mutex> lock(soulstoneReservationsMutex);
+                        if (soulstoneReservations.count(member->GetGUID()) &&
+                            soulstoneReservations[member->GetGUID()] > now)
+                            continue;  // Already being soulstoned
+
+                        float distance = ServerFacade::instance().GetDistance2d(bot, member);
+                        if (distance < 30.0f && bot->IsWithinLOSInMap(member))
+                        {
+                            chosenTank = member;
+                            soulstoneReservations[chosenTank->GetGUID()] = now + 2500;  // Reserve for 2.5 seconds
+                            break;
+                        }
                     }
                 }
             }
@@ -381,23 +390,27 @@ bool UseSoulstoneHealerAction::Execute(Event /*event*/)
     uint32 now = getMSTime();
     if (group)
     {
-        for (GroupReference* gref = group->GetFirstMember(); gref; gref = gref->next())
         {
-            Player* member = gref->GetSource();
-            if (member && member->IsAlive() && PlayerbotAI::IsHeal(member) && !HasSoulstoneAura(member))
+            std::lock_guard<std::recursive_mutex> groupGuard(group->GetLock());
+            for (GroupReference* gref = group->GetFirstMember(); gref; gref = gref->next())
             {
+                Player* member = gref->GetSource();
+                if (member && member->IsAlive() && PlayerbotAI::CanReadNow(member) && PlayerbotAI::IsHeal(member) &&
+                    !HasSoulstoneAura(member))
                 {
-                    std::lock_guard<std::mutex> lock(soulstoneReservationsMutex);
-                    if (soulstoneReservations.count(member->GetGUID()) &&
-                        soulstoneReservations[member->GetGUID()] > now)
-                        continue;  // Already being soulstoned
-
-                    float distance = ServerFacade::instance().GetDistance2d(bot, member);
-                    if (distance < 30.0f && bot->IsWithinLOSInMap(member))
                     {
-                        healer = member;
-                        soulstoneReservations[healer->GetGUID()] = now + 2500;  // Reserve for 2.5 seconds
-                        break;
+                        std::lock_guard<std::mutex> lock(soulstoneReservationsMutex);
+                        if (soulstoneReservations.count(member->GetGUID()) &&
+                            soulstoneReservations[member->GetGUID()] > now)
+                            continue;  // Already being soulstoned
+
+                        float distance = ServerFacade::instance().GetDistance2d(bot, member);
+                        if (distance < 30.0f && bot->IsWithinLOSInMap(member))
+                        {
+                            healer = member;
+                            soulstoneReservations[healer->GetGUID()] = now + 2500;  // Reserve for 2.5 seconds
+                            break;
+                        }
                     }
                 }
             }

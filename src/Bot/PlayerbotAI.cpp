@@ -27,6 +27,7 @@
 #include "LogLevelAction.h"
 #include "LootObjectStack.h"
 #include "MapMgr.h"
+#include "MapThreading.h"
 #include "MotionMaster.h"
 #include "MoveSplineInit.h"
 #include "NewRpgStrategy.h"
@@ -37,7 +38,9 @@
 #include "PlayerbotAIConfig.h"
 #include "PlayerbotGuildMgr.h"
 #include "PlayerbotMgr.h"
+#include "PlayerbotOperations.h"
 #include "PlayerbotTextMgr.h"
+#include "PlayerbotWorldThreadProcessor.h"
 #include "Playerbots.h"
 #include "PositionValue.h"
 #include "RBAC.h"
@@ -127,7 +130,8 @@ std::vector<std::string> split(std::string const s, char delim);
 char* strstri(char const* str1, char const* str2);
 std::string& trim(std::string& s);
 
-std::set<std::string> PlayerbotAI::unsecuredCommands;
+std::set<std::string> const PlayerbotAI::unsecuredCommands = {"who",   "wts", "sendmail",  "invite",
+                                                               "leave", "lfg", "pvp stats", "rpg status"};
 
 PlayerbotChatHandler::PlayerbotChatHandler(Player* pMasterPlayer) : ChatHandler(pMasterPlayer->GetSession()) {}
 
@@ -142,10 +146,17 @@ void PacketHandlingHelper::AddHandler(uint16 opcode, std::string const handler) 
 
 void PacketHandlingHelper::Handle(ExternalEventHelper& helper)
 {
-    while (!queue.empty())
+    while (true)
     {
-        WorldPacket packet = queue.top();
-        queue.pop(); // remove first so handling can't modify the queue while we're using it
+        WorldPacket packet;
+        {
+            std::lock_guard<std::mutex> lock(queueLock);
+            if (queue.empty())
+                break;
+
+            packet = std::move(queue.top());
+            queue.pop(); // remove first so handling can't modify the queue while we're using it
+        }
 
         helper.HandlePacket(handlers, packet);
     }
@@ -159,7 +170,10 @@ void PacketHandlingHelper::AddPacket(WorldPacket const& packet)
     // assert(packet);
     // assert(packet.GetOpcode());
     if (handlers.find(packet.GetOpcode()) != handlers.end())
+    {
+        std::lock_guard<std::mutex> lock(queueLock);
         queue.push(WorldPacket(packet));
+    }
 }
 
 PlayerbotAI::PlayerbotAI()
@@ -289,6 +303,8 @@ void PlayerbotAI::UpdateAI(uint32 elapsed, bool minimal)
     if (!bot || !bot->GetSession() || !bot->IsInWorld() || bot->IsBeingTeleported() ||
         bot->GetSession()->IsLoggingOut() || bot->IsDuringRemoveFromWorld())
         return;
+
+    HandleDeferredInput();
 
     // Bots send no movement opcodes, so m_lastFallZ stays frozen and Player::IsFalling() (a Z test
     // against it) blocks LFG teleports. Unit::IsFalling() is the flag test, so real falls keep theirs.
@@ -652,6 +668,14 @@ void PlayerbotAI::UpdateAIInternal([[maybe_unused]] uint32 elapsed, bool minimal
 
         if (logout)
         {
+            if (bot->GetMap()->IsParallelPhase())
+            {
+                PlayerbotWorldThreadProcessor::instance().QueueOperation(std::make_unique<BotLogoutOperation>(
+                    bot->GetGUID(), master ? master->GetGUID() : ObjectGuid::Empty));
+                SetNextCheckDelay(sPlayerbotAIConfig.ReactDelay);
+                return;
+            }
+
             PlayerbotMgr* masterBotMgr = nullptr;
             if (master)
                 masterBotMgr = GET_PLAYERBOT_MGR(master);
@@ -678,6 +702,33 @@ void PlayerbotAI::UpdateAIInternal([[maybe_unused]] uint32 elapsed, bool minimal
 
     if (pmo)
         pmo->finish();
+}
+
+void PlayerbotAI::HandleDeferredInput()
+{
+    std::vector<WorldPacket> packets;
+    std::vector<DeferredCommand> commands;
+    {
+        std::lock_guard<std::mutex> lock(deferredInputLock);
+        if (deferredBotPackets.empty() && deferredCommands.empty())
+            return;
+
+        packets.swap(deferredBotPackets);
+        commands.swap(deferredCommands);
+    }
+
+    for (WorldPacket const& packet : packets)
+        HandleBotOutgoingPacket(packet);
+
+    for (DeferredCommand const& command : commands)
+        if (Player* fromPlayer = ObjectAccessor::FindPlayer(command.fromGuid))
+            HandleCommand(command.type, command.text, fromPlayer);
+}
+
+bool PlayerbotAI::CanReadNow(WorldObject const* object)
+{
+    Map* map = object ? object->FindMap() : nullptr;
+    return !map || map->CanWriteNow(object);
 }
 
 void PlayerbotAI::HandleCommands()
@@ -719,7 +770,11 @@ void PlayerbotAI::HandleCommands()
     }
 }
 
-std::map<std::string, ChatMsg> chatMap;
+std::map<std::string, ChatMsg> const chatMap = {
+    {"#w ", CHAT_MSG_WHISPER}, {"#p ", CHAT_MSG_PARTY}, {"#r ", CHAT_MSG_RAID},
+    {"#a ", CHAT_MSG_ADDON},   {"#g ", CHAT_MSG_GUILD},
+};
+
 void PlayerbotAI::HandleCommand(uint32 type, std::string const& text, Player& fromPlayer, const uint32 lang)
 {
     if (!bot)
@@ -761,16 +816,8 @@ void PlayerbotAI::HandleCommand(uint32 type, std::string const& text, Player& fr
         filtered = filtered.substr(sPlayerbotAIConfig.CommandPrefix.size());
     }
 
-    if (chatMap.empty())
-    {
-        chatMap["#w "] = CHAT_MSG_WHISPER;
-        chatMap["#p "] = CHAT_MSG_PARTY;
-        chatMap["#r "] = CHAT_MSG_RAID;
-        chatMap["#a "] = CHAT_MSG_ADDON;
-        chatMap["#g "] = CHAT_MSG_GUILD;
-    }
     currentChat = std::pair<ChatMsg, time_t>(CHAT_MSG_WHISPER, 0);
-    for (std::map<std::string, ChatMsg>::iterator i = chatMap.begin(); i != chatMap.end(); ++i)
+    for (std::map<std::string, ChatMsg>::const_iterator i = chatMap.begin(); i != chatMap.end(); ++i)
     {
         if (filtered.find(i->first) == 0)
         {
@@ -834,15 +881,18 @@ void PlayerbotAI::HandleCommand(uint32 type, std::string const& text, Player& fr
         Group* group = bot->GetGroup();
         if (group)
         {
-            for (GroupReference* ref = group->GetFirstMember(); ref; ref = ref->next())
             {
-                if (ref->GetSource() == master)
-                    continue;
+                std::lock_guard<std::recursive_mutex> groupGuard(group->GetLock());
+                for (GroupReference* ref = group->GetFirstMember(); ref; ref = ref->next())
+                {
+                    if (ref->GetSource() == master)
+                        continue;
 
-                if (ref->GetSource() == bot)
-                    break;
+                    if (ref->GetSource() == bot)
+                        break;
 
-                index++;
+                    index++;
+                }
             }
         }
 
@@ -1060,19 +1110,7 @@ void PlayerbotAI::LeaveOrDisbandGroup()
 
 bool PlayerbotAI::IsAllowedCommand(std::string const text)
 {
-    if (unsecuredCommands.empty())
-    {
-        unsecuredCommands.insert("who");
-        unsecuredCommands.insert("wts");
-        unsecuredCommands.insert("sendmail");
-        unsecuredCommands.insert("invite");
-        unsecuredCommands.insert("leave");
-        unsecuredCommands.insert("lfg");
-        unsecuredCommands.insert("pvp stats");
-        unsecuredCommands.insert("rpg status");
-    }
-
-    for (std::set<std::string>::iterator i = unsecuredCommands.begin(); i != unsecuredCommands.end(); ++i)
+    for (std::set<std::string>::const_iterator i = unsecuredCommands.begin(); i != unsecuredCommands.end(); ++i)
     {
         if (text.find(*i) == 0)
         {
@@ -1085,6 +1123,14 @@ bool PlayerbotAI::IsAllowedCommand(std::string const text)
 
 void PlayerbotAI::HandleCommand(uint32 type, std::string const text, Player* fromPlayer)
 {
+    // Whispers and party chat from other bots arrive on the speaker's thread
+    if (bot && fromPlayer && !CanReadNow(bot))
+    {
+        std::lock_guard<std::mutex> lock(deferredInputLock);
+        deferredCommands.push_back({type, text, fromPlayer->GetGUID()});
+        return;
+    }
+
     if (!GetSecurity()->CheckLevelFor(PLAYERBOT_SECURITY_INVITE, type != CHAT_MSG_WHISPER, fromPlayer))
         return;
 
@@ -1115,17 +1161,8 @@ void PlayerbotAI::HandleCommand(uint32 type, std::string const text, Player* fro
         filtered = filtered.substr(sPlayerbotAIConfig.CommandPrefix.size());
     }
 
-    if (chatMap.empty())
-    {
-        chatMap["#w "] = CHAT_MSG_WHISPER;
-        chatMap["#p "] = CHAT_MSG_PARTY;
-        chatMap["#r "] = CHAT_MSG_RAID;
-        chatMap["#a "] = CHAT_MSG_ADDON;
-        chatMap["#g "] = CHAT_MSG_GUILD;
-    }
-
     currentChat = std::pair<ChatMsg, time_t>(CHAT_MSG_WHISPER, 0);
-    for (std::map<std::string, ChatMsg>::iterator i = chatMap.begin(); i != chatMap.end(); ++i)
+    for (std::map<std::string, ChatMsg>::const_iterator i = chatMap.begin(); i != chatMap.end(); ++i)
     {
         if (filtered.find(i->first) == 0)
         {
@@ -1178,15 +1215,18 @@ void PlayerbotAI::HandleCommand(uint32 type, std::string const text, Player* fro
 
         if (Group* group = bot->GetGroup())
         {
-            for (GroupReference* ref = group->GetFirstMember(); ref; ref = ref->next())
             {
-                if (ref->GetSource() == master)
-                    continue;
+                std::lock_guard<std::recursive_mutex> groupGuard(group->GetLock());
+                for (GroupReference* ref = group->GetFirstMember(); ref; ref = ref->next())
+                {
+                    if (ref->GetSource() == master)
+                        continue;
 
-                if (ref->GetSource() == bot)
-                    break;
+                    if (ref->GetSource() == bot)
+                        break;
 
-                ++index;
+                    ++index;
+                }
             }
         }
 
@@ -1265,6 +1305,14 @@ void PlayerbotAI::HandleBotOutgoingPacket(WorldPacket const& packet)
 
     if (!bot || !bot->IsInWorld() || bot->IsDuringRemoveFromWorld())
         return;
+
+    // Sent from a grid task that does not own the bot: the opcodes below write the bot and its AI state
+    if (!CanReadNow(bot))
+    {
+        std::lock_guard<std::mutex> lock(deferredInputLock);
+        deferredBotPackets.push_back(packet);
+        return;
+    }
 
     switch (packet.GetOpcode())
     {
@@ -2121,7 +2169,7 @@ bool PlayerbotAI::IsCombo(Player* player)
 {
     // int tab = AiFactory::GetPlayerSpecTab(player);
     return player->getClass() == CLASS_ROGUE ||
-           (player->getClass() == CLASS_DRUID && player->HasAura(768));  // cat druid
+           (player->getClass() == CLASS_DRUID && CanReadNow(player) && player->HasAura(768));  // cat druid
 }
 
 bool PlayerbotAI::IsRangedDps(Player* player, bool bySpec)
@@ -2149,25 +2197,28 @@ bool PlayerbotAI::IsAssistHealOfIndex(Player* player, uint8 index, bool indexLiv
     uint8 nonAssistantsBeforePlayer = 0;
     bool playerFound = false;
 
-    for (GroupReference* ref = group->GetFirstMember(); ref; ref = ref->next())
     {
-        Player* member = ref->GetSource();
-        if (!member || (indexLivingOnly && !member->IsAlive()) || !IsHeal(member))
-            continue;
-
-        bool isAssistant = group->IsAssistant(member->GetGUID());
-
-        if (isAssistant)
-            totalAssistants++;
-
-        if (member == player)
-            playerFound = true;
-        else if (!playerFound)
+        std::lock_guard<std::recursive_mutex> groupGuard(group->GetLock());
+        for (GroupReference* ref = group->GetFirstMember(); ref; ref = ref->next())
         {
+            Player* member = ref->GetSource();
+            if (!member || (indexLivingOnly && !member->IsAlive()) || !IsHeal(member))
+                continue;
+
+            bool isAssistant = group->IsAssistant(member->GetGUID());
+
             if (isAssistant)
-                assistantsBeforePlayer++;
-            else
-                nonAssistantsBeforePlayer++;
+                totalAssistants++;
+
+            if (member == player)
+                playerFound = true;
+            else if (!playerFound)
+            {
+                if (isAssistant)
+                    assistantsBeforePlayer++;
+                else
+                    nonAssistantsBeforePlayer++;
+            }
         }
     }
 
@@ -2202,25 +2253,28 @@ bool PlayerbotAI::IsAssistRangedDpsOfIndex(Player* player, uint8 index, bool ind
     uint8 nonAssistantsBeforePlayer = 0;
     bool playerFound = false;
 
-    for (GroupReference* ref = group->GetFirstMember(); ref; ref = ref->next())
     {
-        Player* member = ref->GetSource();
-        if (!member || (indexLivingOnly && !member->IsAlive()) || !IsRangedDps(member))
-            continue;
-
-        bool isAssistant = group->IsAssistant(member->GetGUID());
-
-        if (isAssistant)
-            totalAssistants++;
-
-        if (member == player)
-            playerFound = true;
-        else if (!playerFound)
+        std::lock_guard<std::recursive_mutex> groupGuard(group->GetLock());
+        for (GroupReference* ref = group->GetFirstMember(); ref; ref = ref->next())
         {
+            Player* member = ref->GetSource();
+            if (!member || (indexLivingOnly && !member->IsAlive()) || !IsRangedDps(member))
+                continue;
+
+            bool isAssistant = group->IsAssistant(member->GetGUID());
+
             if (isAssistant)
-                assistantsBeforePlayer++;
-            else
-                nonAssistantsBeforePlayer++;
+                totalAssistants++;
+
+            if (member == player)
+                playerFound = true;
+            else if (!playerFound)
+            {
+                if (isAssistant)
+                    assistantsBeforePlayer++;
+                else
+                    nonAssistantsBeforePlayer++;
+            }
         }
     }
 
@@ -2263,22 +2317,25 @@ int32 PlayerbotAI::GetAssistTankIndex(Player* player)
     }
 
     int counter = 0;
-    for (GroupReference* ref = group->GetFirstMember(); ref; ref = ref->next())
     {
-        Player* member = ref->GetSource();
-        if (!member)
+        std::lock_guard<std::recursive_mutex> groupGuard(group->GetLock());
+        for (GroupReference* ref = group->GetFirstMember(); ref; ref = ref->next())
         {
-            continue;
-        }
+            Player* member = ref->GetSource();
+            if (!member)
+            {
+                continue;
+            }
 
-        if (player == member)
-        {
-            return counter;
-        }
+            if (player == member)
+            {
+                return counter;
+            }
 
-        if (IsTank(member, true) && group->IsAssistant(member->GetGUID()))
-        {
-            counter++;
+            if (IsTank(member, true) && group->IsAssistant(member->GetGUID()))
+            {
+                counter++;
+            }
         }
     }
 
@@ -2293,20 +2350,23 @@ int32 PlayerbotAI::GetGroupSlotIndex(Player* player)
         return -1;
     }
     int counter = 0;
-    for (GroupReference* ref = group->GetFirstMember(); ref; ref = ref->next())
     {
-        Player* member = ref->GetSource();
-
-        if (!member)
+        std::lock_guard<std::recursive_mutex> groupGuard(group->GetLock());
+        for (GroupReference* ref = group->GetFirstMember(); ref; ref = ref->next())
         {
-            continue;
-        }
+            Player* member = ref->GetSource();
 
-        if (player == member)
-        {
-            return counter;
+            if (!member)
+            {
+                continue;
+            }
+
+            if (player == member)
+            {
+                return counter;
+            }
+            counter++;
         }
-        counter++;
     }
     return 0;
 }
@@ -2323,22 +2383,25 @@ int32 PlayerbotAI::GetRangedIndex(Player* player)
         return -1;
     }
     int counter = 0;
-    for (GroupReference* ref = group->GetFirstMember(); ref; ref = ref->next())
     {
-        Player* member = ref->GetSource();
+        std::lock_guard<std::recursive_mutex> groupGuard(group->GetLock());
+        for (GroupReference* ref = group->GetFirstMember(); ref; ref = ref->next())
+        {
+            Player* member = ref->GetSource();
 
-        if (!member)
-        {
-            continue;
-        }
+            if (!member)
+            {
+                continue;
+            }
 
-        if (player == member)
-        {
-            return counter;
-        }
-        if (IsRanged(member))
-        {
-            counter++;
+            if (player == member)
+            {
+                return counter;
+            }
+            if (IsRanged(member))
+            {
+                counter++;
+            }
         }
     }
     return 0;
@@ -2356,22 +2419,25 @@ int32 PlayerbotAI::GetClassIndex(Player* player, uint8 cls)
         return -1;
     }
     int counter = 0;
-    for (GroupReference* ref = group->GetFirstMember(); ref; ref = ref->next())
     {
-        Player* member = ref->GetSource();
+        std::lock_guard<std::recursive_mutex> groupGuard(group->GetLock());
+        for (GroupReference* ref = group->GetFirstMember(); ref; ref = ref->next())
+        {
+            Player* member = ref->GetSource();
 
-        if (!member)
-        {
-            continue;
-        }
+            if (!member)
+            {
+                continue;
+            }
 
-        if (player == member)
-        {
-            return counter;
-        }
-        if (member->getClass() == cls)
-        {
-            counter++;
+            if (player == member)
+            {
+                return counter;
+            }
+            if (member->getClass() == cls)
+            {
+                counter++;
+            }
         }
     }
     return 0;
@@ -2388,22 +2454,25 @@ int32 PlayerbotAI::GetRangedDpsIndex(Player* player)
         return -1;
     }
     int counter = 0;
-    for (GroupReference* ref = group->GetFirstMember(); ref; ref = ref->next())
     {
-        Player* member = ref->GetSource();
+        std::lock_guard<std::recursive_mutex> groupGuard(group->GetLock());
+        for (GroupReference* ref = group->GetFirstMember(); ref; ref = ref->next())
+        {
+            Player* member = ref->GetSource();
 
-        if (!member)
-        {
-            continue;
-        }
+            if (!member)
+            {
+                continue;
+            }
 
-        if (player == member)
-        {
-            return counter;
-        }
-        if (IsRangedDps(member))
-        {
-            counter++;
+            if (player == member)
+            {
+                return counter;
+            }
+            if (IsRangedDps(member))
+            {
+                counter++;
+            }
         }
     }
     return 0;
@@ -2421,22 +2490,25 @@ int32 PlayerbotAI::GetMeleeIndex(Player* player)
         return -1;
     }
     int counter = 0;
-    for (GroupReference* ref = group->GetFirstMember(); ref; ref = ref->next())
     {
-        Player* member = ref->GetSource();
+        std::lock_guard<std::recursive_mutex> groupGuard(group->GetLock());
+        for (GroupReference* ref = group->GetFirstMember(); ref; ref = ref->next())
+        {
+            Player* member = ref->GetSource();
 
-        if (!member)
-        {
-            continue;
-        }
+            if (!member)
+            {
+                continue;
+            }
 
-        if (player == member)
-        {
-            return counter;
-        }
-        if (!IsRanged(member))
-        {
-            counter++;
+            if (player == member)
+            {
+                return counter;
+            }
+            if (!IsRanged(member))
+            {
+                counter++;
+            }
         }
     }
     return 0;
@@ -2452,7 +2524,7 @@ bool PlayerbotAI::IsTank(Player* player, bool bySpec)
     switch (player->getClass())
     {
         case CLASS_DEATH_KNIGHT:
-            if (tab == DEATH_KNIGHT_TAB_BLOOD || player->HasAura(SPELL_DK_FROST_PRESENCE))
+            if (tab == DEATH_KNIGHT_TAB_BLOOD || (CanReadNow(player) && player->HasAura(SPELL_DK_FROST_PRESENCE)))
             {
                 return true;
             }
@@ -2471,7 +2543,8 @@ bool PlayerbotAI::IsTank(Player* player, bool bySpec)
             break;
         case CLASS_DRUID:
             if (tab == DRUID_TAB_FERAL && (player->GetShapeshiftForm() == FORM_BEAR ||
-                                           player->GetShapeshiftForm() == FORM_DIREBEAR || player->HasAura(16931)))
+                                           player->GetShapeshiftForm() == FORM_DIREBEAR ||
+                                           (CanReadNow(player) && player->HasAura(16931))))
             {
                 return true;
             }
@@ -2580,18 +2653,24 @@ ObjectGuid PlayerbotAI::GetMainTankGuid(Group* group)
     if (!group)
         return ObjectGuid::Empty;
 
-    Group::MemberSlotList const& slots = group->GetMemberSlots();
-    for (Group::member_citerator itr = slots.begin(); itr != slots.end(); ++itr)
     {
-        if (itr->flags & MEMBER_FLAG_MAINTANK)
-            return itr->guid;
+        std::lock_guard<std::recursive_mutex> groupGuard(group->GetLock());
+        Group::MemberSlotList const& slots = group->GetMemberSlots();
+        for (Group::member_citerator itr = slots.begin(); itr != slots.end(); ++itr)
+        {
+            if (itr->flags & MEMBER_FLAG_MAINTANK)
+                return itr->guid;
+        }
     }
 
-    for (GroupReference* ref = group->GetFirstMember(); ref; ref = ref->next())
     {
-        Player* member = ref->GetSource();
-        if (member && IsTank(member) && member->IsAlive())
-            return member->GetGUID();
+        std::lock_guard<std::recursive_mutex> groupGuard(group->GetLock());
+        for (GroupReference* ref = group->GetFirstMember(); ref; ref = ref->next())
+        {
+            Player* member = ref->GetSource();
+            if (member && IsTank(member) && member->IsAlive())
+                return member->GetGUID();
+        }
     }
 
     return ObjectGuid::Empty;
@@ -2613,6 +2692,7 @@ bool PlayerbotAI::IsExplicitMainTank(Player* player)
     if (!group)
         return false;
 
+    std::lock_guard<std::recursive_mutex> groupGuard(group->GetLock());
     for (Group::member_citerator itr = group->GetMemberSlots().begin(); itr != group->GetMemberSlots().end(); ++itr)
     {
         if (itr->flags & MEMBER_FLAG_MAINTANK)
@@ -2644,21 +2724,24 @@ bool PlayerbotAI::IsBotMainTank(Player* player)
     if (botAssistTankIndex == -1)
         return false;
 
-    for (GroupReference* gref = group->GetFirstMember(); gref; gref = gref->next())
     {
-        Player* member = gref->GetSource();
-        if (!member)
-            continue;
+        std::lock_guard<std::recursive_mutex> groupGuard(group->GetLock());
+        for (GroupReference* gref = group->GetFirstMember(); gref; gref = gref->next())
+        {
+            Player* member = gref->GetSource();
+            if (!member)
+                continue;
 
-        int32 memberAssistTankIndex = GetAssistTankIndex(member);
-        if (memberAssistTankIndex == -1)
-            continue;
+            int32 memberAssistTankIndex = GetAssistTankIndex(member);
+            if (memberAssistTankIndex == -1)
+                continue;
 
-        if (memberAssistTankIndex == botAssistTankIndex && player == member)
-            return true;
+            if (memberAssistTankIndex == botAssistTankIndex && player == member)
+                return true;
 
-        if (memberAssistTankIndex < botAssistTankIndex && member->GetSession()->IsHeadless())
-            return false;
+            if (memberAssistTankIndex < botAssistTankIndex && member->GetSession()->IsHeadless())
+                return false;
+        }
     }
 
     return false;
@@ -2671,15 +2754,18 @@ uint32 PlayerbotAI::GetGroupTankNum(Player* player)
         return 0;
 
     uint32 result = 0;
-    for (GroupReference* ref = group->GetFirstMember(); ref; ref = ref->next())
     {
-        Player* member = ref->GetSource();
+        std::lock_guard<std::recursive_mutex> groupGuard(group->GetLock());
+        for (GroupReference* ref = group->GetFirstMember(); ref; ref = ref->next())
+        {
+            Player* member = ref->GetSource();
 
-        if (!member)
-            continue;
+            if (!member)
+                continue;
 
-        if (IsTank(member) && member->IsAlive())
-            result++;
+            if (IsTank(member) && member->IsAlive())
+                result++;
+        }
     }
 
     return result;
@@ -2722,28 +2808,31 @@ bool PlayerbotAI::IsAssistTankOfIndex(Player* player, uint8 index, bool indexLiv
     uint8 nonAssistantsBeforePlayer = 0;
     bool playerFound = false;
 
-    for (GroupReference* ref = group->GetFirstMember(); ref; ref = ref->next())
     {
-        Player* member = ref->GetSource();
-        if (!member || (indexLivingOnly && !member->IsAlive()) || !IsTank(member) ||
-            member->GetGUID() == mainTankGuid)
+        std::lock_guard<std::recursive_mutex> groupGuard(group->GetLock());
+        for (GroupReference* ref = group->GetFirstMember(); ref; ref = ref->next())
         {
-            continue;
-        }
+            Player* member = ref->GetSource();
+            if (!member || (indexLivingOnly && !member->IsAlive()) || !IsTank(member) ||
+                member->GetGUID() == mainTankGuid)
+            {
+                continue;
+            }
 
-        bool isAssistant = group->IsAssistant(member->GetGUID());
+            bool isAssistant = group->IsAssistant(member->GetGUID());
 
-        if (isAssistant)
-            totalAssistants++;
-
-        if (member == player)
-            playerFound = true;
-        else if (!playerFound)
-        {
             if (isAssistant)
-                assistantsBeforePlayer++;
-            else
-                nonAssistantsBeforePlayer++;
+                totalAssistants++;
+
+            if (member == player)
+                playerFound = true;
+            else if (!playerFound)
+            {
+                if (isAssistant)
+                    assistantsBeforePlayer++;
+                else
+                    nonAssistantsBeforePlayer++;
+            }
         }
     }
 
@@ -2838,6 +2927,7 @@ Unit* PlayerbotAI::GetUnit(CreatureData const* creatureData)
     if (!spawnId)  // workaround for CreatureData with missing spawnId (this just uses first matching creatureId in DB,
                    // but thats ok this method is only used for battlemasters and theres only 1 of each type)
         spawnId = GetCreatureIdForCreatureTemplateId(creatureData->id);
+    auto const storeGuard = map->LockObjectsStoreForRead();
     auto creatureBounds = map->GetCreatureBySpawnIdStore().equal_range(spawnId);
     if (creatureBounds.first == creatureBounds.second)
         return nullptr;
@@ -2949,19 +3039,22 @@ std::vector<Player*> PlayerbotAI::GetRealPlayersInGroup()
     if (!group)
         return members;
 
-    for (GroupReference* ref = group->GetFirstMember(); ref; ref = ref->next())
     {
-        Player* member = ref->GetSource();
-
-        if (!member)
+        std::lock_guard<std::recursive_mutex> groupGuard(group->GetLock());
+        for (GroupReference* ref = group->GetFirstMember(); ref; ref = ref->next())
         {
-            continue;
+            Player* member = ref->GetSource();
+
+            if (!member)
+            {
+                continue;
+            }
+
+            if (GET_PLAYERBOT_AI(member) && !IsSelfBot(member))
+                continue;
+
+            members.push_back(ref->GetSource());
         }
-
-        if (GET_PLAYERBOT_AI(member) && !IsSelfBot(member))
-            continue;
-
-        members.push_back(ref->GetSource());
     }
 
     return members;
@@ -2976,16 +3069,19 @@ std::vector<Player*> PlayerbotAI::GetAllPlayersInGroup()
     if (!group)
         return members;
 
-    for (GroupReference* ref = group->GetFirstMember(); ref; ref = ref->next())
     {
-        Player* member = ref->GetSource();
-
-        if (!member)
+        std::lock_guard<std::recursive_mutex> groupGuard(group->GetLock());
+        for (GroupReference* ref = group->GetFirstMember(); ref; ref = ref->next())
         {
-            continue;
-        }
+            Player* member = ref->GetSource();
 
-        members.push_back(ref->GetSource());
+            if (!member)
+            {
+                continue;
+            }
+
+            members.push_back(ref->GetSource());
+        }
     }
 
     return members;
@@ -3752,6 +3848,8 @@ bool PlayerbotAI::CastSpell(uint32 spellId, Unit* target, Item* itemTarget)
     if (!IsValidUnit(target))
         return false;
 
+    MT_ASSERT_WRITABLE(target);
+
     SpellInfo const* spellInfo = sSpellMgr->GetSpellInfo(spellId);
     if (!spellInfo)
         return false;
@@ -4309,6 +4407,8 @@ bool PlayerbotAI::CastVehicleSpell(uint32 spellId, Unit* target)
     if (!IsValidUnit(spellTarget))
         return false;
 
+    MT_ASSERT_WRITABLE(spellTarget);
+
     SpellInfo const* spellInfo = sSpellMgr->GetSpellInfo(spellId);
     if (!spellInfo)
         return false;
@@ -4646,30 +4746,33 @@ Player* PlayerbotAI::FindNewMaster()
         return groupLeader;
 
     // Find the real player in group
-    for (GroupReference* gref = group->GetFirstMember(); gref; gref = gref->next())
     {
-        Player* member = gref->GetSource();
-        if (!member || member == bot || !member->IsInWorld() || !member->IsInSameRaidWith(bot))
-            continue;
-
-        PlayerbotAI* memberBotAI = GET_PLAYERBOT_AI(member);
-        if ((!memberBotAI || IsSelfBot(member)) && !bot->InBattleground())
-            return member;
-
-        if (bot->InBattleground() && bot->GetBattleground() &&
-            bot->GetBattleground()->GetBgTypeID(true) == BATTLEGROUND_AV && !GET_PLAYERBOT_AI(member) &&
-            member->InBattleground() && bot->GetMapId() == member->GetMapId())
+        std::lock_guard<std::recursive_mutex> groupGuard(group->GetLock());
+        for (GroupReference* gref = group->GetFirstMember(); gref; gref = gref->next())
         {
-            // Skip if same BG but same subgroup or lower level
-            if (!group->SameSubGroup(bot, member) || member->GetLevel() < bot->GetLevel())
+            Player* member = gref->GetSource();
+            if (!member || member == bot || !member->IsInWorld() || !member->IsInSameRaidWith(bot))
                 continue;
 
-            // Follow real player only if higher honor points
-            uint32 honorpts = member->GetHonorPoints();
-            if (bot->GetHonorPoints() && honorpts < bot->GetHonorPoints())
-                continue;
+            PlayerbotAI* memberBotAI = GET_PLAYERBOT_AI(member);
+            if ((!memberBotAI || IsSelfBot(member)) && !bot->InBattleground())
+                return member;
 
-            return member;
+            if (bot->InBattleground() && bot->GetBattleground() &&
+                bot->GetBattleground()->GetBgTypeID(true) == BATTLEGROUND_AV && !GET_PLAYERBOT_AI(member) &&
+                member->InBattleground() && bot->GetMapId() == member->GetMapId())
+            {
+                // Skip if same BG but same subgroup or lower level
+                if (!group->SameSubGroup(bot, member) || member->GetLevel() < bot->GetLevel())
+                    continue;
+
+                // Follow real player only if higher honor points
+                uint32 honorpts = member->GetHonorPoints();
+                if (bot->GetHonorPoints() && honorpts < bot->GetHonorPoints())
+                    continue;
+
+                return member;
+            }
         }
     }
     return nullptr;
@@ -4901,26 +5004,32 @@ bool PlayerbotAI::AllowActive(ActivityType activityType)
     Group* group = bot->GetGroup();
     if (group)
     {
-        for (GroupReference* gref = group->GetFirstMember(); gref; gref = gref->next())
         {
-            Player* member = gref->GetSource();
-            if (!member || !member->IsInWorld() || member->GetMapId() != bot->GetMapId())
-                continue;
-
-            if (member == bot)
-                continue;
-
-            PlayerbotAI* memberBotAI = GET_PLAYERBOT_AI(member);
-
-            // group member is a real player or owned by one — stay active
-            if (!memberBotAI || memberBotAI->HasGameClientMaster())
-                return true;
-
-            // if group leader (bot) is inactive, follow suit
-            if (group->IsLeader(member->GetGUID()))
+            std::lock_guard<std::recursive_mutex> groupGuard(group->GetLock());
+            for (GroupReference* gref = group->GetFirstMember(); gref; gref = gref->next())
             {
-                if (!memberBotAI->AllowActivity(PARTY_ACTIVITY))
-                    return false;
+                Player* member = gref->GetSource();
+                if (!member || !member->IsInWorld() || member->GetMapId() != bot->GetMapId())
+                    continue;
+
+                if (member == bot)
+                    continue;
+
+                PlayerbotAI* memberBotAI = GET_PLAYERBOT_AI(member);
+
+                // group member is a real player or owned by one — stay active
+                if (!memberBotAI || memberBotAI->HasGameClientMaster())
+                    return true;
+
+                // if group leader (bot) is inactive, follow suit
+                if (group->IsLeader(member->GetGUID()))
+                {
+                    // a leader that another thread may be updating keeps its last answer instead of recomputing here
+                    bool const leaderActive = CanReadNow(member) ? memberBotAI->AllowActivity(PARTY_ACTIVITY)
+                                                                 : memberBotAI->allowActive[PARTY_ACTIVITY];
+                    if (!leaderActive)
+                        return false;
+                }
             }
         }
     }
@@ -6275,22 +6384,25 @@ int32 PlayerbotAI::GetNearGroupMemberCount(float dis)
     int count = 1;  // yourself
     if (Group* group = bot->GetGroup())
     {
-        for (GroupReference* gref = group->GetFirstMember(); gref; gref = gref->next())
         {
-            Player* member = gref->GetSource();
-            if (member == bot)  // calculated
-                continue;
+            std::lock_guard<std::recursive_mutex> groupGuard(group->GetLock());
+            for (GroupReference* gref = group->GetFirstMember(); gref; gref = gref->next())
+            {
+                Player* member = gref->GetSource();
+                if (member == bot)  // calculated
+                    continue;
 
-            if (!member || !member->IsInWorld())
-                continue;
+                if (!member || !member->IsInWorld())
+                    continue;
 
-            if (member->GetMapId() != bot->GetMapId())
-                continue;
+                if (member->GetMapId() != bot->GetMapId())
+                    continue;
 
-            if (member->GetExactDist(bot) > dis)
-                continue;
+                if (member->GetExactDist(bot) > dis)
+                    continue;
 
-            count++;
+                count++;
+            }
         }
     }
     return count;
@@ -6993,6 +7105,7 @@ void PlayerbotAI::PetFollow()
     Pet* pet = bot->GetPet();
     if (!pet)
         return;
+    MT_ASSERT_WRITABLE(pet);
     pet->AttackStop();
     pet->CastStop();
     pet->ClearInPetCombat();

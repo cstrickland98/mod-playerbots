@@ -116,6 +116,44 @@ private:
     ObjectGuid m_targetGuid;
 };
 
+// Group invite through the inviter's session handler, for an inviter or invitee another map thread may be updating
+class GroupInviteOpcodeOperation : public PlayerbotOperation
+{
+public:
+    GroupInviteOpcodeOperation(ObjectGuid inviterGuid, ObjectGuid targetGuid)
+        : m_inviterGuid(inviterGuid), m_targetGuid(targetGuid)
+    {
+    }
+
+    bool Execute() override
+    {
+        Player* inviter = ObjectAccessor::FindPlayer(m_inviterGuid);
+        Player* target = ObjectAccessor::FindPlayer(m_targetGuid);
+        if (!inviter || !target || !inviter->GetSession())
+            return false;
+
+        WorldPacket p;
+        uint32 rolesMask = 0;
+        p << target->GetName();
+        p << rolesMask;
+        inviter->GetSession()->HandleGroupInviteOpcode(p);
+        return true;
+    }
+
+    ObjectGuid GetBotGuid() const override { return m_inviterGuid; }
+    uint32 GetPriority() const override { return 50; }
+    std::string GetName() const override { return "GroupInviteOpcode"; }
+
+    bool IsValid() const override
+    {
+        return ObjectAccessor::FindPlayer(m_inviterGuid) && ObjectAccessor::FindPlayer(m_targetGuid);
+    }
+
+private:
+    ObjectGuid m_inviterGuid;
+    ObjectGuid m_targetGuid;
+};
+
 // Remove member from group
 class GroupRemoveMemberOperation : public PlayerbotOperation
 {
@@ -450,6 +488,70 @@ public:
 
 private:
     ObjectGuid m_botGuid;
+};
+
+// Logout requested from the bot's own update while its map runs a parallel phase: removing a player from
+// its map is only allowed between phases
+class BotLogoutOperation : public PlayerbotOperation
+{
+public:
+    BotLogoutOperation(ObjectGuid botGuid, ObjectGuid masterGuid) : m_botGuid(botGuid), m_masterGuid(masterGuid) {}
+
+    bool Execute() override
+    {
+        if (!ObjectAccessor::FindConnectedPlayer(m_botGuid))
+            return false;
+
+        PlayerbotHolder* holder = nullptr;
+        if (Player* master = ObjectAccessor::FindConnectedPlayer(m_masterGuid))
+            holder = PlayerbotsMgr::instance().GetPlayerbotMgr(master);
+
+        if (!holder)
+            holder = &RandomPlayerbotMgr::instance();
+
+        holder->LogoutPlayerBot(m_botGuid);
+        return true;
+    }
+
+    ObjectGuid GetBotGuid() const override { return m_botGuid; }
+    uint32 GetPriority() const override { return 70; }
+    std::string GetName() const override { return "BotLogout"; }
+    bool IsValid() const override { return ObjectAccessor::FindConnectedPlayer(m_botGuid) != nullptr; }
+
+private:
+    ObjectGuid m_botGuid;
+    ObjectGuid m_masterGuid;
+};
+
+// Logs out or cancels the logout of a master's bots, which may be anywhere, when the master's thread asks
+class MasterBotsLogoutOperation : public PlayerbotOperation
+{
+public:
+    MasterBotsLogoutOperation(ObjectGuid masterGuid, bool cancel) : m_masterGuid(masterGuid), m_cancel(cancel) {}
+
+    bool Execute() override
+    {
+        Player* master = ObjectAccessor::FindConnectedPlayer(m_masterGuid);
+        PlayerbotMgr* mgr = master ? PlayerbotsMgr::instance().GetPlayerbotMgr(master) : nullptr;
+        if (!mgr)
+            return false;
+
+        if (m_cancel)
+            mgr->CancelLogout();
+        else
+            mgr->LogoutAllBots();
+
+        return true;
+    }
+
+    ObjectGuid GetBotGuid() const override { return m_masterGuid; }
+    uint32 GetPriority() const override { return 70; }
+    std::string GetName() const override { return "MasterBotsLogout"; }
+    bool IsValid() const override { return ObjectAccessor::FindConnectedPlayer(m_masterGuid) != nullptr; }
+
+private:
+    ObjectGuid m_masterGuid;
+    bool m_cancel;
 };
 
 // Add player bot operation (for logging in bots from map threads)

@@ -80,25 +80,28 @@ bool FindNonCcTargetStrategy::IsCcTarget(Unit* attacker)
 {
     if (Group* group = botAI->GetBot()->GetGroup())
     {
-        Group::MemberSlotList const& groupSlot = group->GetMemberSlots();
-        for (Group::member_citerator itr = groupSlot.begin(); itr != groupSlot.end(); itr++)
         {
-            Player* member = ObjectAccessor::FindPlayer(itr->guid);
-            if (!member || !member->IsAlive())
-                continue;
-
-            if (PlayerbotAI* botAI = GET_PLAYERBOT_AI(member))
+            std::lock_guard<std::recursive_mutex> groupGuard(group->GetLock());
+            Group::MemberSlotList const& groupSlot = group->GetMemberSlots();
+            for (Group::member_citerator itr = groupSlot.begin(); itr != groupSlot.end(); itr++)
             {
-                if (botAI->GetAiObjectContext()->GetValue<Unit*>("rti cc target")->Get() == attacker)
-                    return true;
+                Player* member = ObjectAccessor::FindPlayer(itr->guid);
+                if (!member || !member->IsAlive() || !PlayerbotAI::CanReadNow(member))
+                    continue;
 
-                std::string const rti = botAI->GetAiObjectContext()->GetValue<std::string>("rti cc")->Get();
-                int32 index = RtiTargetValue::GetRtiIndex(rti);
-                if (index != -1)
+                if (PlayerbotAI* botAI = GET_PLAYERBOT_AI(member))
                 {
-                    if (ObjectGuid guid = group->GetTargetIcon(index))
-                        if (attacker->GetGUID() == guid)
-                            return true;
+                    if (botAI->GetAiObjectContext()->GetValue<Unit*>("rti cc target")->Get() == attacker)
+                        return true;
+
+                    std::string const rti = botAI->GetAiObjectContext()->GetValue<std::string>("rti cc")->Get();
+                    int32 index = RtiTargetValue::GetRtiIndex(rti);
+                    if (index != -1)
+                    {
+                        if (ObjectGuid guid = group->GetTargetIcon(index))
+                            if (attacker->GetGUID() == guid)
+                                return true;
+                    }
                 }
             }
         }
@@ -124,10 +127,10 @@ void FindTargetStrategy::GetPlayerCount(Unit* creature, uint32* tankCount, uint3
     *tankCount = 0;
     *dpsCount = 0;
 
-    Unit::AttackerSet attackers(creature->getAttackers());
-    for (Unit* attacker : attackers)
+    Unit::AttackerSet attackersCopy;
+    for (Unit* attacker : creature->GetAttackersForIteration(attackersCopy))
     {
-        if (!attacker || !attacker->IsAlive() || attacker == bot)
+        if (!attacker || !attacker->IsAlive() || attacker == bot || !PlayerbotAI::CanReadNow(attacker))
             continue;
 
         Player* player = attacker->ToPlayer();
