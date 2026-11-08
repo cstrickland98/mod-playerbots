@@ -10,6 +10,8 @@
 #include "Mail.h"
 #include "Playerbots.h"
 
+#include <mutex>
+
 std::map<std::string, MailProcessor*> MailAction::processors;
 
 class TellMailProcessor : public MailProcessor
@@ -263,13 +265,14 @@ bool MailAction::Execute(Event event)
         return false;
     }
 
-    if (processors.empty())
+    static std::once_flag initialized;
+    std::call_once(initialized, []()
     {
         processors["?"] = &TellMailProcessor::instance;
         processors["take"] = &TakeMailProcessor::instance;
         processors["delete"] = &DeleteMailProcessor::instance;
         processors["read"] = &ReadMailProcessor::instance;
-    }
+    });
 
     std::string const text = event.getParam();
     if (text.empty())
@@ -283,7 +286,8 @@ bool MailAction::Execute(Event event)
     std::string const action = ss[0];
     std::string const filter = ss.size() > 1 ? ss[1] : "";
 
-    MailProcessor* processor = processors[action];
+    auto const found = processors.find(action);
+    MailProcessor* processor = found != processors.end() ? found->second : nullptr;
     if (!processor)
     {
         std::ostringstream out;

@@ -47,7 +47,7 @@ int strcmpi(char const* s1, char const* s2);
 #define PAI_VALUE(type, name) sPlayerbotsMgr.GetPlayerbotAI(player)->GetAiObjectContext()->GetValue<type>(name)->Get()
 #define PAI_VALUE2(type, name, param) \
     sPlayerbotsMgr.GetPlayerbotAI(player)->GetAiObjectContext()->GetValue<type>(name, param)->Get()
-#define GAI_VALUE(type, name) sSharedValueContext.getGlobalValue<type>(name)->Get()
-#define GAI_VALUE2(type, name, param) sSharedValueContext.getGlobalValue<type>(name, param)->Get()
+#define GAI_VALUE(type, name) sSharedValueContext.GetGlobal<type>(name)
+#define GAI_VALUE2(type, name, param) sSharedValueContext.GetGlobal<type>(name, param)
 
 #endif

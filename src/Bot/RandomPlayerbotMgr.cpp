@@ -900,11 +900,14 @@ bool RandomPlayerbotMgr::IsRemovableBot(Player* bot)
     // Grouped with a real player (including a selfbot).
     if (Group* group = bot->GetGroup())
     {
-        for (GroupReference* ref = group->GetFirstMember(); ref; ref = ref->next())
         {
-            Player* member = ref->GetSource();
-            if (IsRealPlayer(member) || IsSelfBot(member))
-                return false;
+            std::lock_guard<std::recursive_mutex> groupGuard(group->GetLock());
+            for (GroupReference* ref = group->GetFirstMember(); ref; ref = ref->next())
+            {
+                Player* member = ref->GetSource();
+                if (IsRealPlayer(member) || IsSelfBot(member))
+                    return false;
+            }
         }
     }
 
@@ -2649,45 +2652,60 @@ std::vector<uint32> RandomPlayerbotMgr::GetBgBots(uint32 bracket)
     return BgBots;
 }
 
+// Loads the bot's events once; the query runs outside the lock
+void RandomPlayerbotMgr::LoadEvents(uint32 bot)
+{
+    {
+        std::lock_guard<std::mutex> lock(_eventCacheLock);
+        BotEventCache& cache = eventCache[bot];
+        if (cache.loaded)
+            return;
+
+        // After the startup preload every stored event is cached, so a bot without an entry has none.
+        if (_eventCachePreloaded)
+        {
+            cache.events.clear();
+            cache.loaded = true;
+            return;
+        }
+    }
+
+    PlayerbotsDatabasePreparedStatement* stmt =
+        PlayerbotsDatabase.GetPreparedStatement(PLAYERBOTS_SEL_RANDOM_BOTS_BY_OWNER_AND_BOT);
+    stmt->SetData(0, 0);
+    stmt->SetData(1, bot);
+    PreparedQueryResult result = PlayerbotsDatabase.Query(stmt);
+
+    std::unordered_map<std::string, CachedEvent> events;
+    if (result)
+    {
+        do
+        {
+            Field* fields = result->Fetch();
+
+            CachedEvent e;
+            e.value = fields[1].Get<uint32>();
+            e.lastChangeTime = fields[2].Get<uint32>();
+            e.validIn = fields[3].Get<uint32>();
+            e.data = fields[4].Get<std::string>();
+
+            events.emplace(fields[0].Get<std::string>(), std::move(e));
+        } while (result->NextRow());
+    }
+
+    std::lock_guard<std::mutex> lock(_eventCacheLock);
+    BotEventCache& cache = eventCache[bot];
+    if (cache.loaded)
+        return;
+
+    cache.events = std::move(events);
+    cache.loaded = true;
+}
+
+// Caller holds _eventCacheLock and has run LoadEvents for the bot
 CachedEvent* RandomPlayerbotMgr::FindEvent(uint32 bot, std::string const& event)
 {
     BotEventCache& cache = eventCache[bot];
-
-    // Load once
-    if (!cache.loaded)
-    {
-        cache.events.clear();
-
-        // After the startup preload every stored event is cached, so a bot without an entry has none.
-        PreparedQueryResult result;
-        if (!_eventCachePreloaded)
-        {
-            PlayerbotsDatabasePreparedStatement* stmt =
-                PlayerbotsDatabase.GetPreparedStatement(PLAYERBOTS_SEL_RANDOM_BOTS_BY_OWNER_AND_BOT);
-            stmt->SetData(0, 0);
-            stmt->SetData(1, bot);
-            result = PlayerbotsDatabase.Query(stmt);
-        }
-
-        if (result)
-        {
-            do
-            {
-                Field* fields = result->Fetch();
-
-                CachedEvent e;
-                e.value = fields[1].Get<uint32>();
-                e.lastChangeTime = fields[2].Get<uint32>();
-                e.validIn = fields[3].Get<uint32>();
-                e.data = fields[4].Get<std::string>();
-
-                cache.events.emplace(fields[0].Get<std::string>(), std::move(e));
-            } while (result->NextRow());
-        }
-
-        cache.loaded = true;
-    }
-
     auto it = cache.events.find(event);
     if (it == cache.events.end())
         return nullptr;
@@ -2716,6 +2734,8 @@ bool RandomPlayerbotMgr::IsSpecPvp(uint32 bot, uint8 cls)
 
 uint32 RandomPlayerbotMgr::GetEventValue(uint32 bot, std::string const& event)
 {
+    LoadEvents(bot);
+    std::lock_guard<std::mutex> lock(_eventCacheLock);
     if (CachedEvent* e = FindEvent(bot, event))
         return e->value;
 
@@ -2724,6 +2744,8 @@ uint32 RandomPlayerbotMgr::GetEventValue(uint32 bot, std::string const& event)
 
 std::string RandomPlayerbotMgr::GetEventData(uint32 bot, std::string const& event)
 {
+    LoadEvents(bot);
+    std::lock_guard<std::mutex> lock(_eventCacheLock);
     if (CachedEvent* e = FindEvent(bot, event))
         return e->data;
 
@@ -2763,6 +2785,7 @@ uint32 RandomPlayerbotMgr::SetEventValue(uint32 bot, std::string const& event, u
     PlayerbotsDatabase.CommitTransaction(trans);
 
     // Update in-memory cache
+    std::lock_guard<std::mutex> lock(_eventCacheLock);
     BotEventCache& cache = eventCache[bot];
     cache.loaded = true;
 
@@ -2819,7 +2842,10 @@ bool RandomPlayerbotMgr::HandlePlayerbotConsoleCommand(ChatHandler* /*handler*/,
     if (cmd == "reset")
     {
         PlayerbotsDatabase.Execute(PlayerbotsDatabase.GetPreparedStatement(PLAYERBOTS_DEL_RANDOM_BOTS));
-        sRandomPlayerbotMgr.eventCache.clear();
+        {
+            std::lock_guard<std::mutex> lock(sRandomPlayerbotMgr._eventCacheLock);
+            sRandomPlayerbotMgr.eventCache.clear();
+        }
         LOG_INFO("playerbots", "Random bots were reset for all players. Please restart the Server.");
         return true;
     }
@@ -3024,22 +3050,25 @@ void RandomPlayerbotMgr::OnPlayerLogin(Player* player)
         if (!group)
             continue;
 
-        for (GroupReference* ref = group->GetFirstMember(); ref; ref = ref->next())
         {
-            Player* bot = ref->GetSource();
-            if (!bot || bot == player || bot->GetGroup() != group || !GetPlayerBot(bot->GetGUID()))
-                continue;
+            std::lock_guard<std::recursive_mutex> groupGuard(group->GetLock());
+            for (GroupReference* ref = group->GetFirstMember(); ref; ref = ref->next())
+            {
+                Player* bot = ref->GetSource();
+                if (!bot || bot == player || bot->GetGroup() != group || !GetPlayerBot(bot->GetGUID()))
+                    continue;
 
-            PlayerbotAI* botAI = GET_PLAYERBOT_AI(bot);
-            if (!botAI || (botAI->GetMaster() && !GET_PLAYERBOT_AI(botAI->GetMaster())))
-                continue;
+                PlayerbotAI* botAI = GET_PLAYERBOT_AI(bot);
+                if (!botAI || (botAI->GetMaster() && !GET_PLAYERBOT_AI(botAI->GetMaster())))
+                    continue;
 
-            if (bot->InBattleground())
-                continue;
+                if (bot->InBattleground())
+                    continue;
 
-            botAI->SetMaster(player);
-            botAI->ResetStrategies();
-            botAI->TellMaster(PlayerbotTextMgr::instance().GetBotTextOrDefault("hello", "Hello", {}));
+                botAI->SetMaster(player);
+                botAI->ResetStrategies();
+                botAI->TellMaster(PlayerbotTextMgr::instance().GetBotTextOrDefault("hello", "Hello", {}));
+            }
         }
     }
 
@@ -3768,7 +3797,10 @@ void RandomPlayerbotMgr::Remove(Player* bot)
     PlayerbotsDatabase.Execute(stmt);
 
     uint32 botId = owner.GetCounter();
-    eventCache.erase(botId);
+    {
+        std::lock_guard<std::mutex> lock(_eventCacheLock);
+        eventCache.erase(botId);
+    }
 
     LogoutPlayerBot(owner);
 }

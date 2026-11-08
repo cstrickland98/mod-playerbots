@@ -2014,7 +2014,7 @@ void TravelMgr::LoadQuestTravelTable()
     bool loadQuestData = true;
     if (loadQuestData)
     {
-        questGuidpMap questMap = SharedValueContext::instance().getGlobalValue<questGuidpMap>("quest guidp map")->Get();
+        questGuidpMap questMap = SharedValueContext::instance().GetGlobal<questGuidpMap>("quest guidp map");
 
         for (auto& q : questMap)
         {
@@ -4503,18 +4503,24 @@ const std::vector<WorldLocation> TravelMgr::GetTeleportLocations(Player* bot)
 
 const std::vector<WorldLocation> TravelMgr::GetTravelHubs(Player* bot)
 {
-    std::vector<WorldLocation> locs = bot->GetTeamId() == TEAM_ALLIANCE
-                                                 ? allianceHubsPerLevelCache[bot->GetLevel()]
-                                                 : hordeHubsPerLevelCache[bot->GetLevel()];
-    return locs;
+    std::map<uint8, std::vector<WorldLocation>> const& cache =
+        bot->GetTeamId() == TEAM_ALLIANCE ? allianceHubsPerLevelCache : hordeHubsPerLevelCache;
+
+    auto itr = cache.find(static_cast<uint8>(bot->GetLevel()));
+    return itr != cache.end() ? itr->second : std::vector<WorldLocation>();
 }
 
 std::vector<WorldLocation> TravelMgr::GetCityLocations(Player* bot)
 {
     uint32 level = bot->GetLevel();
 
+    static std::vector<BankerLocation> const noBankers;
+    auto const levelBankers = bankerLocsPerLevelCache.find(static_cast<uint8>(level));
+    std::vector<BankerLocation> const& levelBankerLocs =
+        levelBankers != bankerLocsPerLevelCache.end() ? levelBankers->second : noBankers;
+
     std::vector<WorldLocation> fallbackLocations;
-    for (auto& bLoc : bankerLocsPerLevelCache[level])
+    for (auto& bLoc : levelBankerLocs)
         fallbackLocations.push_back(bLoc.loc);
 
     if (!sPlayerbotAIConfig.EnableWeightTeleToCityBankers)
@@ -4522,7 +4528,7 @@ std::vector<WorldLocation> TravelMgr::GetCityLocations(Player* bot)
 
     TeamId botTeamId = bot->GetTeamId();
     std::unordered_set<uint32> validBankerCities;
-    for (auto& loc : bankerLocsPerLevelCache[level])
+    for (auto& loc : levelBankerLocs)
     {
         Capital const* capital = FindCapitalByBanker(loc.entry);
         if (!capital)

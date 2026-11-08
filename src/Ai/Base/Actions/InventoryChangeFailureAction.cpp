@@ -8,6 +8,8 @@
 #include "Event.h"
 #include "Playerbots.h"
 
+#include <mutex>
+
 std::map<InventoryResult, std::string> InventoryChangeFailureAction::messages;
 
 bool InventoryChangeFailureAction::Execute(Event event)
@@ -15,7 +17,8 @@ bool InventoryChangeFailureAction::Execute(Event event)
     if (!botAI->GetMaster())
         return false;
 
-    if (messages.empty())
+    static std::once_flag initialized;
+    std::call_once(initialized, []()
     {
         messages[EQUIP_ERR_CANT_EQUIP_LEVEL_I] = "My level is too low";
         messages[EQUIP_ERR_CANT_EQUIP_SKILL] = "My skill level is too low";
@@ -82,7 +85,7 @@ bool InventoryChangeFailureAction::Execute(Event event)
         messages[EQUIP_ERR_CANT_EQUIP_REPUTATION] = "Not enough reputation";
         messages[EQUIP_ERR_TOO_MANY_SPECIAL_BAGS] = "Too many special bags";
         messages[EQUIP_ERR_LOOT_CANT_LOOT_THAT_NOW] = "Cannot loot this right now";
-    }
+    });
 
     WorldPacket p(event.getPacket());
     p.rpos(0);
@@ -91,10 +94,10 @@ bool InventoryChangeFailureAction::Execute(Event event)
     if (err == EQUIP_ERR_OK)
         return false;
 
-    std::string const msg = messages[(InventoryResult)err];
-    if (!msg.empty())
+    auto const msg = messages.find(static_cast<InventoryResult>(err));
+    if (msg != messages.end() && !msg->second.empty())
     {
-        botAI->TellError(msg);
+        botAI->TellError(msg->second);
         return true;
     }
 

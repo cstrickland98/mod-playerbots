@@ -8,6 +8,7 @@
 #define PLAYERBOTS_PLAYERBOTTEXTMGR_H
 
 #include "Common.h"
+#include <atomic>
 #include <map>
 #include <vector>
 
@@ -102,7 +103,7 @@ private:
 
     std::map<std::string, std::vector<BotTextEntry>> botTexts;
     std::map<std::string, uint32> botTextChance;
-    uint32 botTextLocalePriority[TOTAL_LOCALES];
+    std::atomic<uint32> botTextLocalePriority[TOTAL_LOCALES];  // counted on login, read and reset by map threads
 };
 
 #endif

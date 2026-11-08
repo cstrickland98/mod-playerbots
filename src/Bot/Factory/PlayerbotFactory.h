@@ -244,7 +244,7 @@ private:
         std::vector<TrainerSpellRef> SpellIndexes;
     };
     static std::unordered_map<uint32, std::vector<TrainerSpellIndexes>> trainerSpellCache;
-    void BuildTrainerSpellCache();
+    std::vector<TrainerSpellIndexes> BuildTrainerSpellCache();
     static std::vector<uint32> enchantSpellIdCache;
     static std::vector<uint32> enchantGemIdCache;
     static std::vector<uint32> ccBreakTrinketCache;

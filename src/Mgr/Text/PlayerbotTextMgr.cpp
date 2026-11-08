@@ -101,13 +101,14 @@ std::string PlayerbotTextMgr::GetBotText(std::string name)
         return "";
     }
 
-    if (botTexts[name].empty())
+    auto const texts = botTexts.find(name);
+    if (texts == botTexts.end() || texts->second.empty())
     {
         LOG_ERROR("playerbots", "Can't get bot text {}! No bots texts for this name!", name);
         return "";
     }
 
-    std::vector<BotTextEntry>& list = botTexts[name];
+    std::vector<BotTextEntry> const& list = texts->second;
     BotTextEntry textEntry = list[urand(0, list.size() - 1)];
     return !textEntry.m_text[GetLocalePriority()].empty() ? textEntry.m_text[GetLocalePriority()] : textEntry.m_text[0];
 }
@@ -145,13 +146,14 @@ std::string PlayerbotTextMgr::GetBotText(ChatReplyType replyType, std::map<std::
         LOG_ERROR("playerbots", "Can't get bot text reply {}! No bots texts loaded!", replyType);
         return "";
     }
-    if (botTexts["reply"].empty())
+    auto const replies = botTexts.find("reply");
+    if (replies == botTexts.end() || replies->second.empty())
     {
         LOG_ERROR("playerbots", "Can't get bot text reply {}! No bots texts replies!", replyType);
         return "";
     }
 
-    std::vector<BotTextEntry>& list = botTexts["reply"];
+    std::vector<BotTextEntry> const& list = replies->second;
     std::vector<BotTextEntry> proper_list;
     for (auto text : list)
     {
@@ -182,10 +184,11 @@ std::string PlayerbotTextMgr::GetBotText(ChatReplyType replyType, std::string na
 
 bool PlayerbotTextMgr::rollTextChance(std::string name)
 {
-    if (!botTextChance[name])
+    auto const chance = botTextChance.find(name);
+    if (chance == botTextChance.end() || !chance->second)
         return true;
 
-    return urand(0, 100) < botTextChance[name];
+    return urand(0, 100) < chance->second;
 }
 
 bool PlayerbotTextMgr::GetBotText(std::string name, std::string& text)

@@ -14,6 +14,7 @@
 #include "Playerbots.h"
 #include "ServerFacade.h"
 #include <functional>
+#include <mutex>
 
 enum eTalkType
 {
@@ -137,7 +138,8 @@ void SuggestWhatToDoAction::grindMaterials()
 
 void SuggestWhatToDoAction::grindReputation()
 {
-    if (factions.empty())
+    static std::once_flag factionsInitialized;
+    std::call_once(factionsInitialized, []()
     {
         factions["Argent Dawn"] = 60;
         factions["Bloodsail Buccaneers"] = 40;
@@ -173,7 +175,7 @@ void SuggestWhatToDoAction::grindReputation()
         factions["Knights of the Ebon Blade"] = 77;
         factions["The Sons of Hodir"] = 78;
         factions["The Wyrmrest Accord"] = 77;
-    }
+    });
 
     std::vector<std::string> levels;
     levels.push_back("honored");
@@ -252,7 +254,8 @@ bool SuggestDungeonAction::Execute(Event /*event*/)
     if (!sPlayerbotAIConfig.RandomBotSuggestDungeons || bot->GetGroup())
         return false;
 
-    if (instances.empty())
+    static std::once_flag instancesInitialized;
+    std::call_once(instancesInitialized, []()
     {
         instances["Ragefire Chasm"] = 15;
         instances["Deadmines"] = 18;
@@ -296,7 +299,7 @@ bool SuggestDungeonAction::Execute(Event /*event*/)
         instances["Forge of Souls"] = 80;
         instances["Pit of Saron"] = 80;
         instances["Halls of Reflection"] = 80;
-    }
+    });
 
     std::vector<std::string> allowedInstances;
     for (auto it : instances)
