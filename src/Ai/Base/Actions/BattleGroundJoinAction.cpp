@@ -50,8 +50,9 @@ bool BGJoinAction::Execute(Event /*event*/)
             if (i != ratedList.end())
                 isRated = true;
 
-            if (isRated && !gatherArenaTeam(type))
-                return false;
+            // the world thread forms the group and queues it
+            if (isRated)
+                return gatherArenaTeam(type, bgTypeId);
 
             botAI->GetAiObjectContext()->GetValue<uint32>("arena type")->Set(isRated);
         }
@@ -65,7 +66,7 @@ bool BGJoinAction::Execute(Event /*event*/)
     return JoinQueue(queueType);
 }
 
-bool BGJoinAction::gatherArenaTeam(ArenaType type)
+bool BGJoinAction::gatherArenaTeam(ArenaType type, BattlegroundTypeId bgTypeId)
 {
     ArenaTeam* arenateam = sArenaTeamMgr->GetArenaTeamByCaptain(bot->GetGUID(), type);
 
@@ -75,138 +76,73 @@ bool BGJoinAction::gatherArenaTeam(ArenaType type)
     if (arenateam->GetMembersSize() < ((uint32)arenateam->GetType()))
         return false;
 
+    Unit* battleMaster = botAI->GetUnit(sRandomPlayerbotMgr.GetBattleMasterGUID(bot, bgTypeId));
+    if (!battleMaster)
+    {
+        LOG_DEBUG("playerbots", "Bot {} could not find Battlemaster to join", bot->GetGUID().ToString());
+        return false;
+    }
+
     GuidVector members;
 
     // search for arena team members and make them online
     for (ArenaTeam::MemberList::iterator itr = arenateam->GetMembers().begin(); itr != arenateam->GetMembers().end();
          ++itr)
     {
-        bool offline = false;
         Player* member = ObjectAccessor::FindConnectedPlayer(itr->Guid);
         if (!member)
         {
-            offline = true;
-        }
-        // if (!member && !sObjectMgr->GetPlayerAccountIdByGUID(itr->guid))
-        //     continue;
-
-        if (offline && bot->GetMap()->IsParallelPhase())
-            PlayerbotWorldThreadProcessor::instance().QueueOperation(
-                std::make_unique<AddPlayerBotOperation>(itr->Guid, 0));
-        else if (offline)
-            sRandomPlayerbotMgr.AddPlayerBot(itr->Guid, 0);
-
-        if (member)
-        {
-            PlayerbotAI* memberBotAI = GET_PLAYERBOT_AI(member);
-            if (!memberBotAI)
-                continue;
-
-            if (member->GetGroup() && memberBotAI->HasGameClientMaster())
-                continue;
-
-            if (!sPlayerbotAIConfig.IsInRandomAccountList(member->GetSession()->GetAccountId()))
-                continue;
-
-            if (member->IsInCombat())
-                continue;
-
-            if (member->GetGUID() == bot->GetGUID())
-                continue;
-
-            if (member->InBattleground())
-                continue;
-
-            if (member->InBattlegroundQueue())
-                continue;
-
-            // a member outside the captain's bracket keeps the team from queuing: it leaves the team (world thread)
-            if (!RandomPlayerbotFactory::SameArenaBracket(member->GetLevel(), bot->GetLevel()))
-            {
+            if (bot->GetMap()->IsParallelPhase())
                 PlayerbotWorldThreadProcessor::instance().QueueOperation(
-                    std::make_unique<ArenaTeamDropMemberOperation>(arenateam->GetId(), member->GetGUID()));
-                continue;
-            }
-
-            if (member->GetGroup())
-                member->GetGroup()->RemoveMember(member->GetGUID());
-
-            memberBotAI->Reset();
+                    std::make_unique<AddPlayerBotOperation>(itr->Guid, 0));
+            else
+                sRandomPlayerbotMgr.AddPlayerBot(itr->Guid, 0);
+            continue;
         }
-
-        if (member)
-            members.push_back(member->GetGUID());
-    }
-
-    if (!members.size() || (int)members.size() < (int)(arenateam->GetType() - 1))
-    {
-        LOG_INFO("playerbots", "Team #{} <{}> has not enough members for match", arenateam->GetId(),
-                 arenateam->GetName().c_str());
-        return false;
-    }
-
-    Group* group = new Group();
-
-    // disband leaders group
-    if (bot->GetGroup())
-        bot->GetGroup()->Disband(true);
-
-    if (!group->Create(bot))
-    {
-        LOG_INFO("playerbots", "Team #{} <{}>: Can't create group for arena queue", arenateam->GetId(),
-                 arenateam->GetName());
-        return false;
-    }
-    else
-        sGroupMgr->AddGroup(group);
-
-    LOG_INFO("playerbots", "Bot {} <{}>: Leader of <{}>", bot->GetGUID().ToString().c_str(), bot->GetName(),
-             arenateam->GetName());
-
-    for (auto i = begin(members); i != end(members); ++i)
-    {
-        if (*i == bot->GetGUID())
-            continue;
-
-        // if (count >= (int)arenateam->GetType())
-        // break;
-
-        if (group->GetMembersCount() >= (uint32)arenateam->GetType())
-            break;
-
-        Player* member = ObjectAccessor::FindConnectedPlayer(*i);
-        if (!member)
-            continue;
-
-        if (!group->AddMember(member))
-            continue;
 
         PlayerbotAI* memberBotAI = GET_PLAYERBOT_AI(member);
         if (!memberBotAI)
             continue;
 
-        memberBotAI->Reset();
-        member->RemoveAurasWithInterruptFlags(AURA_INTERRUPT_FLAG_TELEPORTED | AURA_INTERRUPT_FLAG_CHANGE_MAP);
-        member->TeleportTo(bot->GetMapId(), bot->GetPositionX(), bot->GetPositionY(), bot->GetPositionZ(), 0);
+        if (member->GetGroup() && memberBotAI->HasGameClientMaster())
+            continue;
 
-        LOG_INFO("playerbots", "Bot {} <{}>: Member of <{}>", member->GetGUID().ToString().c_str(),
-                 member->GetName().c_str(), arenateam->GetName().c_str());
+        if (!sPlayerbotAIConfig.IsInRandomAccountList(member->GetSession()->GetAccountId()))
+            continue;
+
+        if (member->IsInCombat())
+            continue;
+
+        if (member->GetGUID() == bot->GetGUID())
+            continue;
+
+        if (member->InBattleground())
+            continue;
+
+        if (member->InBattlegroundQueue())
+            continue;
+
+        // a member outside the captain's bracket keeps the team from queuing: it leaves the team (world thread)
+        if (!RandomPlayerbotFactory::SameArenaBracket(member->GetLevel(), bot->GetLevel()))
+        {
+            PlayerbotWorldThreadProcessor::instance().QueueOperation(
+                std::make_unique<ArenaTeamDropMemberOperation>(arenateam->GetId(), member->GetGUID()));
+            continue;
+        }
+
+        members.push_back(member->GetGUID());
     }
 
-    if (group && group->GetMembersCount() >= (uint32)arenateam->GetType())
+    if (members.empty() || members.size() < arenateam->GetType() - 1)
     {
-        LOG_INFO("playerbots", "Team #{} <{}> Group is ready for match", arenateam->GetId(),
-                 arenateam->GetName().c_str());
-        return true;
-    }
-    else
-    {
-        LOG_INFO("playerbots", "Team #{} <{}> Group is not ready for match (not enough members)", arenateam->GetId(),
-                 arenateam->GetName().c_str());
-        group->Disband();
+        LOG_INFO("playerbots", "Team #{} <{}> has not enough members for match", arenateam->GetId(),
+                 arenateam->GetName());
+        return false;
     }
 
-    return false;
+    // group create/disband and member moves can delete a group another map thread is locking
+    return PlayerbotWorldThreadProcessor::instance().QueueOperation(std::make_unique<ArenaGroupFormationOperation>(
+        bot->GetGUID(), std::move(members), arenateam->GetId(), battleMaster->GetGUID()));
 }
 
 bool BGJoinAction::canJoinBg(BattlegroundQueueTypeId queueTypeId, BattlegroundBracketId bracketId)
