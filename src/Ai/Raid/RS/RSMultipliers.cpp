@@ -68,12 +68,15 @@ float RsBaltharusBrandSafeMultiplier::GetValue(Action* action)
     if (RsIsAoeDamageAction(action))
         return 0.0f;
 
-    for (GroupReference* itr = group->GetFirstMember(); itr; itr = itr->next())
     {
-        Player* member = itr->GetSource();
-        if (member && member != bot && member->IsAlive() &&
-            member->GetExactDist2d(bot) < RS_BALTHARUS_BRAND_RANGE)
-            return 1.0f;
+        std::lock_guard<std::recursive_mutex> groupGuard(group->GetLock());
+        for (GroupReference* itr = group->GetFirstMember(); itr; itr = itr->next())
+        {
+            Player* member = itr->GetSource();
+            if (member && member != bot && member->IsAlive() &&
+                member->GetExactDist2d(bot) < RS_BALTHARUS_BRAND_RANGE)
+                return 1.0f;
+        }
     }
 
     if (dynamic_cast<MovementAction*>(action) && !dynamic_cast<RsBaltharusBrandAction*>(action))

@@ -325,10 +325,13 @@ bool EoEDrakeAttackAction::Execute(Event /*event*/)
     if (!group)
         return false;
     std::vector<std::pair<ObjectGuid, Player*>> sortedMembers;
-    for (GroupReference* itr = group->GetFirstMember(); itr != nullptr; itr = itr->next())
     {
-        Player* member = itr->GetSource();
-        sortedMembers.push_back(std::make_pair(member->GetGUID(), member));
+        std::lock_guard<std::recursive_mutex> groupGuard(group->GetLock());
+        for (GroupReference* itr = group->GetFirstMember(); itr != nullptr; itr = itr->next())
+        {
+            Player* member = itr->GetSource();
+            sortedMembers.push_back(std::make_pair(member->GetGUID(), member));
+        }
     }
     std::sort(sortedMembers.begin(), sortedMembers.end());
 

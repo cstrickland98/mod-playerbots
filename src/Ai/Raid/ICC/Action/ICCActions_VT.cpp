@@ -288,23 +288,26 @@ bool IccValithriaGroupAction::Handle25ManGroupLogic()
     bool const singleMarkMode = priorityAddsAlive <= 1;
 
     std::vector<Player*> eligible;
-    for (GroupReference* itr = group->GetFirstMember(); itr; itr = itr->next())
     {
-        Player* member = itr->GetSource();
-        if (!member || !member->IsAlive())
-            continue;
+        std::lock_guard<std::recursive_mutex> groupGuard(group->GetLock());
+        for (GroupReference* itr = group->GetFirstMember(); itr; itr = itr->next())
+        {
+            Player* member = itr->GetSource();
+            if (!member || !member->IsAlive())
+                continue;
 
-        PlayerbotAI* memberAI = GET_PLAYERBOT_AI(member);
-        if (!memberAI || IsSelfBot(member))
-            continue;
+            PlayerbotAI* memberAI = GET_PLAYERBOT_AI(member);
+            if (!memberAI || IsSelfBot(member))
+                continue;
 
-        if (PlayerbotAI::IsHeal(member) && member->HasAura(SPELL_DREAM_STATE))
-            continue;
+            if (PlayerbotAI::IsHeal(member) && member->HasAura(SPELL_DREAM_STATE))
+                continue;
 
-        if (!PlayerbotAI::IsTank(member) && !PlayerbotAI::IsDps(member) && !PlayerbotAI::IsHeal(member))
-            continue;
+            if (!PlayerbotAI::IsTank(member) && !PlayerbotAI::IsDps(member) && !PlayerbotAI::IsHeal(member))
+                continue;
 
-        eligible.push_back(member);
+            eligible.push_back(member);
+        }
     }
 
     std::sort(eligible.begin(), eligible.end(),

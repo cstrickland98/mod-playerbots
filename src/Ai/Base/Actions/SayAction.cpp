@@ -108,12 +108,15 @@ bool SayAction::Execute(Event /*event*/)
     if (group)
     {
         std::vector<Player*> members;
-        for (GroupReference* ref = group->GetFirstMember(); ref; ref = ref->next())
         {
-            Player* member = ref->GetSource();
-            PlayerbotAI* memberAi = GET_PLAYERBOT_AI(member);
-            if (memberAi)
-                members.push_back(member);
+            std::lock_guard<std::recursive_mutex> groupGuard(group->GetLock());
+            for (GroupReference* ref = group->GetFirstMember(); ref; ref = ref->next())
+            {
+                Player* member = ref->GetSource();
+                PlayerbotAI* memberAi = GET_PLAYERBOT_AI(member);
+                if (memberAi)
+                    members.push_back(member);
+            }
         }
 
         uint32 count = members.size();

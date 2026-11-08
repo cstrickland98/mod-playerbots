@@ -60,17 +60,20 @@ bool HighWarlordNajentusPlayerIsImpaledTrigger::IsActive()
 
     Player* impaledPlayer = nullptr;
 
-    for (GroupReference* ref = group->GetFirstMember(); ref; ref = ref->next())
     {
-        Player* member = ref->GetSource();
-        if (!member || member == bot)
-            continue;
-
-        if (member->HasAura(
-                static_cast<uint32>(BlackTempleSpells::SPELL_IMPALING_SPINE)))
+        std::lock_guard<std::recursive_mutex> groupGuard(group->GetLock());
+        for (GroupReference* ref = group->GetFirstMember(); ref; ref = ref->next())
         {
-            impaledPlayer = member;
-            break;
+            Player* member = ref->GetSource();
+            if (!member || member == bot)
+                continue;
+
+            if (member->HasAura(
+                    static_cast<uint32>(BlackTempleSpells::SPELL_IMPALING_SPINE)))
+            {
+                impaledPlayer = member;
+                break;
+            }
         }
     }
 
@@ -79,20 +82,23 @@ bool HighWarlordNajentusPlayerIsImpaledTrigger::IsActive()
 
     if (impaledPlayer)
     {
-        for (GroupReference* ref = group->GetFirstMember(); ref; ref = ref->next())
         {
-            Player* member = ref->GetSource();
-            if (!member || !member->IsAlive() || member == impaledPlayer ||
-                !GET_PLAYERBOT_AI(member) || PlayerbotAI::IsTank(member))
+            std::lock_guard<std::recursive_mutex> groupGuard(group->GetLock());
+            for (GroupReference* ref = group->GetFirstMember(); ref; ref = ref->next())
             {
-                continue;
-            }
+                Player* member = ref->GetSource();
+                if (!member || !member->IsAlive() || member == impaledPlayer ||
+                    !GET_PLAYERBOT_AI(member) || PlayerbotAI::IsTank(member))
+                {
+                    continue;
+                }
 
-            float dist = member->GetDistance(impaledPlayer);
-            if (dist < closestDist)
-            {
-                closestDist = dist;
-                closestBot = member;
+                float dist = member->GetDistance(impaledPlayer);
+                if (dist < closestDist)
+                {
+                    closestDist = dist;
+                    closestBot = member;
+                }
             }
         }
     }
@@ -313,13 +319,16 @@ bool GurtoggBloodboilBotHasFelRageTrigger::IsActive()
 
     if (Group* group = bot->GetGroup())
     {
-        for (GroupReference* ref = group->GetFirstMember(); ref; ref = ref->next())
         {
-            Player* member = ref->GetSource();
-            if (member && member->HasAura
-                    (static_cast<uint32>(BlackTempleSpells::SPELL_PLAYER_FEL_RAGE)))
+            std::lock_guard<std::recursive_mutex> groupGuard(group->GetLock());
+            for (GroupReference* ref = group->GetFirstMember(); ref; ref = ref->next())
             {
-                return true;
+                Player* member = ref->GetSource();
+                if (member && member->HasAura
+                        (static_cast<uint32>(BlackTempleSpells::SPELL_PLAYER_FEL_RAGE)))
+                {
+                    return true;
+                }
             }
         }
     }
@@ -788,20 +797,23 @@ bool IllidanStormrageMaievPlacedShadowTrapTrigger::IsActive()
     Player* closestBot = nullptr;
     float closestDist = std::numeric_limits<float>::max();
 
-    for (GroupReference* ref = group->GetFirstMember(); ref; ref = ref->next())
     {
-        Player* member = ref->GetSource();
-        if (!member || !member->IsAlive() || illidan->GetVictim() == member ||
-            !GET_PLAYERBOT_AI(member) || PlayerbotAI::IsMainTank(member))
+        std::lock_guard<std::recursive_mutex> groupGuard(group->GetLock());
+        for (GroupReference* ref = group->GetFirstMember(); ref; ref = ref->next())
         {
-            continue;
-        }
+            Player* member = ref->GetSource();
+            if (!member || !member->IsAlive() || illidan->GetVictim() == member ||
+                !GET_PLAYERBOT_AI(member) || PlayerbotAI::IsMainTank(member))
+            {
+                continue;
+            }
 
-        float dist = member->GetDistance(trap);
-        if (dist < closestDist)
-        {
-            closestDist = dist;
-            closestBot = member;
+            float dist = member->GetDistance(trap);
+            if (dist < closestDist)
+            {
+                closestDist = dist;
+                closestBot = member;
+            }
         }
     }
 

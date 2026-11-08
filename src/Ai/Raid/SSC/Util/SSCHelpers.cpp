@@ -215,19 +215,22 @@ bool GetRangedArcAngle(Player* bot, float arcCenter, float arcSpan, float& angle
 
     size_t count = 0;
     size_t botIndex = 0;
-    for (GroupReference* ref = group->GetFirstMember(); ref; ref = ref->next())
     {
-        Player* member = ref->GetSource();
-        if (!member || member->GetMapId() != SSC_MAP_ID || !GET_PLAYERBOT_AI(member) ||
-            !PlayerbotAI::IsRanged(member))
+        std::lock_guard<std::recursive_mutex> groupGuard(group->GetLock());
+        for (GroupReference* ref = group->GetFirstMember(); ref; ref = ref->next())
         {
-            continue;
+            Player* member = ref->GetSource();
+            if (!member || member->GetMapId() != SSC_MAP_ID || !GET_PLAYERBOT_AI(member) ||
+                !PlayerbotAI::IsRanged(member))
+            {
+                continue;
+            }
+
+            if (member == bot)
+                botIndex = count;
+
+            ++count;
         }
-
-        if (member == bot)
-            botIndex = count;
-
-        ++count;
     }
 
     if (count == 0)
@@ -245,11 +248,14 @@ std::vector<Unit*> GetOtherLivingGroupMembers(Player* bot)
     if (!group)
         return members;
 
-    for (GroupReference* ref = group->GetFirstMember(); ref; ref = ref->next())
     {
-        Player* member = ref->GetSource();
-        if (member && member != bot && member->IsAlive() && member->GetMapId() == SSC_MAP_ID)
-            members.push_back(member);
+        std::lock_guard<std::recursive_mutex> groupGuard(group->GetLock());
+        for (GroupReference* ref = group->GetFirstMember(); ref; ref = ref->next())
+        {
+            Player* member = ref->GetSource();
+            if (member && member != bot && member->IsAlive() && member->GetMapId() == SSC_MAP_ID)
+                members.push_back(member);
+        }
     }
 
     return members;
@@ -917,13 +923,16 @@ Player* GetCouncilTank(Player* bot, int8 assistTankIndex)
     if (!group)
         return nullptr;
 
-    for (GroupReference* ref = group->GetFirstMember(); ref; ref = ref->next())
     {
-        Player* member = ref->GetSource();
-        if (member && member->IsAlive() &&
-            PlayerbotAI::IsAssistTankOfIndex(member, assistTankIndex, false))
+        std::lock_guard<std::recursive_mutex> groupGuard(group->GetLock());
+        for (GroupReference* ref = group->GetFirstMember(); ref; ref = ref->next())
         {
-            return member;
+            Player* member = ref->GetSource();
+            if (member && member->IsAlive() &&
+                PlayerbotAI::IsAssistTankOfIndex(member, assistTankIndex, false))
+            {
+                return member;
+            }
         }
     }
 
@@ -1476,30 +1485,33 @@ Player* FindVashjCoreCatcher(
 
     Player* nearest = nullptr;
     float nearestDistance = std::numeric_limits<float>::max();
-    for (GroupReference* ref = group->GetFirstMember(); ref; ref = ref->next())
     {
-        Player* member = ref->GetSource();
-        if (!member || !member->IsAlive() || member->GetMapId() != SSC_MAP_ID ||
-            !GET_PLAYERBOT_AI(member) || PlayerbotAI::IsTank(member))
+        std::lock_guard<std::recursive_mutex> groupGuard(group->GetLock());
+        for (GroupReference* ref = group->GetFirstMember(); ref; ref = ref->next())
         {
-            continue;
-        }
+            Player* member = ref->GetSource();
+            if (!member || !member->IsAlive() || member->GetMapId() != SSC_MAP_ID ||
+                !GET_PLAYERBOT_AI(member) || PlayerbotAI::IsTank(member))
+            {
+                continue;
+            }
 
-        if (member->GetGUID() == chain.originBot || member->GetGUID() == excluded ||
-            member->GetGUID() == chain.excluded || GetVashjCoreCatcherIndex(chain, member) >= 0)
-        {
-            continue;
-        }
+            if (member->GetGUID() == chain.originBot || member->GetGUID() == excluded ||
+                member->GetGUID() == chain.excluded || GetVashjCoreCatcherIndex(chain, member) >= 0)
+            {
+                continue;
+            }
 
-        float const distance = member->GetExactDist2d(spot);
-        if (distance >= nearestDistance ||
-            (attackersOnly && !GetTaintedElementalToKill(member)) || HasTaintedCore(member))
-        {
-            continue;
-        }
+            float const distance = member->GetExactDist2d(spot);
+            if (distance >= nearestDistance ||
+                (attackersOnly && !GetTaintedElementalToKill(member)) || HasTaintedCore(member))
+            {
+                continue;
+            }
 
-        nearestDistance = distance;
-        nearest = member;
+            nearestDistance = distance;
+            nearest = member;
+        }
     }
 
     return nearest;
@@ -1612,13 +1624,16 @@ bool IsVashjPhase3RangedTooClose(Player* bot, Unit* vashj)
     if (!group)
         return false;
 
-    for (GroupReference* ref = group->GetFirstMember(); ref; ref = ref->next())
     {
-        Player* member = ref->GetSource();
-        if (member && member != bot && member->IsAlive() && member->GetMapId() == SSC_MAP_ID &&
-            bot->GetExactDist2d(member) < VASHJ_PHASE_3_RANGED_SPREAD_DISTANCE)
+        std::lock_guard<std::recursive_mutex> groupGuard(group->GetLock());
+        for (GroupReference* ref = group->GetFirstMember(); ref; ref = ref->next())
         {
-            return true;
+            Player* member = ref->GetSource();
+            if (member && member != bot && member->IsAlive() && member->GetMapId() == SSC_MAP_ID &&
+                bot->GetExactDist2d(member) < VASHJ_PHASE_3_RANGED_SPREAD_DISTANCE)
+            {
+                return true;
+            }
         }
     }
 
@@ -1680,26 +1695,29 @@ Player* GetVashjHandOfFreedomTarget(PlayerbotAI* botAI, Unit* vashj)
 
     Player* inSpores = nullptr;
     Player* withStaticCharge = nullptr;
-    for (GroupReference* ref = group->GetFirstMember(); ref; ref = ref->next())
     {
-        Player* member = ref->GetSource();
-        if (!member || member == skip || !member->IsAlive() ||
-            !member->HasAura(Id(SscSpells::SPELL_ENTANGLE)) || !PlayerbotAI::IsMelee(member))
+        std::lock_guard<std::recursive_mutex> groupGuard(group->GetLock());
+        for (GroupReference* ref = group->GetFirstMember(); ref; ref = ref->next())
         {
-            continue;
-        }
-
-        bool const nearSpore = std::any_of(spores.begin(), spores.end(),
-            [member](Position const& spore)
+            Player* member = ref->GetSource();
+            if (!member || member == skip || !member->IsAlive() ||
+                !member->HasAura(Id(SscSpells::SPELL_ENTANGLE)) || !PlayerbotAI::IsMelee(member))
             {
-                return member->GetExactDist2d(spore) < TOXIC_SPORES_HAZARD_RADIUS;
-            });
+                continue;
+            }
 
-        if (nearSpore && (!inSpores || isMainTank(member)))
-            inSpores = member;
+            bool const nearSpore = std::any_of(spores.begin(), spores.end(),
+                [member](Position const& spore)
+                {
+                    return member->GetExactDist2d(spore) < TOXIC_SPORES_HAZARD_RADIUS;
+                });
 
-        if (HasVashjStaticCharge(member) && (!withStaticCharge || isMainTank(member)))
-            withStaticCharge = member;
+            if (nearSpore && (!inSpores || isMainTank(member)))
+                inSpores = member;
+
+            if (HasVashjStaticCharge(member) && (!withStaticCharge || isMainTank(member)))
+                withStaticCharge = member;
+        }
     }
 
     return inSpores ? inSpores : withStaticCharge;
@@ -1726,14 +1744,17 @@ Player* FindVashjGroundingShaman(Player* bot)
     if (!mainTank)
         return nullptr;
 
-    for (GroupReference* ref = group->GetFirstMember(); ref; ref = ref->next())
     {
-        Player* member = ref->GetSource();
-        if (member && member->getClass() == CLASS_SHAMAN && member->IsAlive() &&
-            member->GetMapId() == SSC_MAP_ID && group->SameSubGroup(mainTank, member) &&
-            GET_PLAYERBOT_AI(member))
+        std::lock_guard<std::recursive_mutex> groupGuard(group->GetLock());
+        for (GroupReference* ref = group->GetFirstMember(); ref; ref = ref->next())
         {
-            return member;
+            Player* member = ref->GetSource();
+            if (member && member->getClass() == CLASS_SHAMAN && member->IsAlive() &&
+                member->GetMapId() == SSC_MAP_ID && group->SameSubGroup(mainTank, member) &&
+                GET_PLAYERBOT_AI(member))
+            {
+                return member;
+            }
         }
     }
 
@@ -2333,13 +2354,16 @@ Player* GetVashjAddOwningTank(Player* bot, Unit* add)
     if (!group)
         return nullptr;
 
-    for (GroupReference* ref = group->GetFirstMember(); ref; ref = ref->next())
     {
-        Player* member = ref->GetSource();
-        if (member && member->IsAlive() && member->GetVictim() == add &&
-            PlayerbotAI::IsTank(member))
+        std::lock_guard<std::recursive_mutex> groupGuard(group->GetLock());
+        for (GroupReference* ref = group->GetFirstMember(); ref; ref = ref->next())
         {
-            return member;
+            Player* member = ref->GetSource();
+            if (member && member->IsAlive() && member->GetVictim() == add &&
+                PlayerbotAI::IsTank(member))
+            {
+                return member;
+            }
         }
     }
 
@@ -2360,27 +2384,30 @@ bool IsNearestFreeVashjTank(Player* bot, Unit* add, Unit* vashj, int8 phase)
     Unit const* vashjTank = phase == 3 ? vashj->GetVictim() : nullptr;
     float const botDistance = bot->GetExactDist2d(add);
 
-    for (GroupReference* ref = group->GetFirstMember(); ref; ref = ref->next())
     {
-        Player* member = ref->GetSource();
-        if (!member || member == bot || member == vashjTank || !member->IsAlive() ||
-            member->GetMapId() != SSC_MAP_ID || !GET_PLAYERBOT_AI(member) ||
-            !PlayerbotAI::IsTank(member) || member->GetExactDist2d(add) >= botDistance)
+        std::lock_guard<std::recursive_mutex> groupGuard(group->GetLock());
+        for (GroupReference* ref = group->GetFirstMember(); ref; ref = ref->next())
         {
-            continue;
+            Player* member = ref->GetSource();
+            if (!member || member == bot || member == vashjTank || !member->IsAlive() ||
+                member->GetMapId() != SSC_MAP_ID || !GET_PLAYERBOT_AI(member) ||
+                !PlayerbotAI::IsTank(member) || member->GetExactDist2d(add) >= botDistance)
+            {
+                continue;
+            }
+
+            Unit* victim = member->GetVictim();
+            if (!victim)
+                return false;
+
+            uint32 const entry = victim->GetEntry();
+            bool const holdsAdd = (entry == Id(SscNpcs::NPC_COILFANG_STRIDER) ||
+                (entry == Id(SscNpcs::NPC_COILFANG_ELITE) && !eliteHolderIsFree)) &&
+                GetVashjAddOwningTank(bot, victim) == member;
+
+            if (!holdsAdd)
+                return false;
         }
-
-        Unit* victim = member->GetVictim();
-        if (!victim)
-            return false;
-
-        uint32 const entry = victim->GetEntry();
-        bool const holdsAdd = (entry == Id(SscNpcs::NPC_COILFANG_STRIDER) ||
-            (entry == Id(SscNpcs::NPC_COILFANG_ELITE) && !eliteHolderIsFree)) &&
-            GetVashjAddOwningTank(bot, victim) == member;
-
-        if (!holdsAdd)
-            return false;
     }
 
     return true;
@@ -2511,21 +2538,24 @@ Player* FindTaintedCoreLooter(Player* bot, Unit* tainted, int8 station)
     float looterDistance = std::numeric_limits<float>::max();
     if (Group* group = bot->GetGroup())
     {
-        for (GroupReference* ref = group->GetFirstMember(); ref; ref = ref->next())
         {
-            Player* member = ref->GetSource();
-            if (!member || !member->IsAlive() || member->GetMapId() != SSC_MAP_ID ||
-                !GET_PLAYERBOT_AI(member) || !PlayerbotAI::IsHeal(member) ||
-                GetVashjStationSlot(member).station >= 0)
+            std::lock_guard<std::recursive_mutex> groupGuard(group->GetLock());
+            for (GroupReference* ref = group->GetFirstMember(); ref; ref = ref->next())
             {
-                continue;
-            }
+                Player* member = ref->GetSource();
+                if (!member || !member->IsAlive() || member->GetMapId() != SSC_MAP_ID ||
+                    !GET_PLAYERBOT_AI(member) || !PlayerbotAI::IsHeal(member) ||
+                    GetVashjStationSlot(member).station >= 0)
+                {
+                    continue;
+                }
 
-            float const distance = member->GetExactDist(tainted);
-            if (distance < looterDistance)
-            {
-                looterDistance = distance;
-                looter = member;
+                float const distance = member->GetExactDist(tainted);
+                if (distance < looterDistance)
+                {
+                    looterDistance = distance;
+                    looter = member;
+                }
             }
         }
     }

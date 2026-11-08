@@ -351,17 +351,20 @@ bool IccGunshipRocketJumpAction::Execute(Event /*event*/)
         bool allyAtMage = false;
         if (Group* group = bot->GetGroup())
         {
-            for (GroupReference* ref = group->GetFirstMember(); ref; ref = ref->next())
             {
-                Player* member = ref->GetSource();
-                if (!member || !member->IsAlive() || member == bot)
-                    continue;
-                if (PlayerbotAI::IsMainTank(member) || PlayerbotAI::IsAssistTank(member))
-                    continue;
-                if (member->GetExactDist2d(attackPos) <= 20.0f)
+                std::lock_guard<std::recursive_mutex> groupGuard(group->GetLock());
+                for (GroupReference* ref = group->GetFirstMember(); ref; ref = ref->next())
                 {
-                    allyAtMage = true;
-                    break;
+                    Player* member = ref->GetSource();
+                    if (!member || !member->IsAlive() || member == bot)
+                        continue;
+                    if (PlayerbotAI::IsMainTank(member) || PlayerbotAI::IsAssistTank(member))
+                        continue;
+                    if (member->GetExactDist2d(attackPos) <= 20.0f)
+                    {
+                        allyAtMage = true;
+                        break;
+                    }
                 }
             }
         }
@@ -684,22 +687,25 @@ bool IccGunshipRocketJumpAction::Execute(Event /*event*/)
         {
             if (Group* group = bot->GetGroup())
             {
-                for (GroupReference* ref = group->GetFirstMember(); ref; ref = ref->next())
                 {
-                    Player* member = ref->GetSource();
-                    if (!member || !member->IsAlive())
-                        continue;
-                    if (!PlayerbotAI::IsAssistTank(member))
-                        continue;
-                    Unit* assistTarget = member->GetVictim();
-                    if (!assistTarget || !assistTarget->IsAlive())
-                        break;
-                    if (assistTarget->GetExactDist2d(waitPos) > HOLD_RADIUS)
-                        break;
-                    bot->SetTarget(assistTarget->GetGUID());
-                    bot->SetFacingToObject(assistTarget);
-                    Attack(assistTarget);
-                    return false;
+                    std::lock_guard<std::recursive_mutex> groupGuard(group->GetLock());
+                    for (GroupReference* ref = group->GetFirstMember(); ref; ref = ref->next())
+                    {
+                        Player* member = ref->GetSource();
+                        if (!member || !member->IsAlive())
+                            continue;
+                        if (!PlayerbotAI::IsAssistTank(member))
+                            continue;
+                        Unit* assistTarget = member->GetVictim();
+                        if (!assistTarget || !assistTarget->IsAlive())
+                            break;
+                        if (assistTarget->GetExactDist2d(waitPos) > HOLD_RADIUS)
+                            break;
+                        bot->SetTarget(assistTarget->GetGUID());
+                        bot->SetFacingToObject(assistTarget);
+                        Attack(assistTarget);
+                        return false;
+                    }
                 }
             }
         }
@@ -786,15 +792,18 @@ bool IccGunshipRocketJumpAction::IsMainTankOnEnemyShip(GunshipSide side) const
 
     uint32 const captainEntry = (side == GunshipSide::ALLY) ? NPC_HIGH_OVERLORD_SAURFANG : NPC_MURADIN_BRONZEBEARD;
 
-    for (GroupReference* ref = group->GetFirstMember(); ref; ref = ref->next())
     {
-        Player* member = ref->GetSource();
-        if (!member || !member->IsAlive())
-            continue;
-        if (!PlayerbotAI::IsMainTank(member))
-            continue;
-        Unit* captain = member->FindNearestCreature(captainEntry, 15.0f);
-        return captain != nullptr;
+        std::lock_guard<std::recursive_mutex> groupGuard(group->GetLock());
+        for (GroupReference* ref = group->GetFirstMember(); ref; ref = ref->next())
+        {
+            Player* member = ref->GetSource();
+            if (!member || !member->IsAlive())
+                continue;
+            if (!PlayerbotAI::IsMainTank(member))
+                continue;
+            Unit* captain = member->FindNearestCreature(captainEntry, 15.0f);
+            return captain != nullptr;
+        }
     }
     return false;
 }
@@ -808,15 +817,18 @@ bool IccGunshipRocketJumpAction::AnyNonTankAwayFromFriendly(GunshipSide side) co
     Position const& waitPos = (side == GunshipSide::ALLY) ? ICC_GUNSHIP_ROCKET_JUMP_ALLY2 : ICC_GUNSHIP_ROCKET_JUMP_HORDE2;
     float const threshold = (side == GunshipSide::ALLY) ? 40.0f : 45.0f;
 
-    for (GroupReference* ref = group->GetFirstMember(); ref; ref = ref->next())
     {
-        Player* member = ref->GetSource();
-        if (!member || !member->IsAlive())
-            continue;
-        if (PlayerbotAI::IsMainTank(member) || PlayerbotAI::IsAssistTank(member))
-            continue;
-        if (member->GetExactDist2d(waitPos) > threshold)
-            return true;
+        std::lock_guard<std::recursive_mutex> groupGuard(group->GetLock());
+        for (GroupReference* ref = group->GetFirstMember(); ref; ref = ref->next())
+        {
+            Player* member = ref->GetSource();
+            if (!member || !member->IsAlive())
+                continue;
+            if (PlayerbotAI::IsMainTank(member) || PlayerbotAI::IsAssistTank(member))
+                continue;
+            if (member->GetExactDist2d(waitPos) > threshold)
+                return true;
+        }
     }
     return false;
 }

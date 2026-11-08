@@ -90,13 +90,16 @@ static bool IsSingleLivingTankInGroup(Player* bot)
 {
     if (Group* group = bot->GetGroup())
     {
-        for (GroupReference* itr = group->GetFirstMember(); itr != nullptr; itr = itr->next())
         {
-            Player* member = itr->GetSource();
-            if (!member || !member->IsAlive() || member == bot)
-                continue;
-            if (PlayerbotAI::IsTank(member))
-                return false;
+            std::lock_guard<std::recursive_mutex> groupGuard(group->GetLock());
+            for (GroupReference* itr = group->GetFirstMember(); itr != nullptr; itr = itr->next())
+            {
+                Player* member = itr->GetSource();
+                if (!member || !member->IsAlive() || member == bot)
+                    continue;
+                if (PlayerbotAI::IsTank(member))
+                    return false;
+            }
         }
     }
     return true;

@@ -98,13 +98,16 @@ bool MagtheridonMisdirectChannelersToMainTankAction::Execute(Event /*event*/)
         return false;
 
     std::vector<Player*> hunters;
-    for (GroupReference* ref = group->GetFirstMember(); ref; ref = ref->next())
     {
-        Player* member = ref->GetSource();
-        if (member && member->IsAlive() && member->getClass() == CLASS_HUNTER &&
-            member->GetMapId() == MAG_MAP_ID && GET_PLAYERBOT_AI(member))
+        std::lock_guard<std::recursive_mutex> groupGuard(group->GetLock());
+        for (GroupReference* ref = group->GetFirstMember(); ref; ref = ref->next())
         {
-            hunters.push_back(member);
+            Player* member = ref->GetSource();
+            if (member && member->IsAlive() && member->getClass() == CLASS_HUNTER &&
+                member->GetMapId() == MAG_MAP_ID && GET_PLAYERBOT_AI(member))
+            {
+                hunters.push_back(member);
+            }
         }
     }
 
@@ -175,13 +178,16 @@ bool MagtheridonWarlockCcBurningAbyssalAction::Execute(Event /*event*/)
     std::vector<Unit*> const abyssals = GetBurningAbyssals(botAI);
 
     std::vector<Player*> warlocks;
-    for (GroupReference* ref = group->GetFirstMember(); ref; ref = ref->next())
     {
-        Player* member = ref->GetSource();
-        if (member && member->IsAlive() && member->getClass() == CLASS_WARLOCK &&
-            member->GetMapId() == MAG_MAP_ID && GET_PLAYERBOT_AI(member))
+        std::lock_guard<std::recursive_mutex> groupGuard(group->GetLock());
+        for (GroupReference* ref = group->GetFirstMember(); ref; ref = ref->next())
         {
-            warlocks.push_back(member);
+            Player* member = ref->GetSource();
+            if (member && member->IsAlive() && member->getClass() == CLASS_WARLOCK &&
+                member->GetMapId() == MAG_MAP_ID && GET_PLAYERBOT_AI(member))
+            {
+                warlocks.push_back(member);
+            }
         }
     }
 
@@ -578,32 +584,14 @@ bool MagtheridonUpdateTimersAndAssignmentsAction::AssignCubeClickers(
         Player* candidate = nullptr;
 
         // Pass 1: ranged DPS bots, excluding Warlocks.
-        for (GroupReference* ref = group->GetFirstMember(); ref && !candidate; ref = ref->next())
         {
-            Player* member = ref->GetSource();
-            if (!member || !member->IsAlive() || member->GetMapId() != MAG_MAP_ID ||
-                member->getClass() == CLASS_WARLOCK || !GET_PLAYERBOT_AI(member) ||
-                !PlayerbotAI::IsRangedDps(member))
-            {
-                continue;
-            }
-
-            if (assignment.find(member->GetGUID()) != assignment.end())
-                continue;
-
-            candidate = member;
-        }
-
-        // Pass 2: any bot other than the main tank or whoever Magtheridon is attacking.
-        if (!candidate)
-        {
-            for (GroupReference* ref = group->GetFirstMember();
-                 ref && !candidate; ref = ref->next())
+            std::lock_guard<std::recursive_mutex> groupGuard(group->GetLock());
+            for (GroupReference* ref = group->GetFirstMember(); ref && !candidate; ref = ref->next())
             {
                 Player* member = ref->GetSource();
                 if (!member || !member->IsAlive() || member->GetMapId() != MAG_MAP_ID ||
-                    !GET_PLAYERBOT_AI(member) || member == victim ||
-                    PlayerbotAI::IsMainTank(member))
+                    member->getClass() == CLASS_WARLOCK || !GET_PLAYERBOT_AI(member) ||
+                    !PlayerbotAI::IsRangedDps(member))
                 {
                     continue;
                 }
@@ -612,6 +600,30 @@ bool MagtheridonUpdateTimersAndAssignmentsAction::AssignCubeClickers(
                     continue;
 
                 candidate = member;
+            }
+        }
+
+        // Pass 2: any bot other than the main tank or whoever Magtheridon is attacking.
+        if (!candidate)
+        {
+            {
+                std::lock_guard<std::recursive_mutex> groupGuard(group->GetLock());
+                for (GroupReference* ref = group->GetFirstMember();
+                     ref && !candidate; ref = ref->next())
+                {
+                    Player* member = ref->GetSource();
+                    if (!member || !member->IsAlive() || member->GetMapId() != MAG_MAP_ID ||
+                        !GET_PLAYERBOT_AI(member) || member == victim ||
+                        PlayerbotAI::IsMainTank(member))
+                    {
+                        continue;
+                    }
+
+                    if (assignment.find(member->GetGUID()) != assignment.end())
+                        continue;
+
+                    candidate = member;
+                }
             }
         }
 

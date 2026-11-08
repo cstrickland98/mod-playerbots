@@ -262,13 +262,16 @@ public:
         std::vector<Player*> players;
         players.reserve(group->GetMembersCount());
 
-        for (GroupReference* gref = group->GetFirstMember(); gref; gref = gref->next())
         {
-            Player* member = gref->GetSource();
-            if (!member || member == master)
-                continue;
+            std::lock_guard<std::recursive_mutex> groupGuard(group->GetLock());
+            for (GroupReference* gref = group->GetFirstMember(); gref; gref = gref->next())
+            {
+                Player* member = gref->GetSource();
+                if (!member || member == master)
+                    continue;
 
-            players.push_back(member);
+                players.push_back(member);
+            }
         }
 
         players.insert(players.begin() + players.size() / 2, master);
@@ -301,16 +304,19 @@ public:
         std::vector<Player*> tanks;
         std::vector<Player*> dps;
 
-        for (GroupReference* gref = group->GetFirstMember(); gref; gref = gref->next())
         {
-            Player* member = gref->GetSource();
-            if (!member || member == master)
-                continue;
+            std::lock_guard<std::recursive_mutex> groupGuard(group->GetLock());
+            for (GroupReference* gref = group->GetFirstMember(); gref; gref = gref->next())
+            {
+                Player* member = gref->GetSource();
+                if (!member || member == master)
+                    continue;
 
-            if (PlayerbotAI::IsTank(member))
-                tanks.push_back(member);
-            else
-                dps.push_back(member);
+                if (PlayerbotAI::IsTank(member))
+                    tanks.push_back(member);
+                else
+                    dps.push_back(member);
+            }
         }
 
         if (PlayerbotAI::IsTank(master))
@@ -434,42 +440,45 @@ float Formation::GetFollowAngle()
     {
         bool left = true;  // Used for alternating tanks' positions
 
-        for (GroupReference* ref = group->GetFirstMember(); ref; ref = ref->next())
         {
-            Player* member = ref->GetSource();
-
-            // Skip invalid, dead, or out-of-map members
-            if (!member || !member->IsAlive() || bot->GetMapId() != member->GetMapId())
-                continue;
-
-            // Skip the master
-            if (member == master)
-                continue;
-
-            // Put DPS in the middle
-            if (!PlayerbotAI::IsTank(member) && !PlayerbotAI::IsHeal(member))
+            std::lock_guard<std::recursive_mutex> groupGuard(group->GetLock());
+            for (GroupReference* ref = group->GetFirstMember(); ref; ref = ref->next())
             {
-                roster.insert(roster.begin() + roster.size() / 2, member);
+                Player* member = ref->GetSource();
+
+                // Skip invalid, dead, or out-of-map members
+                if (!member || !member->IsAlive() || bot->GetMapId() != member->GetMapId())
+                    continue;
+
+                // Skip the master
+                if (member == master)
+                    continue;
+
+                // Put DPS in the middle
+                if (!PlayerbotAI::IsTank(member) && !PlayerbotAI::IsHeal(member))
+                {
+                    roster.insert(roster.begin() + roster.size() / 2, member);
+                }
+
+                // Put Healers in the middle
+                else if (PlayerbotAI::IsHeal(member))
+                {
+                    roster.insert(roster.begin() + roster.size() / 2, member);
+                }
+
+                // Handle tanks (alternate between front and back)
+                else if (PlayerbotAI::IsTank(member))
+                {
+                    if (left)
+                        roster.push_back(member);  // Place tank at the back
+                    else
+                        roster.insert(roster.begin(), member);  // Place tank at the front
+
+                    left = !left;  // Alternate for the next tank
+                }
+
+                total++;
             }
-
-            // Put Healers in the middle
-            else if (PlayerbotAI::IsHeal(member))
-            {
-                roster.insert(roster.begin() + roster.size() / 2, member);
-            }
-
-            // Handle tanks (alternate between front and back)
-            else if (PlayerbotAI::IsTank(member))
-            {
-                if (left)
-                    roster.push_back(member);  // Place tank at the back
-                else
-                    roster.insert(roster.begin(), member);  // Place tank at the front
-
-                left = !left;  // Alternate for the next tank
-            }
-
-            total++;
         }
     }
     else if (master)

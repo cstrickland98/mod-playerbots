@@ -262,16 +262,19 @@ bool IsMechanicTrackerBot(Player* bot, uint32 mapId)
     if (!group)
         return false;
 
-    for (GroupReference* ref = group->GetFirstMember(); ref; ref = ref->next())
     {
-        Player* member = ref->GetSource();
-        if (!member || !member->IsAlive() || member->GetMapId() != mapId ||
-            !GET_PLAYERBOT_AI(member))
+        std::lock_guard<std::recursive_mutex> groupGuard(group->GetLock());
+        for (GroupReference* ref = group->GetFirstMember(); ref; ref = ref->next())
         {
-            continue;
-        }
+            Player* member = ref->GetSource();
+            if (!member || !member->IsAlive() || member->GetMapId() != mapId ||
+                !GET_PLAYERBOT_AI(member))
+            {
+                continue;
+            }
 
-        return member == bot;
+            return member == bot;
+        }
     }
 
     return false;
@@ -288,11 +291,14 @@ Player* GetGroupMainTank(Player* bot)
     if (mainTankGuid.IsEmpty())
         return nullptr;
 
-    for (GroupReference* ref = group->GetFirstMember(); ref; ref = ref->next())
     {
-        Player* member = ref->GetSource();
-        if (member && member->IsAlive() && member->GetGUID() == mainTankGuid)
-            return member;
+        std::lock_guard<std::recursive_mutex> groupGuard(group->GetLock());
+        for (GroupReference* ref = group->GetFirstMember(); ref; ref = ref->next())
+        {
+            Player* member = ref->GetSource();
+            if (member && member->IsAlive() && member->GetGUID() == mainTankGuid)
+                return member;
+        }
     }
 
     return nullptr;
@@ -312,25 +318,28 @@ Player* GetGroupAssistTank(Player* bot, uint8 index)
     uint8 assistantCount = 0;
     std::vector<Player*> nonAssistantTanks;
 
-    for (GroupReference* ref = group->GetFirstMember(); ref; ref = ref->next())
     {
-        Player* member = ref->GetSource();
-        if (!member || !member->IsAlive() || !PlayerbotAI::IsTank(member) ||
-            member->GetGUID() == mainTankGuid)
+        std::lock_guard<std::recursive_mutex> groupGuard(group->GetLock());
+        for (GroupReference* ref = group->GetFirstMember(); ref; ref = ref->next())
         {
-            continue;
-        }
+            Player* member = ref->GetSource();
+            if (!member || !member->IsAlive() || !PlayerbotAI::IsTank(member) ||
+                member->GetGUID() == mainTankGuid)
+            {
+                continue;
+            }
 
-        if (group->IsAssistant(member->GetGUID()))
-        {
-            if (assistantCount == index)
-                return member;
+            if (group->IsAssistant(member->GetGUID()))
+            {
+                if (assistantCount == index)
+                    return member;
 
-            assistantCount++;
-        }
-        else
-        {
-            nonAssistantTanks.push_back(member);
+                assistantCount++;
+            }
+            else
+            {
+                nonAssistantTanks.push_back(member);
+            }
         }
     }
 
@@ -353,17 +362,20 @@ Player* GetNearestPlayerInRadius(Player* bot, float radius)
     Player* nearestPlayer = nullptr;
     float nearestDistance = radius;
 
-    for (GroupReference* ref = group->GetFirstMember(); ref != nullptr; ref = ref->next())
     {
-        Player* member = ref->GetSource();
-        if (!member || !member->IsAlive() || member == bot)
-            continue;
-
-        float distance = bot->GetExactDist2d(member);
-        if (distance < nearestDistance)
+        std::lock_guard<std::recursive_mutex> groupGuard(group->GetLock());
+        for (GroupReference* ref = group->GetFirstMember(); ref != nullptr; ref = ref->next())
         {
-            nearestDistance = distance;
-            nearestPlayer = member;
+            Player* member = ref->GetSource();
+            if (!member || !member->IsAlive() || member == bot)
+                continue;
+
+            float distance = bot->GetExactDist2d(member);
+            if (distance < nearestDistance)
+            {
+                nearestDistance = distance;
+                nearestPlayer = member;
+            }
         }
     }
 
@@ -666,39 +678,42 @@ ClassRoleChoice FindClassRoleChoice(PlayerbotAI* botAI, uint32 mapId, ClassRole 
 
     ClassRoleChoice best;
     uint32 bestGearScore = 0;
-    for (GroupReference* ref = group->GetFirstMember(); ref; ref = ref->next())
     {
-        Player* member = ref->GetSource();
-        if (!member || member->GetMapId() != mapId || !member->IsAlive() ||
-            member->getClass() != role.playerClass)
+        std::lock_guard<std::recursive_mutex> groupGuard(group->GetLock());
+        for (GroupReference* ref = group->GetFirstMember(); ref; ref = ref->next())
         {
-            continue;
-        }
+            Player* member = ref->GetSource();
+            if (!member || member->GetMapId() != mapId || !member->IsAlive() ||
+                member->getClass() != role.playerClass)
+            {
+                continue;
+            }
 
-        ObjectGuid const guid = member->GetGUID();
-        bool const isAssistant = group->IsAssistant(guid);
-        if (!isAssistant && !GET_PLAYERBOT_AI(member))
-            continue;
+            ObjectGuid const guid = member->GetGUID();
+            bool const isAssistant = group->IsAssistant(guid);
+            if (!isAssistant && !GET_PLAYERBOT_AI(member))
+                continue;
 
-        std::optional<uint8> spec;
-        if (role.requiredSpec || role.preferredSpec)
-            spec = AiFactory::GetPlayerSpecTab(member);
+            std::optional<uint8> spec;
+            if (role.requiredSpec || role.preferredSpec)
+                spec = AiFactory::GetPlayerSpecTab(member);
 
-        if (role.requiredSpec && spec != role.requiredSpec)
-            continue;
+            if (role.requiredSpec && spec != role.requiredSpec)
+                continue;
 
-        ClassRoleChoiceReason reason = ClassRoleChoiceReason::Bot;
-        if (isAssistant)
-            reason = ClassRoleChoiceReason::Assistant;
-        else if (role.preferredSpec && spec == role.preferredSpec)
-            reason = ClassRoleChoiceReason::PreferredSpecBot;
+            ClassRoleChoiceReason reason = ClassRoleChoiceReason::Bot;
+            if (isAssistant)
+                reason = ClassRoleChoiceReason::Assistant;
+            else if (role.preferredSpec && spec == role.preferredSpec)
+                reason = ClassRoleChoiceReason::PreferredSpecBot;
 
-        auto const rank = std::tuple(reason, botAI->GetEquipGearScore(member));
-        auto const bestRank = std::tuple(best.reason, bestGearScore);
-        if (rank > bestRank || (rank == bestRank && guid < best.guid))
-        {
-            best = { guid, reason };
-            bestGearScore = std::get<1>(rank);
+            auto const rank = std::tuple(reason, botAI->GetEquipGearScore(member));
+            auto const bestRank = std::tuple(best.reason, bestGearScore);
+            if (rank > bestRank || (rank == bestRank && guid < best.guid))
+            {
+                best = { guid, reason };
+                bestGearScore = std::get<1>(rank);
+            }
         }
     }
 

@@ -99,11 +99,14 @@ static bool IsBotSafeForLevelReset(Player* bot)
 
     if (Group* group = bot->GetGroup())
     {
-        for (GroupReference* ref = group->GetFirstMember(); ref; ref = ref->next())
         {
-            Player* member = ref->GetSource();
-            if (member && member->IsInWorld() && !GET_PLAYERBOT_AI(member))
-                return false;
+            std::lock_guard<std::recursive_mutex> groupGuard(group->GetLock());
+            for (GroupReference* ref = group->GetFirstMember(); ref; ref = ref->next())
+            {
+                Player* member = ref->GetSource();
+                if (member && member->IsInWorld() && !GET_PLAYERBOT_AI(member))
+                    return false;
+            }
         }
     }
     return true;
@@ -405,11 +408,14 @@ int RandomBotLevelMgr::GetOrFlagPlayerBracket(Player* player)
     {
         if (Group* group = player->GetGroup())
         {
-            for (GroupReference* ref = group->GetFirstMember(); ref; ref = ref->next())
             {
-                Player* member = ref->GetSource();
-                if (member && member->IsInWorld() && !GET_PLAYERBOT_AI(member))
-                    return -1;
+                std::lock_guard<std::recursive_mutex> groupGuard(group->GetLock());
+                for (GroupReference* ref = group->GetFirstMember(); ref; ref = ref->next())
+                {
+                    Player* member = ref->GetSource();
+                    if (member && member->IsInWorld() && !GET_PLAYERBOT_AI(member))
+                        return -1;
+                }
             }
         }
     }
@@ -772,13 +778,16 @@ void RandomBotLevelMgr::ProcessPendingLevelResets()
         if (Group* group = bot->GetGroup())
         {
             bool hasRealPlayer = false;
-            for (GroupReference* ref = group->GetFirstMember(); ref; ref = ref->next())
             {
-                Player* member = ref->GetSource();
-                if (member && member->IsInWorld() && !GET_PLAYERBOT_AI(member))
+                std::lock_guard<std::recursive_mutex> groupGuard(group->GetLock());
+                for (GroupReference* ref = group->GetFirstMember(); ref; ref = ref->next())
                 {
-                    hasRealPlayer = true;
-                    break;
+                    Player* member = ref->GetSource();
+                    if (member && member->IsInWorld() && !GET_PLAYERBOT_AI(member))
+                    {
+                        hasRealPlayer = true;
+                        break;
+                    }
                 }
             }
             if (hasRealPlayer)

@@ -251,13 +251,16 @@ bool HighKingMaulgarBanishFelStalkerAction::Execute(Event /*event*/)
     // Ordered by GUID so that every bot warlock indexes the same list.
     std::vector<Unit*> const felStalkers = GetNearbyWildFelStalkers(botAI);
     std::vector<Player*> warlocks;
-    for (GroupReference* ref = group->GetFirstMember(); ref; ref = ref->next())
     {
-        Player* member = ref->GetSource();
-        if (member && member->IsAlive() && member->GetMapId() == GRUUL_MAP_ID &&
-            member->getClass() == CLASS_WARLOCK && GET_PLAYERBOT_AI(member))
+        std::lock_guard<std::recursive_mutex> groupGuard(group->GetLock());
+        for (GroupReference* ref = group->GetFirstMember(); ref; ref = ref->next())
         {
-            warlocks.push_back(member);
+            Player* member = ref->GetSource();
+            if (member && member->IsAlive() && member->GetMapId() == GRUUL_MAP_ID &&
+                member->getClass() == CLASS_WARLOCK && GET_PLAYERBOT_AI(member))
+            {
+                warlocks.push_back(member);
+            }
         }
     }
 
@@ -285,17 +288,20 @@ bool HighKingMaulgarMisdirectOgresToTanksAction::Execute(Event /*event*/)
         return false;
 
     std::vector<Player*> hunters;
-    for (GroupReference* ref = group->GetFirstMember(); ref; ref = ref->next())
     {
-        Player* member = ref->GetSource();
-        if (member && member->IsAlive() && member->getClass() == CLASS_HUNTER &&
-            member->GetMapId() == GRUUL_MAP_ID && GET_PLAYERBOT_AI(member))
+        std::lock_guard<std::recursive_mutex> groupGuard(group->GetLock());
+        for (GroupReference* ref = group->GetFirstMember(); ref; ref = ref->next())
         {
-            hunters.push_back(member);
-        }
+            Player* member = ref->GetSource();
+            if (member && member->IsAlive() && member->getClass() == CLASS_HUNTER &&
+                member->GetMapId() == GRUUL_MAP_ID && GET_PLAYERBOT_AI(member))
+            {
+                hunters.push_back(member);
+            }
 
-        if (hunters.size() >= 4)
-            break;
+            if (hunters.size() >= 4)
+                break;
+        }
     }
 
     int8 hunterIndex = -1;
@@ -387,16 +393,19 @@ bool GruulTheDragonkillerSpreadRangedAction::Execute(Event /*event*/)
     if (!_hasInitialPosition)
     {
         std::vector<Player*> members;
-        for (GroupReference* ref = group->GetFirstMember(); ref; ref = ref->next())
         {
-            Player* member = ref->GetSource();
-            if (!member || !member->IsAlive() || member->GetMapId() != GRUUL_MAP_ID ||
-                !GET_PLAYERBOT_AI(member) || !PlayerbotAI::IsRanged(member))
+            std::lock_guard<std::recursive_mutex> groupGuard(group->GetLock());
+            for (GroupReference* ref = group->GetFirstMember(); ref; ref = ref->next())
             {
-                continue;
-            }
+                Player* member = ref->GetSource();
+                if (!member || !member->IsAlive() || member->GetMapId() != GRUUL_MAP_ID ||
+                    !GET_PLAYERBOT_AI(member) || !PlayerbotAI::IsRanged(member))
+                {
+                    continue;
+                }
 
-            members.push_back(member);
+                members.push_back(member);
+            }
         }
 
         if (members.empty())

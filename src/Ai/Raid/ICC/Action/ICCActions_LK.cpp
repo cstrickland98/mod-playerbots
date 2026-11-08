@@ -107,15 +107,18 @@ static Position ComputeGroupCentroid(Player* bot)
     float sumY = 0.0f;
     int count = 0;
 
-    for (GroupReference* itr = group->GetFirstMember(); itr; itr = itr->next())
     {
-        Player* member = itr->GetSource();
-        if (!member || !member->IsAlive() || !member->IsInWorld())
-            continue;
+        std::lock_guard<std::recursive_mutex> groupGuard(group->GetLock());
+        for (GroupReference* itr = group->GetFirstMember(); itr; itr = itr->next())
+        {
+            Player* member = itr->GetSource();
+            if (!member || !member->IsAlive() || !member->IsInWorld())
+                continue;
 
-        sumX += member->GetPositionX();
-        sumY += member->GetPositionY();
-        ++count;
+            sumX += member->GetPositionX();
+            sumY += member->GetPositionY();
+            ++count;
+        }
     }
 
     if (count == 0)
@@ -1374,13 +1377,16 @@ bool IccLichKingWinterAction::HandleMainTankAddManagement(Unit*, Position const*
     bool hasAliveAssistTank = false;
     if (Group* group = bot->GetGroup())
     {
-        for (GroupReference* itr = group->GetFirstMember(); itr; itr = itr->next())
         {
-            Player* member = itr->GetSource();
-            if (member && member->IsAlive() && member != bot && PlayerbotAI::IsAssistTank(member))
+            std::lock_guard<std::recursive_mutex> groupGuard(group->GetLock());
+            for (GroupReference* itr = group->GetFirstMember(); itr; itr = itr->next())
             {
-                hasAliveAssistTank = true;
-                break;
+                Player* member = itr->GetSource();
+                if (member && member->IsAlive() && member != bot && PlayerbotAI::IsAssistTank(member))
+                {
+                    hasAliveAssistTank = true;
+                    break;
+                }
             }
         }
     }
@@ -1815,17 +1821,20 @@ bool IccLichKingAddsAction::Execute(Event /*event*/)
         Group* buffGroup = bot->GetGroup();
         if (buffGroup)
         {
-            for (GroupReference* itr = buffGroup->GetFirstMember(); itr; itr = itr->next())
             {
-                Player* member = itr->GetSource();
-                if (!member || !member->IsAlive() || !member->IsInWorld())
-                    continue;
+                std::lock_guard<std::recursive_mutex> groupGuard(buffGroup->GetLock());
+                for (GroupReference* itr = buffGroup->GetFirstMember(); itr; itr = itr->next())
+                {
+                    Player* member = itr->GetSource();
+                    if (!member || !member->IsAlive() || !member->IsInWorld())
+                        continue;
 
-                IccApplyHeroicBuffToMember(member, true, true);
+                    IccApplyHeroicBuffToMember(member, true, true);
 
-                if (boss && boss->HealthBelowPct(60) && boss->HealthAbovePct(40) &&
-                    !member->HasAura(SPELL_EMPOWERED_BLOOD))
-                    member->AddAura(SPELL_EMPOWERED_BLOOD, member);
+                    if (boss && boss->HealthBelowPct(60) && boss->HealthAbovePct(40) &&
+                        !member->HasAura(SPELL_EMPOWERED_BLOOD))
+                        member->AddAura(SPELL_EMPOWERED_BLOOD, member);
+                }
             }
         }
     }
@@ -2049,15 +2058,18 @@ bool IccLichKingAddsAction::HandleTeleportationFixes(Difficulty diff, Unit* tere
         Player* assistTank = nullptr;
         if (Group* group = bot->GetGroup())
         {
-            for (GroupReference* itr = group->GetFirstMember(); itr; itr = itr->next())
             {
-                Player* member = itr->GetSource();
-                if (!member || !member->IsAlive())
-                    continue;
-                if (!mainTank && PlayerbotAI::IsMainTank(member))
-                    mainTank = member;
-                else if (!assistTank && PlayerbotAI::IsAssistTank(member))
-                    assistTank = member;
+                std::lock_guard<std::recursive_mutex> groupGuard(group->GetLock());
+                for (GroupReference* itr = group->GetFirstMember(); itr; itr = itr->next())
+                {
+                    Player* member = itr->GetSource();
+                    if (!member || !member->IsAlive())
+                        continue;
+                    if (!mainTank && PlayerbotAI::IsMainTank(member))
+                        mainTank = member;
+                    else if (!assistTank && PlayerbotAI::IsAssistTank(member))
+                        assistTank = member;
+                }
             }
         }
         Unit* anchor = mainTank ? static_cast<Unit*>(mainTank) : static_cast<Unit*>(assistTank);
@@ -2093,13 +2105,16 @@ bool IccLichKingAddsAction::HandleTeleportationFixes(Difficulty diff, Unit* tere
         Player* mainTank = nullptr;
         if (Group* group = bot->GetGroup())
         {
-            for (GroupReference* itr = group->GetFirstMember(); itr; itr = itr->next())
             {
-                Player* member = itr->GetSource();
-                if (member && member->IsAlive() && PlayerbotAI::IsMainTank(member))
+                std::lock_guard<std::recursive_mutex> groupGuard(group->GetLock());
+                for (GroupReference* itr = group->GetFirstMember(); itr; itr = itr->next())
                 {
-                    mainTank = member;
-                    break;
+                    Player* member = itr->GetSource();
+                    if (member && member->IsAlive() && PlayerbotAI::IsMainTank(member))
+                    {
+                        mainTank = member;
+                        break;
+                    }
                 }
             }
         }
@@ -2503,18 +2518,21 @@ bool IccLichKingAddsAction::HandleRagingSpiritFlanking(Unit* boss, bool hasPlagu
             if (Group* hunterGroup = bot->GetGroup())
             {
                 ObjectGuid bestGuid;
-                for (GroupReference* ref = hunterGroup->GetFirstMember(); ref; ref = ref->next())
                 {
-                    Player* member = ref->GetSource();
-                    if (!member || !member->IsAlive())
-                        continue;
-                    if (member->getClass() != CLASS_HUNTER)
-                        continue;
-                    if (!GET_PLAYERBOT_AI(member))
-                        continue;
+                    std::lock_guard<std::recursive_mutex> groupGuard(hunterGroup->GetLock());
+                    for (GroupReference* ref = hunterGroup->GetFirstMember(); ref; ref = ref->next())
+                    {
+                        Player* member = ref->GetSource();
+                        if (!member || !member->IsAlive())
+                            continue;
+                        if (member->getClass() != CLASS_HUNTER)
+                            continue;
+                        if (!GET_PLAYERBOT_AI(member))
+                            continue;
 
-                    if (bestGuid.IsEmpty() || member->GetGUID() < bestGuid)
-                        bestGuid = member->GetGUID();
+                        if (bestGuid.IsEmpty() || member->GetGUID() < bestGuid)
+                            bestGuid = member->GetGUID();
+                    }
                 }
                 if (!bestGuid.IsEmpty() && bot->GetGUID() == bestGuid)
                     return false;
@@ -3195,14 +3213,17 @@ bool IccLichKingAddsAction::HandleMainTankTargeting(Unit* boss, Difficulty diff)
             bool assistTankAlive = false;
             if (Group* group = bot->GetGroup())
             {
-                for (GroupReference* itr = group->GetFirstMember(); itr; itr = itr->next())
                 {
-                    Player* member = itr->GetSource();
-                    if (member && member->IsAlive() && member != bot &&
-                        PlayerbotAI::IsAssistTank(member))
+                    std::lock_guard<std::recursive_mutex> groupGuard(group->GetLock());
+                    for (GroupReference* itr = group->GetFirstMember(); itr; itr = itr->next())
                     {
-                        assistTankAlive = true;
-                        break;
+                        Player* member = itr->GetSource();
+                        if (member && member->IsAlive() && member != bot &&
+                            PlayerbotAI::IsAssistTank(member))
+                        {
+                            assistTankAlive = true;
+                            break;
+                        }
                     }
                 }
             }
@@ -3803,11 +3824,14 @@ bool IccLichKingAddsAction::HandleValkyrAssignment(std::vector<Unit*> const& gra
 
     // Build sorted list of non-main-tank members for deterministic assignment
     std::vector<Player*> assistMembers;
-    for (GroupReference* itr = group->GetFirstMember(); itr; itr = itr->next())
     {
-        Player* member = itr->GetSource();
-        if (member && !PlayerbotAI::IsMainTank(member))
-            assistMembers.push_back(member);
+        std::lock_guard<std::recursive_mutex> groupGuard(group->GetLock());
+        for (GroupReference* itr = group->GetFirstMember(); itr; itr = itr->next())
+        {
+            Player* member = itr->GetSource();
+            if (member && !PlayerbotAI::IsMainTank(member))
+                assistMembers.push_back(member);
+        }
     }
 
     if (assistMembers.empty())
@@ -4123,18 +4147,21 @@ bool IccLichKingAddsAction::HandleVileSpiritMechanics()
         if (hunterGroup)
         {
             ObjectGuid bestGuid;
-            for (GroupReference* ref = hunterGroup->GetFirstMember(); ref; ref = ref->next())
             {
-                Player* member = ref->GetSource();
-                if (!member || !member->IsAlive())
-                    continue;
-                if (member->getClass() != CLASS_HUNTER)
-                    continue;
-                if (!GET_PLAYERBOT_AI(member))
-                    continue;
+                std::lock_guard<std::recursive_mutex> groupGuard(hunterGroup->GetLock());
+                for (GroupReference* ref = hunterGroup->GetFirstMember(); ref; ref = ref->next())
+                {
+                    Player* member = ref->GetSource();
+                    if (!member || !member->IsAlive())
+                        continue;
+                    if (member->getClass() != CLASS_HUNTER)
+                        continue;
+                    if (!GET_PLAYERBOT_AI(member))
+                        continue;
 
-                if (bestGuid.IsEmpty() || member->GetGUID() < bestGuid)
-                    bestGuid = member->GetGUID();
+                    if (bestGuid.IsEmpty() || member->GetGUID() < bestGuid)
+                        bestGuid = member->GetGUID();
+                }
             }
             isDesignatedHunter = (!bestGuid.IsEmpty() && bot->GetGUID() == bestGuid);
         }

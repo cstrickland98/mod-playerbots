@@ -378,18 +378,21 @@ float IccAddsPutricideMultiplier::GetValue(Action* action)
         bool anotherTankHasFewer = false;
         if (Group* group = bot->GetGroup())
         {
-            for (GroupReference* itr = group->GetFirstMember(); itr; itr = itr->next())
             {
-                Player* member = itr->GetSource();
-                if (!member || member == bot || !member->IsAlive() || !member->IsInWorld())
-                    continue;
-                if (!PlayerbotAI::IsTank(member))
-                    continue;
-
-                if (GetPlagueStacks(member) < myStacks)
+                std::lock_guard<std::recursive_mutex> groupGuard(group->GetLock());
+                for (GroupReference* itr = group->GetFirstMember(); itr; itr = itr->next())
                 {
-                    anotherTankHasFewer = true;
-                    break;
+                    Player* member = itr->GetSource();
+                    if (!member || member == bot || !member->IsAlive() || !member->IsInWorld())
+                        continue;
+                    if (!PlayerbotAI::IsTank(member))
+                        continue;
+
+                    if (GetPlagueStacks(member) < myStacks)
+                    {
+                        anotherTankHasFewer = true;
+                        break;
+                    }
                 }
             }
         }
@@ -466,11 +469,14 @@ float IccBpcAssistMultiplier::GetValue(Action* action)
     {
         if (Group* group = bot->GetGroup())
         {
-            for (GroupReference* itr = group->GetFirstMember(); itr != nullptr; itr = itr->next())
             {
-                Player* member = itr->GetSource();
-                if (member && member->IsAlive() && PlayerbotAI::IsAssistTank(member))
-                    return 0.0f;
+                std::lock_guard<std::recursive_mutex> groupGuard(group->GetLock());
+                for (GroupReference* itr = group->GetFirstMember(); itr != nullptr; itr = itr->next())
+                {
+                    Player* member = itr->GetSource();
+                    if (member && member->IsAlive() && PlayerbotAI::IsAssistTank(member))
+                        return 0.0f;
+                }
             }
         }
     }
@@ -509,11 +515,14 @@ float IccBpcAssistMultiplier::GetValue(Action* action)
         Group* group = bot->GetGroup();
         if (group)
         {
-            for (GroupReference* itr = group->GetFirstMember(); itr != nullptr; itr = itr->next())
             {
-                Player* member = itr->GetSource();
-                if (member && member->IsAlive() && GET_PLAYERBOT_AI(member) && PlayerbotAI::IsRangedDps(member))
-                    rangedDps.push_back(member);
+                std::lock_guard<std::recursive_mutex> groupGuard(group->GetLock());
+                for (GroupReference* itr = group->GetFirstMember(); itr != nullptr; itr = itr->next())
+                {
+                    Player* member = itr->GetSource();
+                    if (member && member->IsAlive() && GET_PLAYERBOT_AI(member) && PlayerbotAI::IsRangedDps(member))
+                        rangedDps.push_back(member);
+                }
             }
         }
 
@@ -1028,32 +1037,35 @@ float IccLichKingAddsMultiplier::GetValue(Action* action)
         bool anyPlagued = false;
         bool allDelivered = true;
 
-        for (GroupReference* ref = group->GetFirstMember(); ref; ref = ref->next())
         {
-            Player* member = ref->GetSource();
-            if (!member || !member->IsAlive())
-                continue;
-
-            if (!botAI->HasAura("Necrotic Plague", member))
-                continue;
-
-            anyPlagued = true;
-
-            bool nearHorror = false;
-            for (uint32 const entry : HorrorEntries)
+            std::lock_guard<std::recursive_mutex> groupGuard(group->GetLock());
+            for (GroupReference* ref = group->GetFirstMember(); ref; ref = ref->next())
             {
-                Creature* horror = member->FindNearestCreature(entry, DELIVER_RANGE);
-                if (horror && horror->IsAlive())
+                Player* member = ref->GetSource();
+                if (!member || !member->IsAlive())
+                    continue;
+
+                if (!botAI->HasAura("Necrotic Plague", member))
+                    continue;
+
+                anyPlagued = true;
+
+                bool nearHorror = false;
+                for (uint32 const entry : HorrorEntries)
                 {
-                    nearHorror = true;
+                    Creature* horror = member->FindNearestCreature(entry, DELIVER_RANGE);
+                    if (horror && horror->IsAlive())
+                    {
+                        nearHorror = true;
+                        break;
+                    }
+                }
+
+                if (!nearHorror)
+                {
+                    allDelivered = false;
                     break;
                 }
-            }
-
-            if (!nearHorror)
-            {
-                allDelivered = false;
-                break;
             }
         }
 

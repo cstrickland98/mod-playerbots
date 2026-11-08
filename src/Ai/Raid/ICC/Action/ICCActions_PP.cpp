@@ -51,19 +51,22 @@ bool IccPutricideMutatedPlagueAction::Execute(Event /*event*/)
     bool shouldTaunt = false;
     if (Group* group = bot->GetGroup())
     {
-        for (GroupReference* itr = group->GetFirstMember(); itr; itr = itr->next())
         {
-            Player* member = itr->GetSource();
-            if (!member || member == bot || !member->IsAlive() || !member->IsInWorld())
-                continue;
-
-            if (!PlayerbotAI::IsTank(member))
-                continue;
-
-            if (myStacks < GetPlagueStacks(member))
+            std::lock_guard<std::recursive_mutex> groupGuard(group->GetLock());
+            for (GroupReference* itr = group->GetFirstMember(); itr; itr = itr->next())
             {
-                shouldTaunt = true;
-                break;
+                Player* member = itr->GetSource();
+                if (!member || member == bot || !member->IsAlive() || !member->IsInWorld())
+                    continue;
+
+                if (!PlayerbotAI::IsTank(member))
+                    continue;
+
+                if (myStacks < GetPlagueStacks(member))
+                {
+                    shouldTaunt = true;
+                    break;
+                }
             }
         }
     }
@@ -570,16 +573,19 @@ bool IccPutricideVolatileOozeAction::Execute(Event /*event*/)
             }
             else if (Group* group = bot->GetGroup())
             {
-                for (GroupReference* itr = group->GetFirstMember(); itr != nullptr; itr = itr->next())
                 {
-                    Player* member = itr->GetSource();
-                    if (!member || !member->IsAlive() || member == bot || member == stackTarget)
-                        continue;
-                    if (member->GetDistance2d(stackTarget) <= stackDistance &&
-                        bot->GetDistance2d(member) <= nearbyStackRange)
+                    std::lock_guard<std::recursive_mutex> groupGuard(group->GetLock());
+                    for (GroupReference* itr = group->GetFirstMember(); itr != nullptr; itr = itr->next())
                     {
-                        shouldMoveToStack = true;
-                        break;
+                        Player* member = itr->GetSource();
+                        if (!member || !member->IsAlive() || member == bot || member == stackTarget)
+                            continue;
+                        if (member->GetDistance2d(stackTarget) <= stackDistance &&
+                            bot->GetDistance2d(member) <= nearbyStackRange)
+                        {
+                            shouldMoveToStack = true;
+                            break;
+                        }
                     }
                 }
             }
@@ -631,14 +637,17 @@ Unit* IccPutricideVolatileOozeAction::FindAuraTarget()
     if (!group)
         return nullptr;
 
-    for (GroupReference* itr = group->GetFirstMember(); itr != nullptr; itr = itr->next())
     {
-        Player* member = itr->GetSource();
-        if (!member || !member->IsAlive() || member == bot)
-            continue;
+        std::lock_guard<std::recursive_mutex> groupGuard(group->GetLock());
+        for (GroupReference* itr = group->GetFirstMember(); itr != nullptr; itr = itr->next())
+        {
+            Player* member = itr->GetSource();
+            if (!member || !member->IsAlive() || member == bot)
+                continue;
 
-        if (botAI->HasAura("Volatile Ooze Adhesive", member))
-            return member;
+            if (botAI->HasAura("Volatile Ooze Adhesive", member))
+                return member;
+        }
     }
 
     return nullptr;
@@ -1092,11 +1101,14 @@ bool IccPutricideGasCloudAction::HandleGroupAuraSituation(Unit* gasCloud)
 
 bool IccPutricideGasCloudAction::GroupHasGaseousBloat(Group* group)
 {
-    for (GroupReference* itr = group->GetFirstMember(); itr != nullptr; itr = itr->next())
     {
-        Player* member = itr->GetSource();
-        if (member && botAI->HasAura("Gaseous Bloat", member))
-            return true;
+        std::lock_guard<std::recursive_mutex> groupGuard(group->GetLock());
+        for (GroupReference* itr = group->GetFirstMember(); itr != nullptr; itr = itr->next())
+        {
+            Player* member = itr->GetSource();
+            if (member && botAI->HasAura("Gaseous Bloat", member))
+                return true;
+        }
     }
     return false;
 }
@@ -1310,17 +1322,20 @@ bool IccPutricideAvoidMalleableGooAction::HandleUnboundPlague(Unit* boss)
     float closestDistance = unboundPlagueDistance;
     Unit* closestPlayer = nullptr;
 
-    for (GroupReference* itr = group->GetFirstMember(); itr != nullptr; itr = itr->next())
     {
-        Player* member = itr->GetSource();
-        if (!member || !member->IsAlive() || member == bot)
-            continue;
-
-        float dist = bot->GetDistance2d(member);
-        if (dist < closestDistance)
+        std::lock_guard<std::recursive_mutex> groupGuard(group->GetLock());
+        for (GroupReference* itr = group->GetFirstMember(); itr != nullptr; itr = itr->next())
         {
-            closestDistance = dist;
-            closestPlayer = member;
+            Player* member = itr->GetSource();
+            if (!member || !member->IsAlive() || member == bot)
+                continue;
+
+            float dist = bot->GetDistance2d(member);
+            if (dist < closestDistance)
+            {
+                closestDistance = dist;
+                closestPlayer = member;
+            }
         }
     }
 
@@ -1451,16 +1466,19 @@ bool IccPutricideAbominationAction::IsSomeoneAlreadyPiloting()
     if (!group)
         return false;
 
-    for (GroupReference* itr = group->GetFirstMember(); itr; itr = itr->next())
     {
-        Player* m = itr->GetSource();
-        if (!m || m == bot || !m->IsAlive())
-            continue;
-        if (Unit* vb = m->GetVehicleBase())
+        std::lock_guard<std::recursive_mutex> groupGuard(group->GetLock());
+        for (GroupReference* itr = group->GetFirstMember(); itr; itr = itr->next())
         {
-            uint32 e = vb->GetEntry();
-            if (e == NPC_MUTATED_ABOMINATION_10 || e == NPC_MUTATED_ABOMINATION_25)
-                return true;
+            Player* m = itr->GetSource();
+            if (!m || m == bot || !m->IsAlive())
+                continue;
+            if (Unit* vb = m->GetVehicleBase())
+            {
+                uint32 e = vb->GetEntry();
+                if (e == NPC_MUTATED_ABOMINATION_10 || e == NPC_MUTATED_ABOMINATION_25)
+                    return true;
+            }
         }
     }
     return false;

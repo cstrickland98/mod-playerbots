@@ -293,19 +293,22 @@ public:
         if (lang == LANG_ADDON)
             return true;
 
-        for (GroupReference* itr = group->GetFirstMember(); itr != nullptr; itr = itr->next())
         {
-            Player* const member = itr->GetSource();
+            std::lock_guard<std::recursive_mutex> groupGuard(group->GetLock());
+            for (GroupReference* itr = group->GetFirstMember(); itr != nullptr; itr = itr->next())
+            {
+                Player* const member = itr->GetSource();
 
-            if (member == nullptr)
-                continue;
+                if (member == nullptr)
+                    continue;
 
-            PlayerbotAI* const botAI = PlayerbotsMgr::instance().GetPlayerbotAI(member);
+                PlayerbotAI* const botAI = PlayerbotsMgr::instance().GetPlayerbotAI(member);
 
-            if (botAI == nullptr)
-                continue;
+                if (botAI == nullptr)
+                    continue;
 
-            botAI->HandleCommand(type, msg, player);
+                botAI->HandleCommand(type, msg, player);
+            }
         }
 
         return true;
@@ -373,14 +376,17 @@ public:
         // no XP multiplier, when bot is in a group with a real player.
         if (Group* group = player->GetGroup())
         {
-            for (GroupReference* gref = group->GetFirstMember(); gref; gref = gref->next())
             {
-                Player* member = gref->GetSource();
-                if (!member)
-                    continue;
+                std::lock_guard<std::recursive_mutex> groupGuard(group->GetLock());
+                for (GroupReference* gref = group->GetFirstMember(); gref; gref = gref->next())
+                {
+                    Player* member = gref->GetSource();
+                    if (!member)
+                        continue;
 
-                if (!member->GetSession()->IsHeadless())
-                    return;
+                    if (!member->GetSession()->IsHeadless())
+                        return;
+                }
             }
         }
 

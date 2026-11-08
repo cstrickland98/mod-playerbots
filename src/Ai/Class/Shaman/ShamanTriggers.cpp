@@ -206,18 +206,21 @@ bool TotemicRecallTrigger::IsActive()
     Group* group = bot->GetGroup();
     if (group)
     {
-        for (GroupReference* ref = group->GetFirstMember(); ref; ref = ref->next())
         {
-            Player* member = ref->GetSource();
-            if (!member)
-                continue;
+            std::lock_guard<std::recursive_mutex> groupGuard(group->GetLock());
+            for (GroupReference* ref = group->GetFirstMember(); ref; ref = ref->next())
+            {
+                Player* member = ref->GetSource();
+                if (!member)
+                    continue;
 
-            if (member->IsInCombat())
-                return false;
+                if (member->IsInCombat())
+                    return false;
 
-            Pet* pet = member->GetPet();
-            if (pet && pet->IsInCombat())
-                return false;
+                Pet* pet = member->GetPet();
+                if (pet && pet->IsInCombat())
+                    return false;
+            }
         }
     }
 

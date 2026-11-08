@@ -198,20 +198,23 @@ Unit* UnderbatRallyUnit(Player* bot, GuidVector const& attackers)
 
     if (Group* group = bot->GetGroup())
     {
-        for (GroupReference* ref = group->GetFirstMember(); ref; ref = ref->next())
         {
-            Player* member = ref->GetSource();
-            if (!member || member == bot || !member->IsAlive() ||
-                member->GetMapId() != bot->GetMapId())
-                continue;
+            std::lock_guard<std::recursive_mutex> groupGuard(group->GetLock());
+            for (GroupReference* ref = group->GetFirstMember(); ref; ref = ref->next())
+            {
+                Player* member = ref->GetSource();
+                if (!member || member == bot || !member->IsAlive() ||
+                    member->GetMapId() != bot->GetMapId())
+                    continue;
 
-            if (!PlayerbotAI::IsTank(member))
-                continue;
+                if (!PlayerbotAI::IsTank(member))
+                    continue;
 
-            if (bot->GetExactDist(member) > UNDERBAT_RALLY_MAX_RANGE)
-                continue;
+                if (bot->GetExactDist(member) > UNDERBAT_RALLY_MAX_RANGE)
+                    continue;
 
-            return member;
+                return member;
+            }
         }
     }
 

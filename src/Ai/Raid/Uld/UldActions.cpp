@@ -396,18 +396,21 @@ bool FlameLeviathanEnterVehicleAction::AllMainVehiclesOnUse()
         return false;
     int demolisher = 0;
     int siege = 0;
-    for (GroupReference* gref = group->GetFirstMember(); gref; gref = gref->next())
     {
-        Player* player = gref->GetSource();
-        if (!player)
-            continue;
-        Unit* vehicleBase = player->GetVehicleBase();
-        if (!vehicleBase)
-            continue;
-        if (vehicleBase->GetEntry() == NPC_SALVAGED_DEMOLISHER)
-            ++demolisher;
-        else if (vehicleBase->GetEntry() == NPC_SALVAGED_SIEGE_ENGINE)
-            ++siege;
+        std::lock_guard<std::recursive_mutex> groupGuard(group->GetLock());
+        for (GroupReference* gref = group->GetFirstMember(); gref; gref = gref->next())
+        {
+            Player* player = gref->GetSource();
+            if (!player)
+                continue;
+            Unit* vehicleBase = player->GetVehicleBase();
+            if (!vehicleBase)
+                continue;
+            if (vehicleBase->GetEntry() == NPC_SALVAGED_DEMOLISHER)
+                ++demolisher;
+            else if (vehicleBase->GetEntry() == NPC_SALVAGED_SIEGE_ENGINE)
+                ++siege;
+        }
     }
     Difficulty diff = bot->GetRaidDifficulty();
     int maxC = (diff == RAID_DIFFICULTY_10MAN_NORMAL || diff == RAID_DIFFICULTY_10MAN_HEROIC) ? 2 : 5;
@@ -790,13 +793,16 @@ bool RazorscaleGroundedAction::isUseful()
 
         // Find the main tank
         Player* mainTank = nullptr;
-        for (GroupReference* ref = group->GetFirstMember(); ref; ref = ref->next())
         {
-            Player* member = ref->GetSource();
-            if (member && PlayerbotAI::IsMainTank(member))
+            std::lock_guard<std::recursive_mutex> groupGuard(group->GetLock());
+            for (GroupReference* ref = group->GetFirstMember(); ref; ref = ref->next())
             {
-                mainTank = member;
-                break;
+                Player* member = ref->GetSource();
+                if (member && PlayerbotAI::IsMainTank(member))
+                {
+                    mainTank = member;
+                    break;
+                }
             }
         }
 
@@ -1074,19 +1080,22 @@ bool RazorscaleFuseArmorAction::isUseful()
     if (!group)
         return false;
 
-    for (GroupReference* gref = group->GetFirstMember(); gref; gref = gref->next())
     {
-        Player* member = gref->GetSource();
-        if (!member)
-            continue;
-
-        if (PlayerbotAI::IsMainTank(member) && member != bot)
+        std::lock_guard<std::recursive_mutex> groupGuard(group->GetLock());
+        for (GroupReference* gref = group->GetFirstMember(); gref; gref = gref->next())
         {
-            Aura* fuseArmor = member->GetAura(RazorscaleBossHelper::SPELL_FUSEARMOR);
-            if (fuseArmor && fuseArmor->GetStackAmount() >= RazorscaleBossHelper::FUSEARMOR_THRESHOLD)
+            Player* member = gref->GetSource();
+            if (!member)
+                continue;
+
+            if (PlayerbotAI::IsMainTank(member) && member != bot)
             {
-                // There is another main tank with high Fuse Armor
-                return true;
+                Aura* fuseArmor = member->GetAura(RazorscaleBossHelper::SPELL_FUSEARMOR);
+                if (fuseArmor && fuseArmor->GetStackAmount() >= RazorscaleBossHelper::FUSEARMOR_THRESHOLD)
+                {
+                    // There is another main tank with high Fuse Armor
+                    return true;
+                }
             }
         }
     }
@@ -2041,21 +2050,24 @@ bool ThorimPhase2PositioningAction::Execute(Event /*event*/)
             return false;
 
         uint32 memberPositionNumber = 0;
-        for (GroupReference* gref = group->GetFirstMember(); gref; gref = gref->next())
         {
-            Player* member = gref->GetSource();
-            if (!member)
-                continue;
-
-            if (PlayerbotAI::IsRanged(member) || PlayerbotAI::IsHeal(member))
+            std::lock_guard<std::recursive_mutex> groupGuard(group->GetLock());
+            for (GroupReference* gref = group->GetFirstMember(); gref; gref = gref->next())
             {
-                if (bot->GetGUID() == member->GetGUID())
-                    break;
+                Player* member = gref->GetSource();
+                if (!member)
+                    continue;
 
-                memberPositionNumber++;
+                if (PlayerbotAI::IsRanged(member) || PlayerbotAI::IsHeal(member))
+                {
+                    if (bot->GetGUID() == member->GetGUID())
+                        break;
 
-                if (memberPositionNumber == 3)
-                    memberPositionNumber = 0;
+                    memberPositionNumber++;
+
+                    if (memberPositionNumber == 3)
+                        memberPositionNumber = 0;
+                }
             }
         }
 
@@ -2204,58 +2216,61 @@ bool MimironRapidBurstAction::Execute(Event /*event*/)
         return false;
 
     uint32 memberSpotNumber = 0;
-    for (GroupReference* gref = group->GetFirstMember(); gref; gref = gref->next())
     {
-        Player* member = gref->GetSource();
-        if (!member)
-            continue;
-
-        if (bot->GetGUID() == member->GetGUID())
+        std::lock_guard<std::recursive_mutex> groupGuard(group->GetLock());
+        for (GroupReference* gref = group->GetFirstMember(); gref; gref = gref->next())
         {
-            if (PlayerbotAI::IsRanged(bot))
+            Player* member = gref->GetSource();
+            if (!member)
+                continue;
+
+            if (bot->GetGUID() == member->GetGUID())
             {
-                switch (memberSpotNumber)
+                if (PlayerbotAI::IsRanged(bot))
                 {
-                    case 0:
-                        targetPosition = ULDUAR_MIMIRON_PHASE2_SIDE1RANGE_SPOT;
-                        break;
-                    case 1:
-                        targetPosition = ULDUAR_MIMIRON_PHASE2_SIDE2RANGE_SPOT;
-                        break;
-                    case 2:
-                        targetPosition = ULDUAR_MIMIRON_PHASE2_SIDE3RANGE_SPOT;
-                        break;
-                    default:
-                        break;
+                    switch (memberSpotNumber)
+                    {
+                        case 0:
+                            targetPosition = ULDUAR_MIMIRON_PHASE2_SIDE1RANGE_SPOT;
+                            break;
+                        case 1:
+                            targetPosition = ULDUAR_MIMIRON_PHASE2_SIDE2RANGE_SPOT;
+                            break;
+                        case 2:
+                            targetPosition = ULDUAR_MIMIRON_PHASE2_SIDE3RANGE_SPOT;
+                            break;
+                        default:
+                            break;
+                    }
+                }
+                else if (PlayerbotAI::IsMainTank(bot) && leviathanMkII)
+                {
+                    targetPosition = ULDUAR_MIMIRON_PHASE4_TANK_SPOT;
+                }
+                else
+                {
+                    switch (memberSpotNumber)
+                    {
+                        case 0:
+                            targetPosition = ULDUAR_MIMIRON_PHASE2_SIDE1MELEE_SPOT;
+                            break;
+                        case 1:
+                            targetPosition = ULDUAR_MIMIRON_PHASE2_SIDE2MELEE_SPOT;
+                            break;
+                        case 2:
+                            targetPosition = ULDUAR_MIMIRON_PHASE2_SIDE3MELEE_SPOT;
+                            break;
+                        default:
+                            break;
+                    }
                 }
             }
-            else if (PlayerbotAI::IsMainTank(bot) && leviathanMkII)
-            {
-                targetPosition = ULDUAR_MIMIRON_PHASE4_TANK_SPOT;
-            }
-            else
-            {
-                switch (memberSpotNumber)
-                {
-                    case 0:
-                        targetPosition = ULDUAR_MIMIRON_PHASE2_SIDE1MELEE_SPOT;
-                        break;
-                    case 1:
-                        targetPosition = ULDUAR_MIMIRON_PHASE2_SIDE2MELEE_SPOT;
-                        break;
-                    case 2:
-                        targetPosition = ULDUAR_MIMIRON_PHASE2_SIDE3MELEE_SPOT;
-                        break;
-                    default:
-                        break;
-                }
-            }
+
+            memberSpotNumber++;
+
+            if (memberSpotNumber == 3)
+                memberSpotNumber = 0;
         }
-
-        memberSpotNumber++;
-
-        if (memberSpotNumber == 3)
-            memberSpotNumber = 0;
     }
 
     MoveTo(bot->GetMapId(), targetPosition.GetPositionX(), targetPosition.GetPositionY(), targetPosition.GetPositionZ(),
@@ -2684,11 +2699,14 @@ bool YoggSaronBrainLinkAction::Execute(Event /*event*/)
     if (!group)
         return false;
 
-    for (GroupReference* gref = group->GetFirstMember(); gref; gref = gref->next())
     {
-        Player* player = gref->GetSource();
-        if (player && player->IsAlive() && player->HasAura(SPELL_BRAIN_LINK) && player->GetGUID() != bot->GetGUID())
-            return MoveNear(player, 10.0f, MovementPriority::MOVEMENT_FORCED);
+        std::lock_guard<std::recursive_mutex> groupGuard(group->GetLock());
+        for (GroupReference* gref = group->GetFirstMember(); gref; gref = gref->next())
+        {
+            Player* player = gref->GetSource();
+            if (player && player->IsAlive() && player->HasAura(SPELL_BRAIN_LINK) && player->GetGUID() != bot->GetGUID())
+                return MoveNear(player, 10.0f, MovementPriority::MOVEMENT_FORCED);
+        }
     }
 
     return false;
@@ -2713,22 +2731,26 @@ bool YoggSaronMoveToEnterPortalAction::Execute(Event /*event*/)
         brainRoomTeamCount--;
     }
 
-    for (GroupReference* gref = group->GetFirstMember(); gref; gref = gref->next())
     {
-        Player* member = gref->GetSource();
-        if (!member || !member->IsAlive() || PlayerbotAI::IsTank(member) || botAI->GetMaster()->GetGUID() == member->GetGUID())
-            continue;
-
-        portalNumber++;
-        if (member->GetGUID() == bot->GetGUID())
+        std::lock_guard<std::recursive_mutex> groupGuard(group->GetLock());
+        for (GroupReference* gref = group->GetFirstMember(); gref; gref = gref->next())
         {
-            isInBrainRoomTeam = true;
-            break;
-        }
+            Player* member = gref->GetSource();
+            if (!member || !member->IsAlive() || PlayerbotAI::IsTank(member) ||
+                botAI->GetMaster()->GetGUID() == member->GetGUID())
+                continue;
 
-        brainRoomTeamCount--;
-        if (brainRoomTeamCount == 0)
-            break;
+            portalNumber++;
+            if (member->GetGUID() == bot->GetGUID())
+            {
+                isInBrainRoomTeam = true;
+                break;
+            }
+
+            brainRoomTeamCount--;
+            if (brainRoomTeamCount == 0)
+                break;
+        }
     }
 
     if (!isInBrainRoomTeam)

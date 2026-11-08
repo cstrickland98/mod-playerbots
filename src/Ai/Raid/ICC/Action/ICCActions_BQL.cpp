@@ -1026,16 +1026,19 @@ bool IccBqlPactOfDarkfallenAction::Execute(Event /*event*/)
     Player* tankWithAura = nullptr;
     std::vector<Player*> playersWithAura;
 
-    for (GroupReference* itr = group->GetFirstMember(); itr != nullptr; itr = itr->next())
     {
-        Player* member = itr->GetSource();
-        if (!member || member == bot)
-            continue;
-        if (botAI->GetAura("Pact of the Darkfallen", member))
+        std::lock_guard<std::recursive_mutex> groupGuard(group->GetLock());
+        for (GroupReference* itr = group->GetFirstMember(); itr != nullptr; itr = itr->next())
         {
-            playersWithAura.push_back(member);
-            if (PlayerbotAI::IsTank(member))
-                tankWithAura = member;
+            Player* member = itr->GetSource();
+            if (!member || member == bot)
+                continue;
+            if (botAI->GetAura("Pact of the Darkfallen", member))
+            {
+                playersWithAura.push_back(member);
+                if (PlayerbotAI::IsTank(member))
+                    tankWithAura = member;
+            }
         }
     }
 
@@ -1173,28 +1176,31 @@ Player* IccBqlVampiricBiteAction::FindBestBiteTarget(Group* group)
     std::vector<Player*> dpsHealCandidates;
     std::vector<Player*> tankCandidates;
 
-    for (GroupReference* itr = group->GetFirstMember(); itr != nullptr; itr = itr->next())
     {
-        Player* member = itr->GetSource();
-        if (!member || !member->IsAlive())
-            continue;
-
-        if (botAI->GetAura("Frenzied Bloodthirst", member))
+        std::lock_guard<std::recursive_mutex> groupGuard(group->GetLock());
+        for (GroupReference* itr = group->GetFirstMember(); itr != nullptr; itr = itr->next())
         {
-            biters.push_back(member);
-            continue;
+            Player* member = itr->GetSource();
+            if (!member || !member->IsAlive())
+                continue;
+
+            if (botAI->GetAura("Frenzied Bloodthirst", member))
+            {
+                biters.push_back(member);
+                continue;
+            }
+
+            // Skip already-bitten / shadowed / mind-controlled
+            if (botAI->GetAura("Essence of the Blood Queen", member) ||
+                botAI->GetAura("Uncontrollable Frenzy", member) ||
+                botAI->GetAura("Swarming Shadows", member))
+                continue;
+
+            if (PlayerbotAI::IsTank(member))
+                tankCandidates.push_back(member);
+            else if (PlayerbotAI::IsDps(member) || PlayerbotAI::IsHeal(member))
+                dpsHealCandidates.push_back(member);
         }
-
-        // Skip already-bitten / shadowed / mind-controlled
-        if (botAI->GetAura("Essence of the Blood Queen", member) ||
-            botAI->GetAura("Uncontrollable Frenzy", member) ||
-            botAI->GetAura("Swarming Shadows", member))
-            continue;
-
-        if (PlayerbotAI::IsTank(member))
-            tankCandidates.push_back(member);
-        else if (PlayerbotAI::IsDps(member) || PlayerbotAI::IsHeal(member))
-            dpsHealCandidates.push_back(member);
     }
 
     std::sort(biters.begin(), biters.end(),

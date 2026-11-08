@@ -92,11 +92,14 @@ bool RsBaltharusBrandAction::Execute(Event )
         return false;
 
     std::vector<Player*> others;
-    for (GroupReference* gref = group->GetFirstMember(); gref; gref = gref->next())
     {
-        Player* member = gref->GetSource();
-        if (member && member != bot && member->IsAlive())
-            others.push_back(member);
+        std::lock_guard<std::recursive_mutex> groupGuard(group->GetLock());
+        for (GroupReference* gref = group->GetFirstMember(); gref; gref = gref->next())
+        {
+            Player* member = gref->GetSource();
+            if (member && member != bot && member->IsAlive())
+                others.push_back(member);
+        }
     }
 
     if (others.empty())
@@ -474,25 +477,28 @@ bool RsBaltharusTankPositionAction::Execute(Event )
 
     if (Group* group = bot->GetGroup())
     {
-        for (GroupReference* itr = group->GetFirstMember(); itr; itr = itr->next())
         {
-            Player* member = itr->GetSource();
-            if (!member || !member->IsAlive())
-                continue;
-
-            if (!assistTankPlayer && PlayerbotAI::IsAssistTank(member))
+            std::lock_guard<std::recursive_mutex> groupGuard(group->GetLock());
+            for (GroupReference* itr = group->GetFirstMember(); itr; itr = itr->next())
             {
-                assistTankPlayer = member;
-                assistTankAlive = true;
-            }
+                Player* member = itr->GetSource();
+                if (!member || !member->IsAlive())
+                    continue;
 
-            if (!mainTankPlayer && PlayerbotAI::IsMainTank(member))
-            {
-                mainTankPlayer = member;
-            }
+                if (!assistTankPlayer && PlayerbotAI::IsAssistTank(member))
+                {
+                    assistTankPlayer = member;
+                    assistTankAlive = true;
+                }
 
-            if (assistTankPlayer && mainTankPlayer)
-                break;
+                if (!mainTankPlayer && PlayerbotAI::IsMainTank(member))
+                {
+                    mainTankPlayer = member;
+                }
+
+                if (assistTankPlayer && mainTankPlayer)
+                    break;
+            }
         }
     }
 

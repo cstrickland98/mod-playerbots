@@ -857,15 +857,18 @@ float MovementAction::GetFollowAngle()
         return 0.0f;
 
     uint32 index = 1;
-    for (GroupReference* ref = group->GetFirstMember(); ref; ref = ref->next())
     {
-        if (ref->GetSource() == master)
-            continue;
+        std::lock_guard<std::recursive_mutex> groupGuard(group->GetLock());
+        for (GroupReference* ref = group->GetFirstMember(); ref; ref = ref->next())
+        {
+            if (ref->GetSource() == master)
+                continue;
 
-        if (ref->GetSource() == bot)
-            return 2 * M_PI / (memberCount - 1) * index;
+            if (ref->GetSource() == bot)
+                return 2 * M_PI / (memberCount - 1) * index;
 
-        ++index;
+            ++index;
+        }
     }
 
     return 0;
@@ -1372,19 +1375,22 @@ bool MovementAction::Flee(Unit* target)
             Unit* fleeTarget = nullptr;
             float fleeDistance = sPlayerbotAIConfig.SightDistance;
 
-            for (GroupReference* gref = group->GetFirstMember(); gref; gref = gref->next())
             {
-                Player* player = gref->GetSource();
-                if (!player || player == bot || !player->IsAlive())
-                    continue;
-
-                if (PlayerbotAI::IsTank(player))
+                std::lock_guard<std::recursive_mutex> groupGuard(group->GetLock());
+                for (GroupReference* gref = group->GetFirstMember(); gref; gref = gref->next())
                 {
-                    float distanceToTank = ServerFacade::instance().GetDistance2d(bot, player);
-                    if (distanceToTank < fleeDistance)
+                    Player* player = gref->GetSource();
+                    if (!player || player == bot || !player->IsAlive())
+                        continue;
+
+                    if (PlayerbotAI::IsTank(player))
                     {
-                        fleeTarget = player;
-                        fleeDistance = distanceToTank;
+                        float distanceToTank = ServerFacade::instance().GetDistance2d(bot, player);
+                        if (distanceToTank < fleeDistance)
+                        {
+                            fleeTarget = player;
+                            fleeDistance = distanceToTank;
+                        }
                     }
                 }
             }
@@ -1413,48 +1419,51 @@ bool MovementAction::Flee(Unit* target)
             float spareDistance = botAI->GetRange("shoot") * 2.0f;
             std::vector<Unit*> possibleTargets;
 
-            for (GroupReference* gref = group->GetFirstMember(); gref; gref = gref->next())
             {
-                Player* player = gref->GetSource();
-                if (!player || player == bot || !player->IsAlive())
-                    continue;
+                std::lock_guard<std::recursive_mutex> groupGuard(group->GetLock());
+                for (GroupReference* gref = group->GetFirstMember(); gref; gref = gref->next())
+                {
+                    Player* player = gref->GetSource();
+                    if (!player || player == bot || !player->IsAlive())
+                        continue;
 
-                if ((isHealer && PlayerbotAI::IsHeal(player)) || needHealer)
-                {
-                    float distanceToHealer = ServerFacade::instance().GetDistance2d(bot, player);
-                    float distanceToTarget = ServerFacade::instance().GetDistance2d(player, target);
-                    if (distanceToHealer < fleeDistance &&
-                        distanceToTarget > (botAI->GetRange("shoot") / 2 + sPlayerbotAIConfig.FollowDistance) &&
-                        (needHealer || player->IsWithinLOSInMap(target)))
+                    if ((isHealer && PlayerbotAI::IsHeal(player)) || needHealer)
                     {
-                        fleeTarget = player;
-                        fleeDistance = distanceToHealer;
-                        possibleTargets.push_back(fleeTarget);
+                        float distanceToHealer = ServerFacade::instance().GetDistance2d(bot, player);
+                        float distanceToTarget = ServerFacade::instance().GetDistance2d(player, target);
+                        if (distanceToHealer < fleeDistance &&
+                            distanceToTarget > (botAI->GetRange("shoot") / 2 + sPlayerbotAIConfig.FollowDistance) &&
+                            (needHealer || player->IsWithinLOSInMap(target)))
+                        {
+                            fleeTarget = player;
+                            fleeDistance = distanceToHealer;
+                            possibleTargets.push_back(fleeTarget);
+                        }
                     }
-                }
-                else if (isRanged && PlayerbotAI::IsRanged(player))
-                {
-                    float distanceToRanged = ServerFacade::instance().GetDistance2d(bot, player);
+                    else if (isRanged && PlayerbotAI::IsRanged(player))
+                    {
+                        float distanceToRanged = ServerFacade::instance().GetDistance2d(bot, player);
+                        float distanceToTarget = ServerFacade::instance().GetDistance2d(player, target);
+                        if (distanceToRanged < fleeDistance &&
+                            distanceToTarget > (botAI->GetRange("shoot") / 2 + sPlayerbotAIConfig.FollowDistance) &&
+                            player->IsWithinLOSInMap(target))
+                        {
+                            fleeTarget = player;
+                            fleeDistance = distanceToRanged;
+                            possibleTargets.push_back(fleeTarget);
+                        }
+                    }
+                    // remember any group member in case no one else found
+                    float distanceToFlee = ServerFacade::instance().GetDistance2d(bot, player);
                     float distanceToTarget = ServerFacade::instance().GetDistance2d(player, target);
-                    if (distanceToRanged < fleeDistance &&
+                    if (distanceToFlee < spareDistance &&
                         distanceToTarget > (botAI->GetRange("shoot") / 2 + sPlayerbotAIConfig.FollowDistance) &&
                         player->IsWithinLOSInMap(target))
                     {
-                        fleeTarget = player;
-                        fleeDistance = distanceToRanged;
+                        spareTarget = player;
+                        spareDistance = distanceToFlee;
                         possibleTargets.push_back(fleeTarget);
                     }
-                }
-                // remember any group member in case no one else found
-                float distanceToFlee = ServerFacade::instance().GetDistance2d(bot, player);
-                float distanceToTarget = ServerFacade::instance().GetDistance2d(player, target);
-                if (distanceToFlee < spareDistance &&
-                    distanceToTarget > (botAI->GetRange("shoot") / 2 + sPlayerbotAIConfig.FollowDistance) &&
-                    player->IsWithinLOSInMap(target))
-                {
-                    spareTarget = player;
-                    spareDistance = distanceToFlee;
-                    possibleTargets.push_back(fleeTarget);
                 }
             }
 
@@ -1575,17 +1584,20 @@ bool MovementAction::MoveFromGroup(float distance)
         float y = 0.0f;
         uint32 count = 0;
 
-        for (GroupReference* gref = group->GetFirstMember(); gref; gref = gref->next())
         {
-            Player* player = gref->GetSource();
-            if (!player || player == bot || !player->IsAlive() || player->GetMapId() != mapId)
-                continue;
-            float dist = bot->GetDistance2d(player);
-            if (closestDist > dist)
-                closestDist = dist;
-            x += player->GetPositionX();
-            y += player->GetPositionY();
-            count++;
+            std::lock_guard<std::recursive_mutex> groupGuard(group->GetLock());
+            for (GroupReference* gref = group->GetFirstMember(); gref; gref = gref->next())
+            {
+                Player* player = gref->GetSource();
+                if (!player || player == bot || !player->IsAlive() || player->GetMapId() != mapId)
+                    continue;
+                float dist = bot->GetDistance2d(player);
+                if (closestDist > dist)
+                    closestDist = dist;
+                x += player->GetPositionX();
+                y += player->GetPositionY();
+                count++;
+            }
         }
 
         if (count && closestDist < distance)
@@ -2288,26 +2300,29 @@ Position CombatFormationMoveAction::AverageGroupPos(float dis, bool ranged, bool
     {
         return Position();
     }
-    Group::MemberSlotList const& groupSlot = group->GetMemberSlots();
-    for (Group::member_citerator itr = groupSlot.begin(); itr != groupSlot.end(); itr++)
     {
-        Player* member = ObjectAccessor::FindPlayer(itr->guid);
-        if (!member)
-            continue;
+        std::lock_guard<std::recursive_mutex> groupGuard(group->GetLock());
+        Group::MemberSlotList const& groupSlot = group->GetMemberSlots();
+        for (Group::member_citerator itr = groupSlot.begin(); itr != groupSlot.end(); itr++)
+        {
+            Player* member = ObjectAccessor::FindPlayer(itr->guid);
+            if (!member)
+                continue;
 
-        if (!self && member == bot)
-            continue;
+            if (!self && member == bot)
+                continue;
 
-        if (ranged && !PlayerbotAI::IsRanged(member))
-            continue;
+            if (ranged && !PlayerbotAI::IsRanged(member))
+                continue;
 
-        if (!member->IsAlive() || member->GetMapId() != bot->GetMapId() || member->IsCharmed() ||
-            ServerFacade::instance().GetDistance2d(bot, member) > dis)
-            continue;
+            if (!member->IsAlive() || member->GetMapId() != bot->GetMapId() || member->IsCharmed() ||
+                ServerFacade::instance().GetDistance2d(bot, member) > dis)
+                continue;
 
-        averageX += member->GetPositionX();
-        averageY += member->GetPositionY();
-        averageZ += member->GetPositionZ();
+            averageX += member->GetPositionX();
+            averageY += member->GetPositionY();
+            averageZ += member->GetPositionZ();
+        }
     }
     averageX /= cnt;
     averageY /= cnt;
@@ -2326,26 +2341,29 @@ float CombatFormationMoveAction::AverageGroupAngle(Unit* from, bool ranged, bool
     float sumX = 0.0f;
     float sumY = 0.0f;
     int cnt = 0;
-    Group::MemberSlotList const& groupSlot = group->GetMemberSlots();
-    for (Group::member_citerator itr = groupSlot.begin(); itr != groupSlot.end(); itr++)
     {
-        Player* member = ObjectAccessor::FindPlayer(itr->guid);
-        if (!member)
-            continue;
+        std::lock_guard<std::recursive_mutex> groupGuard(group->GetLock());
+        Group::MemberSlotList const& groupSlot = group->GetMemberSlots();
+        for (Group::member_citerator itr = groupSlot.begin(); itr != groupSlot.end(); itr++)
+        {
+            Player* member = ObjectAccessor::FindPlayer(itr->guid);
+            if (!member)
+                continue;
 
-        if (!self && member == bot)
-            continue;
+            if (!self && member == bot)
+                continue;
 
-        if (ranged && !PlayerbotAI::IsRanged(member))
-            continue;
+            if (ranged && !PlayerbotAI::IsRanged(member))
+                continue;
 
-        if (!member->IsAlive() || member->GetMapId() != bot->GetMapId() || member->IsCharmed() ||
-            ServerFacade::instance().GetDistance2d(bot, member) > sPlayerbotAIConfig.SightDistance)
-            continue;
+            if (!member->IsAlive() || member->GetMapId() != bot->GetMapId() || member->IsCharmed() ||
+                ServerFacade::instance().GetDistance2d(bot, member) > sPlayerbotAIConfig.SightDistance)
+                continue;
 
-        cnt++;
-        sumX += member->GetPositionX() - from->GetPositionX();
-        sumY += member->GetPositionY() - from->GetPositionY();
+            cnt++;
+            sumX += member->GetPositionX() - from->GetPositionX();
+            sumY += member->GetPositionY() - from->GetPositionY();
+        }
     }
     if (cnt == 0)
         return 0.0f;
@@ -2377,17 +2395,20 @@ Player* CombatFormationMoveAction::NearestGroupMember(float dis)
     {
         return result;
     }
-    Group::MemberSlotList const& groupSlot = group->GetMemberSlots();
-    for (Group::member_citerator itr = groupSlot.begin(); itr != groupSlot.end(); itr++)
     {
-        Player* member = ObjectAccessor::FindPlayer(itr->guid);
-        if (!member || !member->IsAlive() || member == bot || member->GetMapId() != bot->GetMapId() ||
-            member->IsCharmed() || ServerFacade::instance().GetDistance2d(bot, member) > dis)
-            continue;
-        if (nearestDis > bot->GetExactDist(member))
+        std::lock_guard<std::recursive_mutex> groupGuard(group->GetLock());
+        Group::MemberSlotList const& groupSlot = group->GetMemberSlots();
+        for (Group::member_citerator itr = groupSlot.begin(); itr != groupSlot.end(); itr++)
         {
-            result = member;
-            nearestDis = bot->GetExactDist(member);
+            Player* member = ObjectAccessor::FindPlayer(itr->guid);
+            if (!member || !member->IsAlive() || member == bot || member->GetMapId() != bot->GetMapId() ||
+                member->IsCharmed() || ServerFacade::instance().GetDistance2d(bot, member) > dis)
+                continue;
+            if (nearestDis > bot->GetExactDist(member))
+            {
+                result = member;
+                nearestDis = bot->GetExactDist(member);
+            }
         }
     }
     return result;
@@ -2905,12 +2926,15 @@ bool MoveAwayFromPlayerWithDebuffAction::Execute(Event /*event*/)
 
     std::vector<Player*> debuffedPlayers;
 
-    for (GroupReference* gref = group->GetFirstMember(); gref; gref = gref->next())
     {
-        Player* player = gref->GetSource();
-        if (player && player->IsAlive() && player->HasAura(spellId))
+        std::lock_guard<std::recursive_mutex> groupGuard(group->GetLock());
+        for (GroupReference* gref = group->GetFirstMember(); gref; gref = gref->next())
         {
-            debuffedPlayers.push_back(player);
+            Player* player = gref->GetSource();
+            if (player && player->IsAlive() && player->HasAura(spellId))
+            {
+                debuffedPlayers.push_back(player);
+            }
         }
     }
 

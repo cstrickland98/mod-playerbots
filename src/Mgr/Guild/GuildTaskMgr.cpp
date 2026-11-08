@@ -1032,9 +1032,12 @@ void GuildTaskMgr::CheckKillTask(Player* player, Unit* victim)
 
     if (Group* group = player->GetGroup())
     {
-        for (GroupReference* gr = group->GetFirstMember(); gr; gr = gr->next())
         {
-            CheckKillTaskInternal(gr->GetSource(), victim);
+            std::lock_guard<std::recursive_mutex> groupGuard(group->GetLock());
+            for (GroupReference* gr = group->GetFirstMember(); gr; gr = gr->next())
+            {
+                CheckKillTaskInternal(gr->GetSource(), victim);
+            }
         }
     }
     else
@@ -1050,11 +1053,14 @@ void GuildTaskMgr::SendCompletionMessage(Player* player, std::string const verb)
 
     if (Group* group = player->GetGroup())
     {
-        for (GroupReference* gr = group->GetFirstMember(); gr; gr = gr->next())
         {
-            Player* member = gr->GetSource();
-            if (member != player)
-                ChatHandler(member->GetSession()).PSendSysMessage(out.str().c_str());
+            std::lock_guard<std::recursive_mutex> groupGuard(group->GetLock());
+            for (GroupReference* gr = group->GetFirstMember(); gr; gr = gr->next())
+            {
+                Player* member = gr->GetSource();
+                if (member != player)
+                    ChatHandler(member->GetSession()).PSendSysMessage(out.str().c_str());
+            }
         }
     }
     else

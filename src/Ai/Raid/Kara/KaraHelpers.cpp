@@ -60,14 +60,17 @@ bool IsFlameWreathActive(Player* bot)
     if (!group)
         return false;
 
-    for (GroupReference* ref = group->GetFirstMember(); ref; ref = ref->next())
     {
-        Player* member = ref->GetSource();
-        if (!member || !member->IsAlive())
-            continue;
+        std::lock_guard<std::recursive_mutex> groupGuard(group->GetLock());
+        for (GroupReference* ref = group->GetFirstMember(); ref; ref = ref->next())
+        {
+            Player* member = ref->GetSource();
+            if (!member || !member->IsAlive())
+                continue;
 
-        if (member->HasAura(Id(KaraSpells::SPELL_FLAME_WREATH_AURA)))
-            return true;
+            if (member->HasAura(Id(KaraSpells::SPELL_FLAME_WREATH_AURA)))
+                return true;
+        }
     }
 
     return false;
@@ -94,17 +97,20 @@ std::vector<Player*> GetRedBlockers(Player* bot)
 
     std::vector<Player*> redBlockers;
 
-    for (GroupReference* ref = group->GetFirstMember(); ref; ref = ref->next())
     {
-        Player* member = ref->GetSource();
-        if (!member || !member->IsAlive() || !PlayerbotAI::IsTank(member) ||
-            !GET_PLAYERBOT_AI(member))
+        std::lock_guard<std::recursive_mutex> groupGuard(group->GetLock());
+        for (GroupReference* ref = group->GetFirstMember(); ref; ref = ref->next())
         {
-            continue;
-        }
+            Player* member = ref->GetSource();
+            if (!member || !member->IsAlive() || !PlayerbotAI::IsTank(member) ||
+                !GET_PLAYERBOT_AI(member))
+            {
+                continue;
+            }
 
-        if (!member->HasAura(Id(KaraSpells::SPELL_NETHER_EXHAUSTION_RED)))
-            redBlockers.push_back(member);
+            if (!member->HasAura(Id(KaraSpells::SPELL_NETHER_EXHAUSTION_RED)))
+                redBlockers.push_back(member);
+        }
     }
 
     return redBlockers;
@@ -120,24 +126,27 @@ std::vector<Player*> GetBlueBlockers(Player* bot)
 
     std::vector<Player*> blueBlockers;
 
-    for (GroupReference* ref = group->GetFirstMember(); ref; ref = ref->next())
     {
-        Player* member = ref->GetSource();
-        if (!member || !member->IsAlive() || member->GetMapId() != KARA_MAP_ID)
-            continue;
-
-        if (!GET_PLAYERBOT_AI(member) || member->getPowerType() != POWER_MANA ||
-            !PlayerbotAI::IsDps(member))
+        std::lock_guard<std::recursive_mutex> groupGuard(group->GetLock());
+        for (GroupReference* ref = group->GetFirstMember(); ref; ref = ref->next())
         {
-            continue;
+            Player* member = ref->GetSource();
+            if (!member || !member->IsAlive() || member->GetMapId() != KARA_MAP_ID)
+                continue;
+
+            if (!GET_PLAYERBOT_AI(member) || member->getPowerType() != POWER_MANA ||
+                !PlayerbotAI::IsDps(member))
+            {
+                continue;
+            }
+
+            if (member->HasAura(Id(KaraSpells::SPELL_NETHER_EXHAUSTION_BLUE)))
+                continue;
+
+            Aura* blueBuff = member->GetAura(Id(KaraSpells::SPELL_BLUE_BEAM_DEBUFF));
+            if (!blueBuff || blueBuff->GetStackAmount() < 25)
+                blueBlockers.push_back(member);
         }
-
-        if (member->HasAura(Id(KaraSpells::SPELL_NETHER_EXHAUSTION_BLUE)))
-            continue;
-
-        Aura* blueBuff = member->GetAura(Id(KaraSpells::SPELL_BLUE_BEAM_DEBUFF));
-        if (!blueBuff || blueBuff->GetStackAmount() < 25)
-            blueBlockers.push_back(member);
     }
 
     return blueBlockers;
@@ -154,38 +163,44 @@ std::vector<Player*> GetGreenBlockers(Player* bot)
 
     std::vector<Player*> greenBlockers;
 
-    for (GroupReference* ref = group->GetFirstMember(); ref; ref = ref->next())
     {
-        Player* member = ref->GetSource();
-        if (!member || !member->IsAlive() || member->GetMapId() != KARA_MAP_ID)
-            continue;
-
-        if (!GET_PLAYERBOT_AI(member) || member->getPowerType() == POWER_MANA ||
-            !PlayerbotAI::IsDps(member))
+        std::lock_guard<std::recursive_mutex> groupGuard(group->GetLock());
+        for (GroupReference* ref = group->GetFirstMember(); ref; ref = ref->next())
         {
-            continue;
-        }
+            Player* member = ref->GetSource();
+            if (!member || !member->IsAlive() || member->GetMapId() != KARA_MAP_ID)
+                continue;
 
-        if (!member->HasAura(Id(KaraSpells::SPELL_NETHER_EXHAUSTION_GREEN)))
-            greenBlockers.push_back(member);
+            if (!GET_PLAYERBOT_AI(member) || member->getPowerType() == POWER_MANA ||
+                !PlayerbotAI::IsDps(member))
+            {
+                continue;
+            }
+
+            if (!member->HasAura(Id(KaraSpells::SPELL_NETHER_EXHAUSTION_GREEN)))
+                greenBlockers.push_back(member);
+        }
     }
 
-    for (GroupReference* ref = group->GetFirstMember(); ref; ref = ref->next())
     {
-        Player* member = ref->GetSource();
-        if (!member || !member->IsAlive() || member->GetMapId() != KARA_MAP_ID)
-            continue;
-
-        if (!GET_PLAYERBOT_AI(member) || !PlayerbotAI::IsHeal(member))
-            continue;
-
-        if (member->HasAura(Id(KaraSpells::SPELL_NETHER_EXHAUSTION_GREEN)))
-            continue;
-
-        Aura* greenBuff = member->GetAura(Id(KaraSpells::SPELL_GREEN_BEAM_DEBUFF));
-        if (!greenBuff || greenBuff->GetStackAmount() < 25)
+        std::lock_guard<std::recursive_mutex> groupGuard(group->GetLock());
+        for (GroupReference* ref = group->GetFirstMember(); ref; ref = ref->next())
         {
-            greenBlockers.push_back(member);
+            Player* member = ref->GetSource();
+            if (!member || !member->IsAlive() || member->GetMapId() != KARA_MAP_ID)
+                continue;
+
+            if (!GET_PLAYERBOT_AI(member) || !PlayerbotAI::IsHeal(member))
+                continue;
+
+            if (member->HasAura(Id(KaraSpells::SPELL_NETHER_EXHAUSTION_GREEN)))
+                continue;
+
+            Aura* greenBuff = member->GetAura(Id(KaraSpells::SPELL_GREEN_BEAM_DEBUFF));
+            if (!greenBuff || greenBuff->GetStackAmount() < 25)
+            {
+                greenBlockers.push_back(member);
+            }
         }
     }
 

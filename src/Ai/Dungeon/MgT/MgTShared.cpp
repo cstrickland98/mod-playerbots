@@ -309,17 +309,20 @@ bool PartyCentroid(Player* bot, float& cx, float& cy)
 
     float sx = 0.0f, sy = 0.0f;
     int n = 0;
-    for (GroupReference* ref = group->GetFirstMember(); ref; ref = ref->next())
     {
-        Player* member = ref->GetSource();
-        if (!member || member == bot || !member->IsAlive() || member->GetMapId() != bot->GetMapId())
-            continue;
-        if (bot->GetExactDist2d(member) > PARTY_CENTROID_RANGE)
-            continue;
+        std::lock_guard<std::recursive_mutex> groupGuard(group->GetLock());
+        for (GroupReference* ref = group->GetFirstMember(); ref; ref = ref->next())
+        {
+            Player* member = ref->GetSource();
+            if (!member || member == bot || !member->IsAlive() || member->GetMapId() != bot->GetMapId())
+                continue;
+            if (bot->GetExactDist2d(member) > PARTY_CENTROID_RANGE)
+                continue;
 
-        sx += member->GetPositionX();
-        sy += member->GetPositionY();
-        ++n;
+            sx += member->GetPositionX();
+            sy += member->GetPositionY();
+            ++n;
+        }
     }
 
     if (n == 0)
@@ -724,17 +727,20 @@ int InterruptSlot(Player* bot)
         return 0;
 
     int slot = 0;
-    for (GroupReference* ref = group->GetFirstMember(); ref; ref = ref->next())
     {
-        Player* member = ref->GetSource();
-        if (!member || member == bot || !member->IsAlive() || member->GetMapId() != bot->GetMapId())
-            continue;
+        std::lock_guard<std::recursive_mutex> groupGuard(group->GetLock());
+        for (GroupReference* ref = group->GetFirstMember(); ref; ref = ref->next())
+        {
+            Player* member = ref->GetSource();
+            if (!member || member == bot || !member->IsAlive() || member->GetMapId() != bot->GetMapId())
+                continue;
 
-        if (!GET_PLAYERBOT_AI(member))
-            continue;
+            if (!GET_PLAYERBOT_AI(member))
+                continue;
 
-        if (member->GetGUID() < bot->GetGUID())
-            ++slot;
+            if (member->GetGUID() < bot->GetGUID())
+                ++slot;
+        }
     }
 
     return slot;
@@ -821,17 +827,20 @@ int LapseSlot(Player* bot, LapseRole role)
         return 0;
 
     int slot = 0;
-    for (GroupReference* ref = group->GetFirstMember(); ref; ref = ref->next())
     {
-        Player* member = ref->GetSource();
-        if (!member || member == bot || !member->IsAlive() || member->GetMapId() != bot->GetMapId())
-            continue;
+        std::lock_guard<std::recursive_mutex> groupGuard(group->GetLock());
+        for (GroupReference* ref = group->GetFirstMember(); ref; ref = ref->next())
+        {
+            Player* member = ref->GetSource();
+            if (!member || member == bot || !member->IsAlive() || member->GetMapId() != bot->GetMapId())
+                continue;
 
-        if (!GET_PLAYERBOT_AI(member) || ClassifyLapseRole(member) != role)
-            continue;
+            if (!GET_PLAYERBOT_AI(member) || ClassifyLapseRole(member) != role)
+                continue;
 
-        if (member->GetGUID() < bot->GetGUID())
-            ++slot;
+            if (member->GetGUID() < bot->GetGUID())
+                ++slot;
+        }
     }
 
     return slot;

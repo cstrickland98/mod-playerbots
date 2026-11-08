@@ -219,11 +219,14 @@ bool IccAnyGroupMemberHasAura(Player* bot, uint32 spellId)
     if (!group)
         return false;
 
-    for (GroupReference* ref = group->GetFirstMember(); ref; ref = ref->next())
     {
-        Player* member = ref->GetSource();
-        if (member && member->IsAlive() && member->HasAura(spellId))
-            return true;
+        std::lock_guard<std::recursive_mutex> groupGuard(group->GetLock());
+        for (GroupReference* ref = group->GetFirstMember(); ref; ref = ref->next())
+        {
+            Player* member = ref->GetSource();
+            if (member && member->IsAlive() && member->HasAura(spellId))
+                return true;
+        }
     }
 
     return false;
@@ -247,18 +250,21 @@ std::optional<bool> IccValithriaShouldHealRaid(Player* bot)
     std::vector<ObjectGuid> druidGuids;
     int healerCount = 0;
 
-    for (GroupReference* itr = group->GetFirstMember(); itr != nullptr; itr = itr->next())
     {
-        Player* member = itr->GetSource();
-        if (!member || !member->IsAlive() || IsSelfBot(bot))
-            continue;
-
-        if (PlayerbotAI::IsHeal(member) && !IsSelfBot(bot))
+        std::lock_guard<std::recursive_mutex> groupGuard(group->GetLock());
+        for (GroupReference* itr = group->GetFirstMember(); itr != nullptr; itr = itr->next())
         {
-            healerCount++;
-            healerGuids.push_back(member->GetGUID());
-            if (member->getClass() == CLASS_DRUID)
-                druidGuids.push_back(member->GetGUID());
+            Player* member = itr->GetSource();
+            if (!member || !member->IsAlive() || IsSelfBot(bot))
+                continue;
+
+            if (PlayerbotAI::IsHeal(member) && !IsSelfBot(bot))
+            {
+                healerCount++;
+                healerGuids.push_back(member->GetGUID());
+                if (member->getClass() == CLASS_DRUID)
+                    druidGuids.push_back(member->GetGUID());
+            }
         }
     }
 

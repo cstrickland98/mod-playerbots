@@ -395,17 +395,20 @@ bool IccPutricideMalleableGooTrigger::IsActive()
     {
         if (Group* buffGroup = bot->GetGroup())
         {
-            for (GroupReference* itr = buffGroup->GetFirstMember(); itr; itr = itr->next())
             {
-                Player* member = itr->GetSource();
-                if (!member || !member->IsAlive() || !member->IsInWorld())
-                    continue;
+                std::lock_guard<std::recursive_mutex> groupGuard(buffGroup->GetLock());
+                for (GroupReference* itr = buffGroup->GetFirstMember(); itr; itr = itr->next())
+                {
+                    Player* member = itr->GetSource();
+                    if (!member || !member->IsAlive() || !member->IsInWorld())
+                        continue;
 
-                IccApplyHeroicBuffToMember(member, false, true);
+                    IccApplyHeroicBuffToMember(member, false, true);
 
-                if (PlayerbotAI::IsTank(member) && !member->HasAura(SPELL_SPITEFULL_FURY) &&
-                    boss->GetVictim() != member)
-                    member->AddAura(SPELL_SPITEFULL_FURY, member);
+                    if (PlayerbotAI::IsTank(member) && !member->HasAura(SPELL_SPITEFULL_FURY) &&
+                        boss->GetVictim() != member)
+                        member->AddAura(SPELL_SPITEFULL_FURY, member);
+                }
             }
         }
     }
@@ -437,16 +440,19 @@ bool IccPutricideAbominationTrigger::IsActive()
     // Someone else already piloting - do not drink.
     if (Group* group = bot->GetGroup())
     {
-        for (GroupReference* itr = group->GetFirstMember(); itr; itr = itr->next())
         {
-            Player* m = itr->GetSource();
-            if (!m || m == bot || !m->IsAlive())
-                continue;
-            if (Unit* vb = m->GetVehicleBase())
+            std::lock_guard<std::recursive_mutex> groupGuard(group->GetLock());
+            for (GroupReference* itr = group->GetFirstMember(); itr; itr = itr->next())
             {
-                uint32 e = vb->GetEntry();
-                if (e == NPC_MUTATED_ABOMINATION_10 || e == NPC_MUTATED_ABOMINATION_25)
-                    return false;
+                Player* m = itr->GetSource();
+                if (!m || m == bot || !m->IsAlive())
+                    continue;
+                if (Unit* vb = m->GetVehicleBase())
+                {
+                    uint32 e = vb->GetEntry();
+                    if (e == NPC_MUTATED_ABOMINATION_10 || e == NPC_MUTATED_ABOMINATION_25)
+                        return false;
+                }
             }
         }
     }
@@ -778,17 +784,20 @@ bool IccSindragosaGroupPositionTrigger::IsActive()
         // Apply to every alive group member so real players benefit too,
         if (Group* group = bot->GetGroup())
         {
-            for (GroupReference* itr = group->GetFirstMember(); itr; itr = itr->next())
             {
-                Player* member = itr->GetSource();
-                if (!member || !member->IsAlive() || !member->IsInWorld())
-                    continue;
+                std::lock_guard<std::recursive_mutex> groupGuard(group->GetLock());
+                for (GroupReference* itr = group->GetFirstMember(); itr; itr = itr->next())
+                {
+                    Player* member = itr->GetSource();
+                    if (!member || !member->IsAlive() || !member->IsInWorld())
+                        continue;
 
-                IccApplyHeroicBuffToMember(member, false, true);
+                    IccApplyHeroicBuffToMember(member, false, true);
 
-                if (PlayerbotAI::IsMainTank(member) && boss->GetVictim() != member &&
-                    !member->HasAura(SPELL_SPITEFULL_FURY))
-                    member->AddAura(SPELL_SPITEFULL_FURY, member);
+                    if (PlayerbotAI::IsMainTank(member) && boss->GetVictim() != member &&
+                        !member->HasAura(SPELL_SPITEFULL_FURY))
+                        member->AddAura(SPELL_SPITEFULL_FURY, member);
+                }
             }
         }
         //-------CHEAT-------
@@ -830,13 +839,16 @@ bool IccSindragosaGroupPositionTrigger::IsActive()
         bool mtAlive = false;
         if (Group* group = bot->GetGroup())
         {
-            for (GroupReference* itr = group->GetFirstMember(); itr; itr = itr->next())
             {
-                Player* member = itr->GetSource();
-                if (member && member != bot && member->IsAlive() && PlayerbotAI::IsMainTank(member))
+                std::lock_guard<std::recursive_mutex> groupGuard(group->GetLock());
+                for (GroupReference* itr = group->GetFirstMember(); itr; itr = itr->next())
                 {
-                    mtAlive = true;
-                    break;
+                    Player* member = itr->GetSource();
+                    if (member && member != bot && member->IsAlive() && PlayerbotAI::IsMainTank(member))
+                    {
+                        mtAlive = true;
+                        break;
+                    }
                 }
             }
         }
@@ -869,15 +881,18 @@ bool IccSindragosaFrostBeaconTrigger::IsActive()
     if (bot->HasAura(SPELL_FROST_BEACON))
         return true;
 
-    Group::MemberSlotList const& groupSlot = group->GetMemberSlots();
-    for (Group::member_citerator itr = groupSlot.begin(); itr != groupSlot.end(); ++itr)
     {
-        Player* member = ObjectAccessor::FindPlayer(itr->guid);
-        if (!member || !member->IsAlive())
-            continue;
+        std::lock_guard<std::recursive_mutex> groupGuard(group->GetLock());
+        Group::MemberSlotList const& groupSlot = group->GetMemberSlots();
+        for (Group::member_citerator itr = groupSlot.begin(); itr != groupSlot.end(); ++itr)
+        {
+            Player* member = ObjectAccessor::FindPlayer(itr->guid);
+            if (!member || !member->IsAlive())
+                continue;
 
-        if (member->HasAura(SPELL_FROST_BEACON))  // If any player has Frost Beacon, keep trigger active
-            return true;
+            if (member->HasAura(SPELL_FROST_BEACON))  // If any player has Frost Beacon, keep trigger active
+                return true;
+        }
     }
 
     return false;

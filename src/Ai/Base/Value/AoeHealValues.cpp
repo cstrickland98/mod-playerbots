@@ -25,19 +25,22 @@ uint8 AoeHealValue::Calculate()
         range = sPlayerbotAIConfig.AlmostFullHealth;
 
     uint8 count = 0;
-    Group::MemberSlotList const& groupSlot = group->GetMemberSlots();
-    for (Group::member_citerator itr = groupSlot.begin(); itr != groupSlot.end(); itr++)
     {
-        Player* player = ObjectAccessor::FindPlayer(itr->guid);
-        if (!player || !player->IsAlive())
-            continue;
+        std::lock_guard<std::recursive_mutex> groupGuard(group->GetLock());
+        Group::MemberSlotList const& groupSlot = group->GetMemberSlots();
+        for (Group::member_citerator itr = groupSlot.begin(); itr != groupSlot.end(); itr++)
+        {
+            Player* player = ObjectAccessor::FindPlayer(itr->guid);
+            if (!player || !player->IsAlive())
+                continue;
 
-        if (player->GetDistance(bot) >= sPlayerbotAIConfig.SightDistance)
-            continue;
+            if (player->GetDistance(bot) >= sPlayerbotAIConfig.SightDistance)
+                continue;
 
-        float percent = (static_cast<float>(player->GetHealth()) / player->GetMaxHealth()) * 100;
-        if (percent <= range)
-            ++count;
+            float percent = (static_cast<float>(player->GetHealth()) / player->GetMaxHealth()) * 100;
+            if (percent <= range)
+                ++count;
+        }
     }
 
     return count;

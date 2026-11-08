@@ -42,17 +42,20 @@ namespace BlackwingLairHelpers
         if (!group)
             return false;
 
-        for (GroupReference const* gref = group->GetFirstMember(); gref; gref = gref->next())
         {
-            Player const* p = gref->GetSource();
-            if (!p || p == bot || !p->IsAlive() || p->GetMapId() != bot->GetMapId())
-                continue;
+            std::lock_guard<std::recursive_mutex> groupGuard(group->GetLock());
+            for (GroupReference const* gref = group->GetFirstMember(); gref; gref = gref->next())
+            {
+                Player const* p = gref->GetSource();
+                if (!p || p == bot || !p->IsAlive() || p->GetMapId() != bot->GetMapId())
+                    continue;
 
-            if (p->HasAura(static_cast<uint32>(BlackwingLairSpells::SPELL_BURNING_ADRENALINE)))
-                continue;
+                if (p->HasAura(static_cast<uint32>(BlackwingLairSpells::SPELL_BURNING_ADRENALINE)))
+                    continue;
 
-            if (p->GetDistance2d(position.GetPositionX(), position.GetPositionY()) < distance)
-                return true;
+                if (p->GetDistance2d(position.GetPositionX(), position.GetPositionY()) < distance)
+                    return true;
+            }
         }
 
         return false;

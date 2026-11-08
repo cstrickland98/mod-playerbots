@@ -191,13 +191,16 @@ bool JanalaiSpreadRangedInCircleAction::Execute(Event /*event*/)
         return false;
 
     std::vector<Player*> rangedMembers;
-    for (GroupReference* ref = group->GetFirstMember(); ref; ref = ref->next())
     {
-        Player* member = ref->GetSource();
-        if (!member || member->GetMapId() != ZA_MAP_ID || !PlayerbotAI::IsRanged(member))
-            continue;
+        std::lock_guard<std::recursive_mutex> groupGuard(group->GetLock());
+        for (GroupReference* ref = group->GetFirstMember(); ref; ref = ref->next())
+        {
+            Player* member = ref->GetSource();
+            if (!member || member->GetMapId() != ZA_MAP_ID || !PlayerbotAI::IsRanged(member))
+                continue;
 
-        rangedMembers.push_back(member);
+            rangedMembers.push_back(member);
+        }
     }
 
     if (rangedMembers.empty())

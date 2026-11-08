@@ -88,6 +88,7 @@ FormationSlot* ArrowFormation::FindSlot(Player* member)
 void ArrowFormation::FillSlotsExceptMaster()
 {
     Group* group = bot->GetGroup();
+    std::lock_guard<std::recursive_mutex> groupGuard(group->GetLock());
     GroupReference* gref = group->GetFirstMember();
     uint32 index = 0;
     while (gref)
@@ -108,6 +109,7 @@ void ArrowFormation::FillSlotsExceptMaster()
 void ArrowFormation::AddMasterToSlot()
 {
     Group* group = bot->GetGroup();
+    std::lock_guard<std::recursive_mutex> groupGuard(group->GetLock());
     GroupReference* gref = group->GetFirstMember();
     uint32 index = 0;
     while (gref)

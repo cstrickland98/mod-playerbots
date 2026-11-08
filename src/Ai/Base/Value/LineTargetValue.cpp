@@ -18,17 +18,20 @@ Unit* LineTargetValue::Calculate()
         return nullptr;
 
     Player* prev = master;
-    Group::MemberSlotList const& groupSlot = group->GetMemberSlots();
-    for (Group::member_citerator itr = groupSlot.begin(); itr != groupSlot.end(); itr++)
     {
-        Player* player = ObjectAccessor::FindPlayer(itr->guid);
-        if (!player || !player->IsAlive() || player == master)
-            continue;
+        std::lock_guard<std::recursive_mutex> groupGuard(group->GetLock());
+        Group::MemberSlotList const& groupSlot = group->GetMemberSlots();
+        for (Group::member_citerator itr = groupSlot.begin(); itr != groupSlot.end(); itr++)
+        {
+            Player* player = ObjectAccessor::FindPlayer(itr->guid);
+            if (!player || !player->IsAlive() || player == master)
+                continue;
 
-        if (player == bot)
-            return prev;
+            if (player == bot)
+                return prev;
 
-        prev = player;
+            prev = player;
+        }
     }
 
     return master;

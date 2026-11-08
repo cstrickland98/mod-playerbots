@@ -139,22 +139,25 @@ int32 IccFestergutGroupPositionAction::CalculatePositionIndex(Group* group)
     std::vector<ObjectGuid> hunterGuids;
 
     // Collect all eligible members with their GUIDs
-    for (GroupReference* itr = group->GetFirstMember(); itr != nullptr; itr = itr->next())
     {
-        Player* member = itr->GetSource();
-        if (!member || !member->IsAlive() || PlayerbotAI::IsTank(member))
-            continue;
-
-        ObjectGuid memberGuid = member->GetGUID();
-
-        if (PlayerbotAI::IsHeal(member))
-            healerGuids.push_back(memberGuid);
-        else if (PlayerbotAI::IsRanged(member))
+        std::lock_guard<std::recursive_mutex> groupGuard(group->GetLock());
+        for (GroupReference* itr = group->GetFirstMember(); itr != nullptr; itr = itr->next())
         {
-            if (member->getClass() == CLASS_HUNTER)
-                hunterGuids.push_back(memberGuid);
-            else
-                rangedDpsGuids.push_back(memberGuid);
+            Player* member = itr->GetSource();
+            if (!member || !member->IsAlive() || PlayerbotAI::IsTank(member))
+                continue;
+
+            ObjectGuid memberGuid = member->GetGUID();
+
+            if (PlayerbotAI::IsHeal(member))
+                healerGuids.push_back(memberGuid);
+            else if (PlayerbotAI::IsRanged(member))
+            {
+                if (member->getClass() == CLASS_HUNTER)
+                    hunterGuids.push_back(memberGuid);
+                else
+                    rangedDpsGuids.push_back(memberGuid);
+            }
         }
     }
 
@@ -434,14 +437,17 @@ bool IccFestergutAvoidMalleableGooAction::Execute(Event /*event*/)
     std::vector<Position> alliesToSpace;
     if (Group* group = bot->GetGroup())
     {
-        for (GroupReference* itr = group->GetFirstMember(); itr != nullptr; itr = itr->next())
         {
-            Player* member = itr->GetSource();
-            if (!member || !member->IsAlive() || member->GetGUID() == botGuid)
-                continue;
-            if (sporeActive && PlayerbotAI::IsMelee(member))
-                continue;
-            alliesToSpace.push_back(member->GetPosition());
+            std::lock_guard<std::recursive_mutex> groupGuard(group->GetLock());
+            for (GroupReference* itr = group->GetFirstMember(); itr != nullptr; itr = itr->next())
+            {
+                Player* member = itr->GetSource();
+                if (!member || !member->IsAlive() || member->GetGUID() == botGuid)
+                    continue;
+                if (sporeActive && PlayerbotAI::IsMelee(member))
+                    continue;
+                alliesToSpace.push_back(member->GetPosition());
+            }
         }
     }
 

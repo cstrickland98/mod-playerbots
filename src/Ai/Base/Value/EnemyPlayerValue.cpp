@@ -130,22 +130,25 @@ Unit* EnemyPlayerValue::Calculate()
 
     if (Group* pGroup = bot->GetGroup())
     {
-        for (GroupReference* itr = pGroup->GetFirstMember(); itr != nullptr; itr = itr->next())
         {
-            if (Unit* pMember = itr->GetSource())
+            std::lock_guard<std::recursive_mutex> groupGuard(pGroup->GetLock());
+            for (GroupReference* itr = pGroup->GetFirstMember(); itr != nullptr; itr = itr->next())
             {
-                if (pMember == bot)
-                    continue;
+                if (Unit* pMember = itr->GetSource())
+                {
+                    if (pMember == bot)
+                        continue;
 
-                if (ServerFacade::instance().GetDistance2d(bot, pMember) > 30.0f)
-                    continue;
+                    if (ServerFacade::instance().GetDistance2d(bot, pMember) > 30.0f)
+                        continue;
 
-                if (Unit* pAttacker = pMember->getAttackerForHelper())
-                    if (!IsUnavailableCombatTarget(bot, pAttacker) && pAttacker->IsPlayer() &&
-                        bot->IsWithinDist(pAttacker, maxAggroDistance * 2.0f) && bot->IsWithinLOSInMap(pAttacker) &&
-                        pAttacker != pVictim &&
-                        (bot->InBattleground() ? bot->CanSeeOrDetect(pAttacker) : pAttacker->CanSeeOrDetect(bot)))
-                        return pAttacker;
+                    if (Unit* pAttacker = pMember->getAttackerForHelper())
+                        if (!IsUnavailableCombatTarget(bot, pAttacker) && pAttacker->IsPlayer() &&
+                            bot->IsWithinDist(pAttacker, maxAggroDistance * 2.0f) && bot->IsWithinLOSInMap(pAttacker) &&
+                            pAttacker != pVictim &&
+                            (bot->InBattleground() ? bot->CanSeeOrDetect(pAttacker) : pAttacker->CanSeeOrDetect(bot)))
+                            return pAttacker;
+                }
             }
         }
     }
