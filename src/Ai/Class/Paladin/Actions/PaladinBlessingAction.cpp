@@ -81,6 +81,7 @@ PendingBlessing PaladinBlessingPlanner::Plan()
 
     if (Group* group = _bot->GetGroup())
     {
+        std::lock_guard<std::recursive_mutex> groupGuard(group->GetLock());
         for (GroupReference* ref = group->GetFirstMember(); ref; ref = ref->next())
             ProcessMember(ref->GetSource(), constraints, classGroups, renewedHopePresent, recentLogin);
     }
@@ -102,7 +103,8 @@ void PaladinBlessingPlanner::ProcessMember(
     Player* member, BlessingConstraints& constraints,
     std::unordered_map<uint8, ClassGroup>& classGroups, bool& renewedHopePresent, bool& recentLogin)
 {
-    if (!member || !member->IsInWorld() || member->GetMap() != _bot->GetMap())
+    // a member another thread may be updating is skipped like one on another map
+    if (!member || !member->IsInWorld() || member->GetMap() != _bot->GetMap() || !PlayerbotAI::CanReadNow(member))
         return;
 
     if (ai::buff::IsWithinPostLoginBuffGrace(member))

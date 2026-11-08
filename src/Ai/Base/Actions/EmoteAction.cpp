@@ -6,7 +6,10 @@
 
 #include "EmoteAction.h"
 #include "Event.h"
+#include "MapThreading.h"
 #include "Playerbots.h"
+
+#include <mutex>
 #include "ServerFacade.h"
 
 std::map<std::string, uint32> EmoteActionBase::emotes;
@@ -15,8 +18,8 @@ char* strstri(char const* haystack, char const* needle);
 
 EmoteActionBase::EmoteActionBase(PlayerbotAI* botAI, std::string const name) : Action(botAI, name)
 {
-    if (emotes.empty())
-        InitEmotes();
+    static std::once_flag initialized;
+    std::call_once(initialized, [this]() { InitEmotes(); });
 }
 
 EmoteAction::EmoteAction(PlayerbotAI* botAI) : EmoteActionBase(botAI, "emote"), Qualified() {}
@@ -101,6 +104,7 @@ bool EmoteActionBase::Emote(Unit* target, uint32 type, bool textEmote)
             PlayerbotAI* playerBotAI = GET_PLAYERBOT_AI(player);
             if (playerBotAI && !player->HasInArc(static_cast<float>(M_PI), bot, sPlayerbotAIConfig.SightDistance))
             {
+                MT_ASSERT_WRITABLE(player);
                 player->SetFacingToObject(bot);
             }
         }

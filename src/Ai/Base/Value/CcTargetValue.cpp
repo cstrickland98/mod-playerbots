@@ -62,19 +62,22 @@ public:
             return;
         }
 
-        Group::MemberSlotList const& groupSlot = group->GetMemberSlots();
-        for (Group::member_citerator itr = groupSlot.begin(); itr != groupSlot.end(); itr++)
         {
-            Player* member = ObjectAccessor::FindPlayer(itr->guid);
-            if (!member || !member->IsAlive() || member == bot)
-                continue;
+            std::lock_guard<std::recursive_mutex> groupGuard(group->GetLock());
+            Group::MemberSlotList const& groupSlot = group->GetMemberSlots();
+            for (Group::member_citerator itr = groupSlot.begin(); itr != groupSlot.end(); itr++)
+            {
+                Player* member = ObjectAccessor::FindPlayer(itr->guid);
+                if (!member || !member->IsAlive() || member == bot || !PlayerbotAI::CanReadNow(member))
+                    continue;
 
-            if (!PlayerbotAI::IsTank(member))
-                continue;
+                if (!PlayerbotAI::IsTank(member))
+                    continue;
 
-            float distance = ServerFacade::instance().GetDistance2d(member, creature);
-            if (distance < minDistance)
-                minDistance = distance;
+                float distance = ServerFacade::instance().GetDistance2d(member, creature);
+                if (distance < minDistance)
+                    minDistance = distance;
+            }
         }
 
         if (!result || minDistance > maxDistance)

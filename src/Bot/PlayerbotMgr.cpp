@@ -530,28 +530,31 @@ void PlayerbotHolder::OnBotLogin(Player* const bot)
     if (group)
     {
         bool groupValid = false;
-        Group::MemberSlotList const& slots = group->GetMemberSlots();
-        for (Group::MemberSlotList::const_iterator i = slots.begin(); i != slots.end(); ++i)
         {
-            ObjectGuid member = i->guid;
-            if (master)
+            std::lock_guard<std::recursive_mutex> groupGuard(group->GetLock());
+            Group::MemberSlotList const& slots = group->GetMemberSlots();
+            for (Group::MemberSlotList::const_iterator i = slots.begin(); i != slots.end(); ++i)
             {
-                if (master->GetGUID() == member)
+                ObjectGuid member = i->guid;
+                if (master)
                 {
-                    groupValid = true;
-                    break;
+                    if (master->GetGUID() == member)
+                    {
+                        groupValid = true;
+                        break;
+                    }
                 }
-            }
 
-            // Don't disband alt groups when master goes away
-            // Controlled by config
-            if (sPlayerbotAIConfig.KeepAltsInGroup)
-            {
-                uint32 account = sCharacterCache->GetCharacterAccountIdByGuid(member);
-                if (!sPlayerbotAIConfig.IsInRandomAccountList(account))
+                // Don't disband alt groups when master goes away
+                // Controlled by config
+                if (sPlayerbotAIConfig.KeepAltsInGroup)
                 {
-                    groupValid = true;
-                    break;
+                    uint32 account = sCharacterCache->GetCharacterAccountIdByGuid(member);
+                    if (!sPlayerbotAIConfig.IsInRandomAccountList(account))
+                    {
+                        groupValid = true;
+                        break;
+                    }
                 }
             }
         }
@@ -1294,7 +1297,12 @@ std::vector<std::string> PlayerbotHolder::HandlePlayerbotCommand(char const* arg
             return messages;
         }
 
-        Group::MemberSlotList slots = group->GetMemberSlots();
+        Group::MemberSlotList slots;
+        {
+            std::lock_guard<std::recursive_mutex> groupGuard(group->GetLock());
+            slots = group->GetMemberSlots();
+        }
+
         for (Group::member_citerator i = slots.begin(); i != slots.end(); i++)
         {
             ObjectGuid member = i->guid;
@@ -1487,17 +1495,20 @@ std::string const PlayerbotHolder::ListBots(Player* master)
 
     if (Group* group = master->GetGroup())
     {
-        Group::MemberSlotList const& groupSlot = group->GetMemberSlots();
-        for (Group::member_citerator itr = groupSlot.begin(); itr != groupSlot.end(); itr++)
         {
-            Player* member = ObjectAccessor::FindPlayer(itr->guid);
-            if (member && sRandomPlayerbotMgr.IsRandomBot(member))
+            std::lock_guard<std::recursive_mutex> groupGuard(group->GetLock());
+            Group::MemberSlotList const& groupSlot = group->GetMemberSlots();
+            for (Group::member_citerator itr = groupSlot.begin(); itr != groupSlot.end(); itr++)
             {
-                std::string const name = member->GetName();
+                Player* member = ObjectAccessor::FindPlayer(itr->guid);
+                if (member && sRandomPlayerbotMgr.IsRandomBot(member))
+                {
+                    std::string const name = member->GetName();
 
-                names.push_back(name);
-                online[name] = "+";
-                classes[name] = classNames[member->getClass()];
+                    names.push_back(name);
+                    online[name] = "+";
+                    classes[name] = classNames[member->getClass()];
+                }
             }
         }
     }
@@ -1648,6 +1659,14 @@ void PlayerbotMgr::HandleMasterIncomingPacket(WorldPacket const& packet)
                 {
                     break;
                 }
+
+                // the master's packets run on its own grid's thread; its bots may be anywhere
+                if (master->GetMap()->IsParallelPhase())
+                {
+                    PlayerbotWorldThreadProcessor::instance().QueueOperation(
+                        std::make_unique<MasterBotsLogoutOperation>(master->GetGUID(), false));
+                    break;
+                }
             }
 
             LogoutAllBots();
@@ -1656,6 +1675,14 @@ void PlayerbotMgr::HandleMasterIncomingPacket(WorldPacket const& packet)
         // if master cancelled logout, cancel too
         case CMSG_LOGOUT_CANCEL:
         {
+            Player* master = GetMaster();
+            if (master && master->GetMap()->IsParallelPhase())
+            {
+                PlayerbotWorldThreadProcessor::instance().QueueOperation(
+                    std::make_unique<MasterBotsLogoutOperation>(master->GetGUID(), true));
+                break;
+            }
+
             CancelLogout();
             break;
         }

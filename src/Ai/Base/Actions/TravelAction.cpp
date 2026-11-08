@@ -82,10 +82,17 @@ bool MoveToDarkPortalAction::Execute(Event /*event*/)
                     CreatureData const* creatureData = sRandomPlayerbotMgr.GetCreatureDataByEntry(16841);
                     if (quest && creatureData)
                     {
-                        auto creatureBounds =
-                            bot->GetMap()->GetCreatureBySpawnIdStore().equal_range(creatureData->spawnId);
-                        if (creatureBounds.first != creatureBounds.second)
-                            bot->AddQuest(quest, creatureBounds.first->second);
+                        Creature* questGiver = nullptr;
+                        {
+                            auto const storeGuard = bot->GetMap()->LockObjectsStoreForRead();
+                            auto creatureBounds =
+                                bot->GetMap()->GetCreatureBySpawnIdStore().equal_range(creatureData->spawnId);
+                            if (creatureBounds.first != creatureBounds.second)
+                                questGiver = creatureBounds.first->second;
+                        }
+
+                        if (questGiver)
+                            bot->AddQuest(quest, questGiver);
                     }
                 }
                 else
@@ -94,10 +101,17 @@ bool MoveToDarkPortalAction::Execute(Event /*event*/)
                     CreatureData const* creatureData = sRandomPlayerbotMgr.GetCreatureDataByEntry(19254);
                     if (quest && creatureData)
                     {
-                        auto creatureBounds =
-                            bot->GetMap()->GetCreatureBySpawnIdStore().equal_range(creatureData->spawnId);
-                        if (creatureBounds.first != creatureBounds.second)
-                            bot->AddQuest(quest, creatureBounds.first->second);
+                        Creature* questGiver = nullptr;
+                        {
+                            auto const storeGuard = bot->GetMap()->LockObjectsStoreForRead();
+                            auto creatureBounds =
+                                bot->GetMap()->GetCreatureBySpawnIdStore().equal_range(creatureData->spawnId);
+                            if (creatureBounds.first != creatureBounds.second)
+                                questGiver = creatureBounds.first->second;
+                        }
+
+                        if (questGiver)
+                            bot->AddQuest(quest, questGiver);
                     }
                 }
             }

@@ -122,18 +122,21 @@ Unit* GrindTargetValue::FindTargetForGrinding(uint32 assistCount)
 
         if (group)
         {
-            Group::MemberSlotList const& groupSlot = group->GetMemberSlots();
-            for (Group::member_citerator itr = groupSlot.begin(); itr != groupSlot.end(); itr++)
             {
-                Player* member = ObjectAccessor::FindPlayer(itr->guid);
-                if (!member || !member->IsAlive())
-                    continue;
-
-                float d = member->GetDistance(unit);
-                if (!result || d < distance)
+                std::lock_guard<std::recursive_mutex> groupGuard(group->GetLock());
+                Group::MemberSlotList const& groupSlot = group->GetMemberSlots();
+                for (Group::member_citerator itr = groupSlot.begin(); itr != groupSlot.end(); itr++)
                 {
-                    distance = d;
-                    result = unit;
+                    Player* member = ObjectAccessor::FindPlayer(itr->guid);
+                    if (!member || !member->IsAlive())
+                        continue;
+
+                    float d = member->GetDistance(unit);
+                    if (!result || d < distance)
+                    {
+                        distance = d;
+                        result = unit;
+                    }
                 }
             }
         }
@@ -210,17 +213,20 @@ uint32 GrindTargetValue::GetTargetingPlayerCount(Unit* unit)
         return 0;
 
     uint32 count = 0;
-    Group::MemberSlotList const& groupSlot = group->GetMemberSlots();
-    for (Group::member_citerator itr = groupSlot.begin(); itr != groupSlot.end(); itr++)
     {
-        Player* member = ObjectAccessor::FindPlayer(itr->guid);
-        if (!member || !member->IsAlive() || member == bot)
-            continue;
+        std::lock_guard<std::recursive_mutex> groupGuard(group->GetLock());
+        Group::MemberSlotList const& groupSlot = group->GetMemberSlots();
+        for (Group::member_citerator itr = groupSlot.begin(); itr != groupSlot.end(); itr++)
+        {
+            Player* member = ObjectAccessor::FindPlayer(itr->guid);
+            if (!member || !member->IsAlive() || member == bot || !PlayerbotAI::CanReadNow(member))
+                continue;
 
-        PlayerbotAI* botAI = GET_PLAYERBOT_AI(member);
-        if ((botAI && *botAI->GetAiObjectContext()->GetValue<Unit*>("current target") == unit) ||
-            (!botAI && member->GetTarget() == unit->GetGUID()))
-            ++count;
+            PlayerbotAI* botAI = GET_PLAYERBOT_AI(member);
+            if ((botAI && *botAI->GetAiObjectContext()->GetValue<Unit*>("current target") == unit) ||
+                (!botAI && member->GetTarget() == unit->GetGUID()))
+                ++count;
+        }
     }
 
     return count;

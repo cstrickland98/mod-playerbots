@@ -110,7 +110,8 @@ bool ChooseRpgTargetAction::Execute(Event /*event*/)
 {
     Player* master = botAI->GetMaster();
     GuidPosition masterRpgTarget;
-    if (master && master != bot && GET_PLAYERBOT_AI(master) && master->GetMapId() == bot->GetMapId() && !master->IsBeingTeleported())
+    if (master && master != bot && GET_PLAYERBOT_AI(master) && master->GetMapId() == bot->GetMapId() &&
+        !master->IsBeingTeleported() && PlayerbotAI::CanReadNow(master))
     {
         Player* player = master;
         masterRpgTarget = PAI_VALUE(GuidPosition, "rpg target");

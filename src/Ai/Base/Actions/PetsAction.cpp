@@ -8,6 +8,7 @@
 #include "CharmInfo.h"
 #include "Creature.h"
 #include "CreatureAI.h"
+#include "MapThreading.h"
 #include "Pet.h"
 #include "Player.h"
 #include "PlayerbotAI.h"
@@ -204,6 +205,8 @@ bool PetsAction::Execute(Event event)
                 continue;
 
             petCreature->ClearUnitState(UNIT_STATE_FOLLOW);
+            MT_ASSERT_WRITABLE(petCreature);
+            MT_ASSERT_WRITABLE(targetUnit);
             // Only command attack if not already attacking the target, or if not currently under command attack.
             if (petCreature->GetVictim() != targetUnit ||
                 (petCreature->GetVictim() == targetUnit && !charmInfo->IsCommandAttack()))
@@ -425,6 +428,7 @@ bool PetAttackAction::Execute(Event /*event*/)
     // pet's stance to "passive" every time the attack action was executed.
     // pet->SetReactState(REACT_PASSIVE);
 
+    MT_ASSERT_WRITABLE(pet);
     pet->ClearUnitState(UNIT_STATE_FOLLOW);
     pet->AttackStop();
     pet->SetTarget(target->GetGUID());

@@ -230,17 +230,30 @@ bool SummonAction::Teleport(Player* summoner, Player* player, bool preserveAuras
                     botAI->GetAiObjectContext()->GetValue<GuidVector>("prioritized targets")->Reset();
                 }
 
-                player->GetMotionMaster()->Clear();
                 AI_VALUE(LastMovement&, "last movement").clear();
 
-                if (!preserveAuras)
-                    player->RemoveAurasWithInterruptFlags(AURA_INTERRUPT_FLAG_TELEPORTED |
-                                                          AURA_INTERRUPT_FLAG_CHANGE_MAP);
-                player->TeleportTo(mapId, x, y, z, 0);
-                if (player->GetPet())
-                    player->GetPet()->NearTeleportTo(x, y, z, player->GetOrientation());
-                if (player->GetGuardianPet())
-                    player->GetGuardianPet()->NearTeleportTo(x, y, z, player->GetOrientation());
+                auto const teleport = [mapId, x, y, z, preserveAuras](WorldObject* object)
+                {
+                    Player* target = object->ToPlayer();
+                    if (!target)
+                        return;
+
+                    target->GetMotionMaster()->Clear();
+                    if (!preserveAuras)
+                        target->RemoveAurasWithInterruptFlags(AURA_INTERRUPT_FLAG_TELEPORTED |
+                                                              AURA_INTERRUPT_FLAG_CHANGE_MAP);
+                    target->TeleportTo(mapId, x, y, z, 0);
+                    if (target->GetPet())
+                        target->GetPet()->NearTeleportTo(x, y, z, target->GetOrientation());
+                    if (target->GetGuardianPet())
+                        target->GetGuardianPet()->NearTeleportTo(x, y, z, target->GetOrientation());
+                };
+
+                // the bot summoning its master through a stone moves the master, who may be far away
+                if (player == bot)
+                    teleport(player);
+                else
+                    bot->GetMap()->RunOnOwner(player, teleport);
                 if (botAI->HasStrategy("stay", botAI->GetState()))
                 {
                     PositionMap& posMap = AI_VALUE(PositionMap&, "position");

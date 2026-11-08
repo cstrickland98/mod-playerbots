@@ -24,6 +24,7 @@
 #include "SpellAuras.h"
 #include "Util.h"
 #include "WorldPacket.h"
+#include <mutex>
 #include <stack>
 #include <unordered_set>
 
@@ -361,6 +362,7 @@ public:
 private:
     std::map<uint16, std::string> handlers;
     std::stack<WorldPacket> queue;
+    std::mutex queueLock;  // packets arrive on the sender's thread, which may be another grid's
 };
 
 class ChatCommandHolder
@@ -415,6 +417,8 @@ public:
     void HandleCommand(uint32 type, std::string const text, Player* fromPlayer);
     void QueueChatResponse(const ChatQueuedReply reply);
     void HandleBotOutgoingPacket(WorldPacket const& packet);
+    // False while the object is in a grid that another thread of its map may be updating
+    static bool CanReadNow(WorldObject const* object);
     void HandleMasterIncomingPacket(WorldPacket const& packet);
     void HandleMasterOutgoingPacket(WorldPacket const& packet);
     void HandleTeleportAck();
@@ -651,6 +655,7 @@ private:
     void UpdateAIGroupMaster();
     Item* FindItemInInventory(std::function<bool(ItemTemplate const*)> checkItem) const;
     void HandleCommands();
+    void HandleDeferredInput();
     void HandleCommand(uint32 type, std::string const& text, Player& fromPlayer, const uint32 lang = LANG_UNIVERSAL);
     inline bool IsValidUnit(Unit const* unit) const
     {
@@ -672,6 +677,16 @@ protected:
     ChatHelper chatHelper;
     std::list<ChatCommandHolder> chatCommands;
     std::list<ChatQueuedReply> chatReplies;
+    // Input sent to this bot from a thread that does not own its grid, handled on the bot's own update
+    struct DeferredCommand
+    {
+        uint32 type;
+        std::string text;
+        ObjectGuid fromGuid;
+    };
+    std::mutex deferredInputLock;
+    std::vector<WorldPacket> deferredBotPackets;
+    std::vector<DeferredCommand> deferredCommands;
     PacketHandlingHelper botOutgoingPacketHandlers;
     PacketHandlingHelper masterIncomingPacketHandlers;
     PacketHandlingHelper masterOutgoingPacketHandlers;
@@ -679,7 +694,7 @@ protected:
     PlayerbotSecurity security;
     std::map<std::string, time_t> whispers;
     std::pair<ChatMsg, time_t> currentChat;
-    static std::set<std::string> unsecuredCommands;
+    static std::set<std::string> const unsecuredCommands;
     bool allowActive[MAX_ACTIVITY_TYPE];
     time_t allowActiveCheckTimer[MAX_ACTIVITY_TYPE];
     ReactionEngine* reactionEngine = nullptr;

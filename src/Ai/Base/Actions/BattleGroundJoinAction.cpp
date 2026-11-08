@@ -90,7 +90,10 @@ bool BGJoinAction::gatherArenaTeam(ArenaType type)
         // if (!member && !sObjectMgr->GetPlayerAccountIdByGUID(itr->guid))
         //     continue;
 
-        if (offline)
+        if (offline && bot->GetMap()->IsParallelPhase())
+            PlayerbotWorldThreadProcessor::instance().QueueOperation(
+                std::make_unique<AddPlayerBotOperation>(itr->Guid, 0));
+        else if (offline)
             sRandomPlayerbotMgr.AddPlayerBot(itr->Guid, 0);
 
         if (member)

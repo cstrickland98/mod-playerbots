@@ -43,6 +43,14 @@ bool InviteToGroupAction::Invite(Player* inviter, Player* player)
             }
     }
 
+    // The handler writes both players and may create the inviter's group
+    if (!PlayerbotAI::CanReadNow(inviter) || !PlayerbotAI::CanReadNow(player))
+    {
+        PlayerbotWorldThreadProcessor::instance().QueueOperation(
+            std::make_unique<GroupInviteOpcodeOperation>(inviter->GetGUID(), player->GetGUID()));
+        return true;
+    }
+
     WorldPacket p;
     uint32 roles_mask = 0;
     p << player->GetName();
@@ -202,6 +210,10 @@ bool InviteGuildToGroupAction::Execute(Event /*event*/)
             continue;
 
         if (WorldPosition(player).distance(bot) > 1000 && player->GetLevel() < 15)
+            continue;
+
+        // the guild member may be anywhere: reading its AI values or inviting it from here is a far access
+        if (!PlayerbotAI::CanReadNow(player))
             continue;
 
         PlayerbotAI* playerAi = GET_PLAYERBOT_AI(player);
@@ -383,24 +395,28 @@ bool LfgAction::Execute(Event event)
             }
         }
 
-        Group::MemberSlotList const& groupSlot = group->GetMemberSlots();
-        for (Group::member_citerator itr = groupSlot.begin(); itr != groupSlot.end(); itr++)
         {
-            // Only add group member targets that are alive and near the player
-            Player* player = ObjectAccessor::FindPlayer(itr->guid);
+            std::lock_guard<std::recursive_mutex> groupGuard(group->GetLock());
+            Group::MemberSlotList const& groupSlot = group->GetMemberSlots();
+            for (Group::member_citerator itr = groupSlot.begin(); itr != groupSlot.end(); itr++)
+            {
+                // Only add group member targets that are alive and near the player
+                Player* player = ObjectAccessor::FindPlayer(itr->guid);
 
-            if (!botAI->IsSafe(player))
-                return false;
+                if (!botAI->IsSafe(player))
+                    return false;
 
-            role = PlayerbotAI::IsTank(player, true) ? BOT_ROLE_TANK
-                                               : (PlayerbotAI::IsHeal(player, true) ? BOT_ROLE_HEALER : BOT_ROLE_DPS);
-            cls = (Classes)player->getClass();
+                role = PlayerbotAI::IsTank(player, true)
+                           ? BOT_ROLE_TANK
+                           : (PlayerbotAI::IsHeal(player, true) ? BOT_ROLE_HEALER : BOT_ROLE_DPS);
+                cls = (Classes)player->getClass();
 
-            if (allowedRoles[role] > 0)
-                allowedRoles[role]--;
+                if (allowedRoles[role] > 0)
+                    allowedRoles[role]--;
 
-            if (allowedClassNr[cls].find(role) != allowedClassNr[cls].end() && allowedClassNr[cls][role] > 0)
-                allowedClassNr[cls][role]--;
+                if (allowedClassNr[cls].find(role) != allowedClassNr[cls].end() && allowedClassNr[cls][role] > 0)
+                    allowedClassNr[cls][role]--;
+            }
         }
     }
     else

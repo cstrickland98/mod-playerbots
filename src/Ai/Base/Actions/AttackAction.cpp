@@ -9,6 +9,7 @@
 #include "Event.h"
 #include "LastMovementValue.h"
 #include "LootObjectStack.h"
+#include "MapThreading.h"
 #include "PlayerbotAI.h"
 #include "PlayerbotTextMgr.h"
 #include "Playerbots.h"
@@ -195,6 +196,7 @@ bool AttackAction::Attack(Unit* target, bool /*with_pet*/ /*true*/)
 
     botAI->ChangeEngine(BOT_STATE_COMBAT);
 
+    MT_ASSERT_WRITABLE(target);
     if (!WaitForAttackStrategy::ShouldWait(botAI))
         bot->Attack(target, shouldMelee);
     /* prevent pet dead immediately in group */

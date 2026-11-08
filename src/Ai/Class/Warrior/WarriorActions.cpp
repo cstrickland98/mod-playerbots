@@ -53,18 +53,21 @@ bool CastSunderArmorAction::isUseful()
 
     if (!PlayerbotAI::IsTank(bot, false))
     {
-        for (GroupReference* ref = group->GetFirstMember(); ref; ref = ref->next())
         {
-            Player* member = ref->GetSource();
-            if (!member || member == bot || !member->IsAlive() || !member->IsInWorld() ||
-                member->GetMapId() != bot->GetMapId())
+            std::lock_guard<std::recursive_mutex> groupGuard(group->GetLock());
+            for (GroupReference* ref = group->GetFirstMember(); ref; ref = ref->next())
             {
-                continue;
-            }
+                Player* member = ref->GetSource();
+                if (!member || member == bot || !member->IsAlive() || !member->IsInWorld() ||
+                    member->GetMapId() != bot->GetMapId() || !PlayerbotAI::CanReadNow(member))
+                {
+                    continue;
+                }
 
-            if (member->getClass() == CLASS_WARRIOR &&
-                PlayerbotAI::IsTank(member, false))
-                return false;
+                if (member->getClass() == CLASS_WARRIOR &&
+                    PlayerbotAI::IsTank(member, false))
+                    return false;
+            }
         }
     }
 
@@ -81,32 +84,35 @@ Unit* CastVigilanceAction::GetTarget()
     Player* vigilanceTarget = nullptr;
     uint32 highestGearScore = 0;
 
-    for (GroupReference* ref = group->GetFirstMember(); ref; ref = ref->next())
     {
-        Player* member = ref->GetSource();
-        if (!member || member == bot || !member->IsAlive())
-            continue;
-
-        // Same as trigger: early return if the bot's own Vigilance is already applied to a member.
-        if (member->HasAura(SPELL_VIGILANCE, bot->GetGUID()))
-            return nullptr;
-
-        // A valid target must not have Vigilance from any source, not just the bot...
-        if (member->HasAura(SPELL_VIGILANCE))
-            continue;
-
-        // And it must be in range and be a dps.
-        if (member->GetMapId() != bot->GetMapId() || !PlayerbotAI::IsDps(member) ||
-            bot->GetDistance(member) > sPlayerbotAIConfig.SpellDistance)
+        std::lock_guard<std::recursive_mutex> groupGuard(group->GetLock());
+        for (GroupReference* ref = group->GetFirstMember(); ref; ref = ref->next())
         {
-            continue;
-        }
+            Player* member = ref->GetSource();
+            if (!member || member == bot || !member->IsAlive() || !PlayerbotAI::CanReadNow(member))
+                continue;
 
-        uint32 gearScore = botAI->GetEquipGearScore(member);
-        if (gearScore > highestGearScore)
-        {
-            highestGearScore = gearScore;
-            vigilanceTarget = member;
+            // Same as trigger: early return if the bot's own Vigilance is already applied to a member.
+            if (member->HasAura(SPELL_VIGILANCE, bot->GetGUID()))
+                return nullptr;
+
+            // A valid target must not have Vigilance from any source, not just the bot...
+            if (member->HasAura(SPELL_VIGILANCE))
+                continue;
+
+            // And it must be in range and be a dps.
+            if (member->GetMapId() != bot->GetMapId() || !PlayerbotAI::IsDps(member) ||
+                bot->GetDistance(member) > sPlayerbotAIConfig.SpellDistance)
+            {
+                continue;
+            }
+
+            uint32 gearScore = botAI->GetEquipGearScore(member);
+            if (gearScore > highestGearScore)
+            {
+                highestGearScore = gearScore;
+                vigilanceTarget = member;
+            }
         }
     }
 
