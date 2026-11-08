@@ -17,6 +17,7 @@ struct CreatureData;
 enum ArenaType : uint8;
 enum BattlegroundQueueTypeId : uint8;
 enum BattlegroundBracketId : uint8;
+enum BattlegroundTypeId : uint8;
 
 class BGJoinAction : public Action
 {
@@ -27,7 +28,7 @@ public:
     bool canJoinBg(BattlegroundQueueTypeId queueTypeId, BattlegroundBracketId bracketId);
     virtual bool shouldJoinBg(BattlegroundQueueTypeId queueTypeId, BattlegroundBracketId bracketId);
     bool Execute(Event event) override;
-    virtual bool gatherArenaTeam(ArenaType type);
+    virtual bool gatherArenaTeam(ArenaType type, BattlegroundTypeId bgTypeId);
 
 protected:
     bool JoinQueue(uint32 type);
