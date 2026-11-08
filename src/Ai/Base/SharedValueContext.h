@@ -13,6 +13,11 @@
 #include "PvpValues.h"
 #include "QuestValues.h"
 
+#include <memory>
+#include <mutex>
+#include <string>
+#include <unordered_map>
+
 class SharedValueContext : public NamedObjectContext<UntypedValue>
 {
 public:
@@ -23,32 +28,33 @@ public:
         return instance;
     }
 
+    // Values shared by all bots: created once per name and read under one lock, since bots on any map thread
+    // ask for them and calculating one may ask for another
     template <class T>
-    Value<T>* getGlobalValue(std::string const name)
+    T GetGlobal(std::string const& name)
     {
-        // should never reach here
-        SharedNamedObjectContextList<UntypedValue> sValueContexts;
-        sValueContexts.Add(this);
-        NamedObjectContextList<UntypedValue> valueContexts(sValueContexts);
-        PlayerbotAI* botAI = new PlayerbotAI();
+        std::lock_guard<std::recursive_mutex> lock(globalsLock);
+        auto it = globals.find(name);
+        if (it == globals.end())
+        {
+            UntypedValue* created = NamedObjectFactory<UntypedValue>::CreateFrom(creators, name, globalAI);
+            it = globals.emplace(name, std::unique_ptr<UntypedValue>(created)).first;
+        }
 
-        UntypedValue* value = valueContexts.GetContextObject(name, botAI);
-        delete botAI;
-        return dynamic_cast<Value<T>*>(value);
+        Value<T>* value = dynamic_cast<Value<T>*>(it->second.get());
+        return value ? value->Get() : T();
     }
 
     template <class T>
-    Value<T>* getGlobalValue(std::string const name, std::string const param)
+    T GetGlobal(std::string const& name, std::string const& param)
     {
-        return getGlobalValue<T>((std::string(name) + "::" + param));
+        return GetGlobal<T>(name + "::" + param);
     }
 
     template <class T>
-    Value<T>* getGlobalValue(std::string const name, uint32 param)
+    T GetGlobal(std::string const& name, uint32 param)
     {
-        std::ostringstream out;
-        out << param;
-        return getGlobalValue<T>(name, out.str());
+        return GetGlobal<T>(name, std::to_string(param));
     }
 
 private:
@@ -78,6 +84,9 @@ private:
     static UntypedValue* entry_quest_relation(PlayerbotAI* botAI) { return new EntryQuestRelationMapValue(botAI); }
     static UntypedValue* quest_guidp_map(PlayerbotAI* botAI) { return new QuestGuidpMapValue(botAI); }
 
+    PlayerbotAI* const globalAI = new PlayerbotAI();  // botless owner for the shared values; lives with the process
+    std::recursive_mutex globalsLock;
+    std::unordered_map<std::string, std::unique_ptr<UntypedValue>> globals;
 };
 
 #define sSharedValueContext SharedValueContext::instance()

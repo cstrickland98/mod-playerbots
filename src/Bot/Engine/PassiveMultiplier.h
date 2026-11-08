@@ -21,8 +21,8 @@ public:
     float GetValue(Action* action) override;
 
 private:
-    static std::vector<std::string> allowedActions;
-    static std::vector<std::string> allowedParts;
+    static std::vector<std::string> const allowedActions;
+    static std::vector<std::string> const allowedParts;
 };
 
 #endif

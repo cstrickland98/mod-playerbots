@@ -12,6 +12,7 @@
 #include "Playerbots.h"
 
 #include <array>
+#include <mutex>
 
 static constexpr std::array<uint32, 10> CRAFTING_SKILLS = {
     SKILL_ALCHEMY,
@@ -82,11 +83,12 @@ bool SetCraftAction::Execute(Event event)
     if (!proto)
         return false;
 
-    if (skillSpells.empty())
+    static std::once_flag initialized;
+    std::call_once(initialized, []()
     {
         for (SkillLineAbilityEntry const* skillLine : sSkillLineAbilityStore)
             skillSpells[skillLine->Spell] = skillLine;
-    }
+    });
 
     data.required.clear();
     data.obtained.clear();
@@ -102,8 +104,8 @@ bool SetCraftAction::Execute(Event event)
         if (!spellInfo)
             continue;
 
-        SkillLineAbilityEntry const* skillLine = skillSpells[spellId];
-        if (skillLine != nullptr)
+        auto const skillLine = skillSpells.find(spellId);
+        if (skillLine != skillSpells.end() && skillLine->second)
         {
             for (uint8 i = 0; i < 3; ++i)
             {

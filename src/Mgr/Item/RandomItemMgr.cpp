@@ -10,6 +10,8 @@
 #include "ItemTemplate.h"
 #include "Playerbots.h"
 
+#include <shared_mutex>
+
 std::unordered_set<uint32> RandomItemMgr::itemCache;
 
 class RandomItemGuildTaskPredicate : public RandomItemPredicate
@@ -1526,13 +1528,19 @@ static bool IsCraftedBySkill(uint32 itemId, uint32 skillId)
     return false;
 }
 
+// bots on every map thread ask; filled lazily
+static std::shared_mutex itemCacheLock;
+
 bool RandomItemMgr::IsUsedBySkill(ItemTemplate const* proto, uint32 skillId)
 {
     if (!proto)
         return false;
 
-    if (itemCache.contains(proto->ItemId))
-        return true;
+    {
+        std::shared_lock<std::shared_mutex> lock(itemCacheLock);
+        if (itemCache.contains(proto->ItemId))
+            return true;
+    }
 
     switch (proto->Class)
     {
@@ -1542,6 +1550,7 @@ bool RandomItemMgr::IsUsedBySkill(ItemTemplate const* proto, uint32 skillId)
         case ITEM_CLASS_GEM:
             if (IsCraftedBySkill(proto->ItemId, skillId))
             {
+                std::unique_lock<std::shared_mutex> lock(itemCacheLock);
                 itemCache.insert(proto->ItemId);
                 return true;
             }

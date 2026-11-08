@@ -77,6 +77,7 @@ public:
     static std::set<uint32> ExtractAllItemIds(std::string const& text);
 
 private:
+    static void InitStaticMaps();
     static std::string EncodeRecipeBits(std::vector<bool> const& known);
 
     static std::map<std::string, uint32> consumableSubClasses;

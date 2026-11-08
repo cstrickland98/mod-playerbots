@@ -14,6 +14,7 @@
 #include "Playerbots.h"
 #include "SpellInfo.h"
 #include "World.h"
+#include <mutex>
 #include <regex>
 
 std::map<std::string, uint32> ChatHelper::consumableSubClasses;
@@ -41,6 +42,12 @@ static bool substrContainsInMap(std::string const searchTerm, std::map<std::stri
 }
 
 ChatHelper::ChatHelper(PlayerbotAI* botAI) : PlayerbotAIAware(botAI)
+{
+    static std::once_flag initialized;
+    std::call_once(initialized, &ChatHelper::InitStaticMaps);
+}
+
+void ChatHelper::InitStaticMaps()
 {
     itemQualities["poor"] = ITEM_QUALITY_POOR;
     itemQualities["gray"] = ITEM_QUALITY_POOR;
@@ -707,7 +714,14 @@ std::string const ChatHelper::FormatClass(Player* player, int8 spec)
     uint8 cls = player->getClass();
 
     std::ostringstream out;
-    out << specs[cls][spec] << " (";
+    auto const classSpecs = specs.find(cls);
+    if (classSpecs != specs.end())
+    {
+        auto const specName = classSpecs->second.find(spec);
+        if (specName != classSpecs->second.end())
+            out << specName->second;
+    }
+    out << " (";
 
     std::map<uint8, uint32> tabs = AiFactory::GetPlayerSpecTabs(player);
     uint32 c0 = tabs[0];
@@ -718,11 +732,15 @@ std::string const ChatHelper::FormatClass(Player* player, int8 spec)
     out << (c1 ? "|h|cff00ff00" : "") << c1 << "|h|cffffffff/";
     out << (c2 ? "|h|cff00ff00" : "") << c2 << "|h|cffffffff";
 
-    out << ")|r " << classes[cls];
+    out << ")|r " << FormatClass(cls);
     return out.str();
 }
 
-std::string const ChatHelper::FormatClass(uint8 cls) { return classes[cls]; }
+std::string const ChatHelper::FormatClass(uint8 cls)
+{
+    auto const name = classes.find(cls);
+    return name != classes.end() ? name->second : "";
+}
 
 std::string const ChatHelper::FormatRace(uint8 race)
 {

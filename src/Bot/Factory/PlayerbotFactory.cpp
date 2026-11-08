@@ -41,6 +41,7 @@
 #include "Trainer.h"
 #include "World.h"
 #include <array>
+#include <mutex>
 #include <set>
 #include <tuple>
 #include <unordered_set>
@@ -106,6 +107,8 @@ std::list<uint32> PlayerbotFactory::specialQuestIds;
 std::vector<uint32> PlayerbotFactory::enchantSpellIdCache;
 std::vector<uint32> PlayerbotFactory::enchantGemIdCache;
 std::unordered_map<uint32, std::vector<PlayerbotFactory::TrainerSpellIndexes>> PlayerbotFactory::trainerSpellCache;
+// bots level up on every map thread; an entry is never changed once inserted
+static std::mutex trainerSpellCacheLock;
 std::vector<uint32> PlayerbotFactory::ccBreakTrinketCache;
 
 namespace
@@ -3605,9 +3608,9 @@ void PlayerbotFactory::SetRandomSkill(uint16 id)
     bot->SetSkill(id, step, value, maxValue);
 }
 
-void PlayerbotFactory::BuildTrainerSpellCache()
+std::vector<PlayerbotFactory::TrainerSpellIndexes> PlayerbotFactory::BuildTrainerSpellCache()
 {
-    std::vector<TrainerSpellIndexes>& cache = trainerSpellCache[bot->getClass()];
+    std::vector<TrainerSpellIndexes> cache;
     std::unordered_set<Trainer::Trainer const*> visitedTrainers;
     // Trainer type is part of the key because IsTrainerSpellAllowedForBot treats tradeskill trainers differently.
     std::set<std::tuple<Trainer::Type, uint32, uint8, uint32, uint32, uint32, uint32, uint32>> seenSpells;
@@ -3647,13 +3650,28 @@ void PlayerbotFactory::BuildTrainerSpellCache()
         if (!entry.SpellIndexes.empty())
             cache.push_back(std::move(entry));
     }
+
+    return cache;
 }
 
 void PlayerbotFactory::InitAvailableSpells()
 {
-    std::vector<TrainerSpellIndexes> const& cache = trainerSpellCache[bot->getClass()];
-    if (cache.empty())
-        BuildTrainerSpellCache();
+    std::vector<TrainerSpellIndexes> const* cached = nullptr;
+    {
+        std::lock_guard<std::mutex> lock(trainerSpellCacheLock);
+        auto const itr = trainerSpellCache.find(bot->getClass());
+        if (itr != trainerSpellCache.end())
+            cached = &itr->second;
+    }
+
+    if (!cached)
+    {
+        std::vector<TrainerSpellIndexes> built = BuildTrainerSpellCache();
+        std::lock_guard<std::mutex> lock(trainerSpellCacheLock);
+        cached = &trainerSpellCache.emplace(bot->getClass(), std::move(built)).first->second;
+    }
+
+    std::vector<TrainerSpellIndexes> const& cache = *cached;
 
     // Each spell is visited once per pass at its first trainer, which may list it before a prerequisite
     // taught later in the walk, so passes repeat while they still teach something.
