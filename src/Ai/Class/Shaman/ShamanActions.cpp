@@ -6,6 +6,7 @@
 
 #include "ShamanActions.h"
 #include "Action.h"
+#include "Map.h"
 #include "PlayerbotAI.h"
 #include "Playerbots.h"
 #include "TotemsShamanStrategy.h"
@@ -82,6 +83,10 @@ bool CastSpiritWalkAction::Execute(Event /*event*/)
     {
         if (unit->GetEntry() == SPIRIT_WOLF && unit->HasSpell(SPIRIT_WALK_SPELL))
         {
+            // a wolf left behind in a grid another map task owns casts nothing from the bot's task
+            if (Map* map = unit->FindMap(); map && !map->CanWriteNow(unit))
+                return false;
+
             unit->CastSpell(unit, SPIRIT_WALK_SPELL, false);
             return true;
         }
