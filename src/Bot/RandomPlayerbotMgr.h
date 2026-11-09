@@ -295,6 +295,10 @@ private:
     std::vector<WorldLocation> GetPlayerZoneTeleportLocations(std::vector<WorldLocation> const& locs, Player* bot);
     void UpdateBotsPerMap();
     void PreferLeastLoadedMap(std::vector<WorldPosition>& locs) const;
+    std::vector<WorldLocation> GetPlayerZoneHubLocations(std::vector<WorldLocation> const& hubs, Player* bot);
+    std::set<std::pair<uint32, uint32>> GetPlayerZones();
+    std::vector<WorldLocation> FilterPlayerZoneTeleportLocations(
+        std::vector<WorldLocation> const& locs, Player* bot, std::set<std::pair<uint32, uint32>> const& playerMapZones);
     typedef void (RandomPlayerbotMgr::*ConsoleCommandHandler)(Player*);
     std::vector<Player*> players;
 
