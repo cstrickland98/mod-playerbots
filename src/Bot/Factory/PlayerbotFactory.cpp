@@ -41,6 +41,8 @@
 #include "Trainer.h"
 #include "World.h"
 #include <array>
+#include <set>
+#include <tuple>
 #include <unordered_set>
 #include <utility>
 
@@ -103,11 +105,13 @@ std::list<uint32> PlayerbotFactory::classQuestIds;
 std::list<uint32> PlayerbotFactory::specialQuestIds;
 std::vector<uint32> PlayerbotFactory::enchantSpellIdCache;
 std::vector<uint32> PlayerbotFactory::enchantGemIdCache;
-std::unordered_map<uint32, std::vector<uint32>> PlayerbotFactory::trainerIdCache;
+std::unordered_map<uint32, std::vector<PlayerbotFactory::TrainerSpellIndexes>> PlayerbotFactory::trainerSpellCache;
 std::vector<uint32> PlayerbotFactory::ccBreakTrinketCache;
 
 namespace
 {
+constexpr uint32 MAX_TRAINER_SPELL_PASSES = 3;
+
 constexpr uint32 SPELL_DRUID_THICK_HIDE = 16931;
 constexpr uint32 SPELL_OWLKIN_FRENZY = 48393;
 constexpr uint32 SPELL_PRIMAL_TENACITY = 33957;
@@ -1095,29 +1099,84 @@ void PlayerbotFactory::Refresh()
     // {
     //     InitEquipment(true);
     // }
-    InitAttunementQuests();
-    ClearInventory();
-    InitAmmo();
-    InitFood();
-    InitReagents();
-    InitConsumables();
-    InitPotions();
-    InitPet();
-    InitPetTalents();
-    InitSkills();
-    InitClassSpells();
-    InitAvailableSpells();
-    InitReputation();
-    InitSpecialSpells();
-    InitMounts();
-    InitKeyring();
-    if (!sPlayerbotAIConfig.EquipAndSpecPersistence ||
-        bot->GetLevel() < sPlayerbotAIConfig.EquipAndSpecPersistenceLevel)
     {
-        InitTalentsTree(true, true, true);
+        PerfMonitorScope scope(sPerfMonitor.acquire(PERF_MON_RNDBOT, "Refresh_AttunementQuests"));
+        InitAttunementQuests();
     }
-    if (bot->GetLevel() >= sPlayerbotAIConfig.MinEnchantingBotLevel)
-        ApplyEnchantAndGemsNew();
+    {
+        PerfMonitorScope scope(sPerfMonitor.acquire(PERF_MON_RNDBOT, "Refresh_ClearInventory"));
+        ClearInventory();
+    }
+    {
+        PerfMonitorScope scope(sPerfMonitor.acquire(PERF_MON_RNDBOT, "Refresh_Ammo"));
+        InitAmmo();
+    }
+    {
+        PerfMonitorScope scope(sPerfMonitor.acquire(PERF_MON_RNDBOT, "Refresh_Food"));
+        InitFood();
+    }
+    {
+        PerfMonitorScope scope(sPerfMonitor.acquire(PERF_MON_RNDBOT, "Refresh_Reagents"));
+        InitReagents();
+    }
+    {
+        PerfMonitorScope scope(sPerfMonitor.acquire(PERF_MON_RNDBOT, "Refresh_Consumables"));
+        InitConsumables();
+    }
+    {
+        PerfMonitorScope scope(sPerfMonitor.acquire(PERF_MON_RNDBOT, "Refresh_Potions"));
+        InitPotions();
+    }
+    {
+        PerfMonitorScope scope(sPerfMonitor.acquire(PERF_MON_RNDBOT, "Refresh_Pet"));
+        InitPet();
+    }
+    {
+        PerfMonitorScope scope(sPerfMonitor.acquire(PERF_MON_RNDBOT, "Refresh_PetTalents"));
+        InitPetTalents();
+    }
+    {
+        PerfMonitorScope scope(sPerfMonitor.acquire(PERF_MON_RNDBOT, "Refresh_Skills"));
+        InitSkills();
+    }
+    {
+        PerfMonitorScope scope(sPerfMonitor.acquire(PERF_MON_RNDBOT, "Refresh_ClassSpells"));
+        InitClassSpells();
+    }
+    {
+        PerfMonitorScope scope(sPerfMonitor.acquire(PERF_MON_RNDBOT, "Refresh_AvailableSpells"));
+        InitAvailableSpells();
+    }
+    {
+        PerfMonitorScope scope(sPerfMonitor.acquire(PERF_MON_RNDBOT, "Refresh_Reputation"));
+        InitReputation();
+    }
+    {
+        PerfMonitorScope scope(sPerfMonitor.acquire(PERF_MON_RNDBOT, "Refresh_SpecialSpells"));
+        InitSpecialSpells();
+    }
+    {
+        PerfMonitorScope scope(sPerfMonitor.acquire(PERF_MON_RNDBOT, "Refresh_Mounts"));
+        InitMounts();
+    }
+    {
+        PerfMonitorScope scope(sPerfMonitor.acquire(PERF_MON_RNDBOT, "Refresh_Keyring"));
+        InitKeyring();
+    }
+    {
+        PerfMonitorScope scope(sPerfMonitor.acquire(PERF_MON_RNDBOT, "Refresh_Talents"));
+        if (!sPlayerbotAIConfig.EquipAndSpecPersistence ||
+            bot->GetLevel() < sPlayerbotAIConfig.EquipAndSpecPersistenceLevel)
+        {
+            InitTalentsTree(true, true, true);
+        }
+    }
+    {
+        PerfMonitorScope scope(sPerfMonitor.acquire(PERF_MON_RNDBOT, "Refresh_Enchants"));
+        if (bot->GetLevel() >= sPlayerbotAIConfig.MinEnchantingBotLevel)
+            ApplyEnchantAndGemsNew();
+    }
+
     bot->DurabilityRepairAll(false, 1.0f, false);
     if (bot->isDead())
         bot->ResurrectPlayer(1.0f, false);
@@ -3546,53 +3605,102 @@ void PlayerbotFactory::SetRandomSkill(uint16 id)
     bot->SetSkill(id, step, value, maxValue);
 }
 
+void PlayerbotFactory::BuildTrainerSpellCache()
+{
+    std::vector<TrainerSpellIndexes>& cache = trainerSpellCache[bot->getClass()];
+    std::unordered_set<Trainer::Trainer const*> visitedTrainers;
+    // Trainer type is part of the key because IsTrainerSpellAllowedForBot treats tradeskill trainers differently.
+    std::set<std::tuple<Trainer::Type, uint32, uint8, uint32, uint32, uint32, uint32, uint32>> seenSpells;
+
+    CreatureTemplateContainer const* creatureTemplateContainer = sObjectMgr->GetCreatureTemplates();
+    for (auto const& [creatureEntry, creatureTemplate] : *creatureTemplateContainer)
+    {
+        Trainer::Trainer const* trainer = sObjectMgr->GetTrainer(creatureEntry);
+
+        if (!trainer)
+            continue;
+
+        if (trainer->GetTrainerType() != Trainer::Type::Tradeskill && trainer->GetTrainerType() != Trainer::Type::Class)
+            continue;
+
+        if (trainer->GetTrainerType() == Trainer::Type::Class && !trainer->IsTrainerValidForPlayer(bot))
+            continue;
+
+        if (!visitedTrainers.insert(trainer).second)
+            continue;
+
+        std::vector<Trainer::Spell> const& spells = trainer->GetSpells();
+        TrainerSpellIndexes entry{creatureEntry, {}};
+        for (uint32 spellIndex = 0; spellIndex < spells.size(); ++spellIndex)
+        {
+            Trainer::Spell const& trainerSpell = spells[spellIndex];
+            if (!seenSpells
+                     .emplace(trainer->GetTrainerType(), trainerSpell.SpellId, trainerSpell.ReqLevel,
+                              trainerSpell.ReqSkillLine, trainerSpell.ReqSkillRank, trainerSpell.ReqAbility[0],
+                              trainerSpell.ReqAbility[1], trainerSpell.ReqAbility[2])
+                     .second)
+                continue;
+
+            entry.SpellIndexes.push_back({spellIndex, trainerSpell.SpellId});
+        }
+
+        if (!entry.SpellIndexes.empty())
+            cache.push_back(std::move(entry));
+    }
+}
+
 void PlayerbotFactory::InitAvailableSpells()
 {
-    if (trainerIdCache[bot->getClass()].empty())
-    {
-        CreatureTemplateContainer const* creatureTemplateContainer = sObjectMgr->GetCreatureTemplates();
-        for (CreatureTemplateContainer::const_iterator i = creatureTemplateContainer->begin();
-             i != creatureTemplateContainer->end(); ++i)
-        {
-            Trainer::Trainer* trainer = sObjectMgr->GetTrainer(i->first);
+    std::vector<TrainerSpellIndexes> const& cache = trainerSpellCache[bot->getClass()];
+    if (cache.empty())
+        BuildTrainerSpellCache();
 
+    // Each spell is visited once per pass at its first trainer, which may list it before a prerequisite
+    // taught later in the walk, so passes repeat while they still teach something.
+    for (uint32 pass = 1; pass <= MAX_TRAINER_SPELL_PASSES; ++pass)
+    {
+        uint32 learnedCount = 0;
+        for (TrainerSpellIndexes const& entry : cache)
+        {
+            Trainer::Trainer const* trainer = sObjectMgr->GetTrainer(entry.CreatureEntry);
             if (!trainer)
                 continue;
 
-            if (trainer->GetTrainerType() != Trainer::Type::Tradeskill &&
-                trainer->GetTrainerType() != Trainer::Type::Class)
-                continue;
+            std::vector<Trainer::Spell> const& spells = trainer->GetSpells();
+            for (TrainerSpellRef const& ref : entry.SpellIndexes)
+            {
+                // simplified version of Trainer::TeachSpell method
+                Trainer::Spell const* trainerSpell = nullptr;
+                if (ref.Index < spells.size() && spells[ref.Index].SpellId == ref.SpellId)
+                    trainerSpell = &spells[ref.Index];
+                else
+                    trainerSpell = trainer->GetSpell(ref.SpellId);
 
-            if (trainer->GetTrainerType() == Trainer::Type::Class &&
-                !trainer->IsTrainerValidForPlayer(bot))
-                continue;
+                if (!trainerSpell)
+                    continue;
 
-            trainerIdCache[bot->getClass()].push_back(i->first);
+                if (!IsTrainerSpellAllowedForBot(bot, trainer, trainerSpell))
+                    continue;
+
+                if (!trainer->CanTeachSpell(bot, trainerSpell))
+                    continue;
+
+                if (trainerSpell->IsCastable())
+                    bot->CastSpell(bot, trainerSpell->SpellId, true);
+                else
+                    bot->learnSpell(trainerSpell->SpellId, false);
+
+                if (!trainer->CanTeachSpell(bot, trainerSpell))
+                    ++learnedCount;
+            }
         }
-    }
-    for (uint32 trainerId : trainerIdCache[bot->getClass()])
-    {
-        Trainer::Trainer* trainer = sObjectMgr->GetTrainer(trainerId);
 
-        for (auto& spell : trainer->GetSpells())
-        {
-            // simplified version of Trainer::TeachSpell method
+        if (!learnedCount)
+            break;
 
-            Trainer::Spell const* trainerSpell = trainer->GetSpell(spell.SpellId);
-            if (!trainerSpell)
-                continue;
-
-            if (!IsTrainerSpellAllowedForBot(bot, trainer, trainerSpell))
-                continue;
-
-            if (!trainer->CanTeachSpell(bot, trainerSpell))
-                continue;
-
-            if (trainerSpell->IsCastable())
-                bot->CastSpell(bot, trainerSpell->SpellId, true);
-            else
-                bot->learnSpell(trainerSpell->SpellId, false);
-        }
+        if (pass == MAX_TRAINER_SPELL_PASSES)
+            LOG_DEBUG("playerbots", "Bot {} still learned {} trainer spells on pass {}", bot->GetName(), learnedCount,
+                      pass);
     }
 }
 

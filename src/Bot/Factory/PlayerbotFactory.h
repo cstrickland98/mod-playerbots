@@ -231,7 +231,20 @@ private:
     uint32 itemQuality;
     uint32 gearScoreLimit;
     static std::list<uint32> specialQuestIds;
-    static std::unordered_map<uint32, std::vector<uint32>> trainerIdCache;
+    // Kept as creature entry, spell index and spell id, not pointers: `.reload trainer` rebuilds the core's trainer
+    // storage, so the index is only a hint that is checked against the spell id.
+    struct TrainerSpellRef
+    {
+        uint32 Index;
+        uint32 SpellId;
+    };
+    struct TrainerSpellIndexes
+    {
+        uint32 CreatureEntry;
+        std::vector<TrainerSpellRef> SpellIndexes;
+    };
+    static std::unordered_map<uint32, std::vector<TrainerSpellIndexes>> trainerSpellCache;
+    void BuildTrainerSpellCache();
     static std::vector<uint32> enchantSpellIdCache;
     static std::vector<uint32> enchantGemIdCache;
     static std::vector<uint32> ccBreakTrinketCache;
