@@ -39,7 +39,7 @@ private:
 
 GenericRogueStrategy::GenericRogueStrategy(PlayerbotAI* botAI) : CombatStrategy(botAI)
 {
-    actionNodeFactories.Add(new GenericRogueStrategyActionNodeFactory());
+    actionNodeFactories.Add(SharedFactory<GenericRogueStrategyActionNodeFactory>());
 }
 
 void GenericRogueStrategy::InitTriggers(std::vector<TriggerNode*>& triggers)
@@ -163,7 +163,7 @@ private:
 
 StealthedRogueStrategy::StealthedRogueStrategy(PlayerbotAI* botAI) : Strategy(botAI)
 {
-    actionNodeFactories.Add(new StealthedRogueStrategyActionNodeFactory());
+    actionNodeFactories.Add(SharedFactory<StealthedRogueStrategyActionNodeFactory>());
 }
 
 std::vector<NextAction> StealthedRogueStrategy::getDefaultActions()

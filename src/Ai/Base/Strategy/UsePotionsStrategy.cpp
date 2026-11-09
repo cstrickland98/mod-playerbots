@@ -23,7 +23,7 @@ private:
 
 UsePotionsStrategy::UsePotionsStrategy(PlayerbotAI* botAI) : Strategy(botAI)
 {
-    actionNodeFactories.Add(new UsePotionsStrategyActionNodeFactory());
+    actionNodeFactories.Add(SharedFactory<UsePotionsStrategyActionNodeFactory>());
 }
 
 void UsePotionsStrategy::InitTriggers(std::vector<TriggerNode*>& triggers)

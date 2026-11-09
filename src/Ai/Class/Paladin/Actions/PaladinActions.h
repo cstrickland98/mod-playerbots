@@ -133,7 +133,11 @@ class CastDivineProtectionOnPartyAction : public HealPartyMemberAction
 public:
     CastDivineProtectionOnPartyAction(PlayerbotAI* botAI) : HealPartyMemberAction(botAI, "divine protection") {}
 
-    std::string const getName() override { return "divine protection on party"; }
+    std::string const& getName() const override
+    {
+        static std::string const fixedName = "divine protection on party";
+        return fixedName;
+    }
 };
 
 class CastDivineShieldAction : public CastBuffSpellAction
@@ -177,7 +181,11 @@ class CastPurifyPoisonOnPartyAction : public CurePartyMemberAction
 public:
     CastPurifyPoisonOnPartyAction(PlayerbotAI* botAI) : CurePartyMemberAction(botAI, "purify", DISPEL_POISON) {}
 
-    std::string const getName() override { return "purify poison on party"; }
+    std::string const& getName() const override
+    {
+        static std::string const fixedName = "purify poison on party";
+        return fixedName;
+    }
 };
 
 class CastPurifyDiseaseOnPartyAction : public CurePartyMemberAction
@@ -185,7 +193,11 @@ class CastPurifyDiseaseOnPartyAction : public CurePartyMemberAction
 public:
     CastPurifyDiseaseOnPartyAction(PlayerbotAI* botAI) : CurePartyMemberAction(botAI, "purify", DISPEL_DISEASE) {}
 
-    std::string const getName() override { return "purify disease on party"; }
+    std::string const& getName() const override
+    {
+        static std::string const fixedName = "purify disease on party";
+        return fixedName;
+    }
 };
 
 class CastHandOfReckoningAction : public CastSpellAction
@@ -224,7 +236,11 @@ class CastCleansePoisonOnPartyAction : public CurePartyMemberAction
 public:
     CastCleansePoisonOnPartyAction(PlayerbotAI* botAI) : CurePartyMemberAction(botAI, "cleanse", DISPEL_POISON) {}
 
-    std::string const getName() override { return "cleanse poison on party"; }
+    std::string const& getName() const override
+    {
+        static std::string const fixedName = "cleanse poison on party";
+        return fixedName;
+    }
 };
 
 class CastCleanseDiseaseOnPartyAction : public CurePartyMemberAction
@@ -232,7 +248,11 @@ class CastCleanseDiseaseOnPartyAction : public CurePartyMemberAction
 public:
     CastCleanseDiseaseOnPartyAction(PlayerbotAI* botAI) : CurePartyMemberAction(botAI, "cleanse", DISPEL_DISEASE) {}
 
-    std::string const getName() override { return "cleanse disease on party"; }
+    std::string const& getName() const override
+    {
+        static std::string const fixedName = "cleanse disease on party";
+        return fixedName;
+    }
 };
 
 class CastCleanseMagicOnPartyAction : public CurePartyMemberAction
@@ -240,7 +260,11 @@ class CastCleanseMagicOnPartyAction : public CurePartyMemberAction
 public:
     CastCleanseMagicOnPartyAction(PlayerbotAI* botAI) : CurePartyMemberAction(botAI, "cleanse", DISPEL_MAGIC) {}
 
-    std::string const getName() override { return "cleanse magic on party"; }
+    std::string const& getName() const override
+    {
+        static std::string const fixedName = "cleanse magic on party";
+        return fixedName;
+    }
 };
 
 BEGIN_SPELL_ACTION(CastAvengersShieldAction, "avenger's shield")
@@ -297,7 +321,7 @@ public:
     Unit* GetTarget() override;
     Value<Unit*>* GetTargetValue() override;
     std::string const GetTargetName() override { return "party member snared target"; }
-    std::string const getName() override { return PartyMemberActionNameSupport::getName(); }
+    std::string const& getName() const override { return PartyMemberActionNameSupport::getName(); }
     bool isUseful() override;
 };
 

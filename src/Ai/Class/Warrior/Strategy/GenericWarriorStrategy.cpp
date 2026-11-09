@@ -26,7 +26,7 @@ private:
 
 GenericWarriorStrategy::GenericWarriorStrategy(PlayerbotAI* botAI) : CombatStrategy(botAI)
 {
-    actionNodeFactories.Add(new GenericWarriorStrategyActionNodeFactory());
+    actionNodeFactories.Add(SharedFactory<GenericWarriorStrategyActionNodeFactory>());
 }
 
 void GenericWarriorStrategy::InitTriggers(std::vector<TriggerNode*>& triggers)
@@ -52,7 +52,7 @@ private:
 
 WarriorAoeStrategy::WarriorAoeStrategy(PlayerbotAI* botAI) : CombatStrategy(botAI)
 {
-    actionNodeFactories.Add(new WarriorAoeStrategyActionNodeFactory());
+    actionNodeFactories.Add(SharedFactory<WarriorAoeStrategyActionNodeFactory>());
 }
 
 void WarriorAoeStrategy::InitTriggers(std::vector<TriggerNode*>& triggers)

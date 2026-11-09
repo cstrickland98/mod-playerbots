@@ -17,6 +17,7 @@ public:
     WorldPacketHandlerStrategy(PlayerbotAI* botAI);
 
     void InitTriggers(std::vector<TriggerNode*>& triggers) override;
+    bool HasSharedTriggers() const override { return true; }
     std::string const getName() override { return "default"; }
 };
 

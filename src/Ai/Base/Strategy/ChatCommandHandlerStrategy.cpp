@@ -89,7 +89,7 @@ void ChatCommandHandlerStrategy::InitReactionTriggers(std::vector<TriggerNode*>&
 // Commands where trigger name == action name.
 ChatCommandHandlerStrategy::ChatCommandHandlerStrategy(PlayerbotAI* botAI) : PassThroughStrategy(botAI)
 {
-    actionNodeFactories.Add(new ChatCommandActionNodeFactoryInternal());
+    actionNodeFactories.Add(SharedFactory<ChatCommandActionNodeFactoryInternal>());
 
     supported.push_back("quests");
     supported.push_back("stats");

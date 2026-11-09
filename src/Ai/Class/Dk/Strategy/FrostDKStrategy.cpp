@@ -83,7 +83,7 @@ private:
 
 FrostDKStrategy::FrostDKStrategy(PlayerbotAI* botAI) : GenericDKStrategy(botAI)
 {
-    actionNodeFactories.Add(new FrostDKStrategyActionNodeFactory());
+    actionNodeFactories.Add(SharedFactory<FrostDKStrategyActionNodeFactory>());
 }
 
 std::vector<NextAction> FrostDKStrategy::getDefaultActions()

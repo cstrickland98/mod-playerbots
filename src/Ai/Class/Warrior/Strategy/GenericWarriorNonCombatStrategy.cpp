@@ -26,7 +26,7 @@ private:
 
 GenericWarriorNonCombatStrategy::GenericWarriorNonCombatStrategy(PlayerbotAI* botAI) : NonCombatStrategy(botAI)
 {
-    actionNodeFactories.Add(new GenericWarriorNonCombatStrategyActionNodeFactory());
+    actionNodeFactories.Add(SharedFactory<GenericWarriorNonCombatStrategyActionNodeFactory>());
 }
 
 void GenericWarriorNonCombatStrategy::InitTriggers(std::vector<TriggerNode*>& triggers)

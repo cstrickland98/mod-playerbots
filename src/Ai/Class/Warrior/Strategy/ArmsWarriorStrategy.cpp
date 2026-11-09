@@ -72,7 +72,7 @@ private:
 
 ArmsWarriorStrategy::ArmsWarriorStrategy(PlayerbotAI* botAI) : GenericWarriorStrategy(botAI)
 {
-    actionNodeFactories.Add(new ArmsWarriorStrategyActionNodeFactory());
+    actionNodeFactories.Add(SharedFactory<ArmsWarriorStrategyActionNodeFactory>());
 }
 
 std::vector<NextAction> ArmsWarriorStrategy::getDefaultActions()

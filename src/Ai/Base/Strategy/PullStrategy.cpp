@@ -39,7 +39,7 @@ private:
 PullStrategy::PullStrategy(PlayerbotAI* botAI, std::string const action, std::string const preAction)
     : Strategy(botAI), action(action), preAction(preAction)
 {
-    actionNodeFactories.Add(new PullStrategyActionNodeFactory());
+    actionNodeFactories.Add(SharedFactory<PullStrategyActionNodeFactory>());
 }
 
 PullStrategy* PullStrategy::Get(PlayerbotAI* botAI)

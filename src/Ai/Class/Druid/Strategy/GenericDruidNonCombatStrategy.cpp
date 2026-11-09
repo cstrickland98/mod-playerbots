@@ -104,7 +104,7 @@ private:
 
 GenericDruidNonCombatStrategy::GenericDruidNonCombatStrategy(PlayerbotAI* botAI) : NonCombatStrategy(botAI)
 {
-    actionNodeFactories.Add(new GenericDruidNonCombatStrategyActionNodeFactory());
+    actionNodeFactories.Add(SharedFactory<GenericDruidNonCombatStrategyActionNodeFactory>());
 }
 
 void GenericDruidNonCombatStrategy::InitTriggers(std::vector<TriggerNode*>& triggers)
@@ -185,7 +185,7 @@ void GenericDruidNonCombatStrategy::InitTriggers(std::vector<TriggerNode*>& trig
 
 GenericDruidBuffStrategy::GenericDruidBuffStrategy(PlayerbotAI* botAI) : NonCombatStrategy(botAI)
 {
-    actionNodeFactories.Add(new GenericDruidNonCombatStrategyActionNodeFactory());
+    actionNodeFactories.Add(SharedFactory<GenericDruidNonCombatStrategyActionNodeFactory>());
 }
 
 void GenericDruidBuffStrategy::InitTriggers(std::vector<TriggerNode*>& triggers)

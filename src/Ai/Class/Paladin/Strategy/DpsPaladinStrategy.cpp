@@ -85,7 +85,7 @@ private:
 
 DpsPaladinStrategy::DpsPaladinStrategy(PlayerbotAI* botAI) : GenericPaladinStrategy(botAI)
 {
-    actionNodeFactories.Add(new DpsPaladinStrategyActionNodeFactory());
+    actionNodeFactories.Add(SharedFactory<DpsPaladinStrategyActionNodeFactory>());
 }
 
 std::vector<NextAction> DpsPaladinStrategy::getDefaultActions()

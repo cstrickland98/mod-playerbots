@@ -44,7 +44,7 @@ private:
 
 SurvivalHunterStrategy::SurvivalHunterStrategy(PlayerbotAI* botAI) : GenericHunterStrategy(botAI)
 {
-    actionNodeFactories.Add(new SurvivalHunterStrategyActionNodeFactory());
+    actionNodeFactories.Add(SharedFactory<SurvivalHunterStrategyActionNodeFactory>());
 }
 
 // ===== Default Actions =====

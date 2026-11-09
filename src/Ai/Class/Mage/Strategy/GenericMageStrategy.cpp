@@ -85,7 +85,7 @@ private:
 
 GenericMageStrategy::GenericMageStrategy(PlayerbotAI* botAI) : RangedCombatStrategy(botAI)
 {
-    actionNodeFactories.Add(new GenericMageStrategyActionNodeFactory());
+    actionNodeFactories.Add(SharedFactory<GenericMageStrategyActionNodeFactory>());
 }
 
 void GenericMageStrategy::InitTriggers(std::vector<TriggerNode*>& triggers)

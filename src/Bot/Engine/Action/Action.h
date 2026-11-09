@@ -20,8 +20,8 @@ public:
     NextAction(std::string const name, float relevance = 0.0f)
         : relevance(relevance), name(name) {}  // name after relevance - whipowill
 
-    std::string const getName() { return name; }
-    float getRelevance() { return relevance; }
+    std::string const getName() const { return name; }
+    float getRelevance() const { return relevance; }
 
     static std::vector<NextAction> merge(std::vector<NextAction> const& what, std::vector<NextAction> const& with)
     {
@@ -161,7 +161,7 @@ public:
 
     virtual ~ActionBasket(void) {}
 
-    float getRelevance() { return relevance; }
+    float getRelevance() const { return relevance; }
     ActionNode* getAction() { return action; }
     Event getEvent() { return event; }
     bool isSkipPrerequisites() { return skipPrerequisites; }

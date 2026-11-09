@@ -46,7 +46,7 @@ private:
 
 GenericDKStrategy::GenericDKStrategy(PlayerbotAI* botAI) : MeleeCombatStrategy(botAI)
 {
-    actionNodeFactories.Add(new GenericDKStrategyActionNodeFactory());
+    actionNodeFactories.Add(SharedFactory<GenericDKStrategyActionNodeFactory>());
 }
 
 void GenericDKStrategy::InitTriggers(std::vector<TriggerNode*>& triggers)

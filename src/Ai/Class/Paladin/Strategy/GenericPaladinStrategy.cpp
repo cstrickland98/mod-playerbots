@@ -9,7 +9,7 @@
 
 GenericPaladinStrategy::GenericPaladinStrategy(PlayerbotAI* botAI) : CombatStrategy(botAI)
 {
-    actionNodeFactories.Add(new GenericPaladinStrategyActionNodeFactory());
+    actionNodeFactories.Add(SharedFactory<GenericPaladinStrategyActionNodeFactory>());
 }
 
 void GenericPaladinStrategy::InitTriggers(std::vector<TriggerNode*>& triggers)

@@ -85,7 +85,7 @@ private:
 
 BloodDKStrategy::BloodDKStrategy(PlayerbotAI* botAI) : GenericDKStrategy(botAI)
 {
-    actionNodeFactories.Add(new BloodDKStrategyActionNodeFactory());
+    actionNodeFactories.Add(SharedFactory<BloodDKStrategyActionNodeFactory>());
 }
 
 std::vector<NextAction> BloodDKStrategy::getDefaultActions()

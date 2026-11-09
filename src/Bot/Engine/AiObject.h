@@ -33,7 +33,7 @@ public:
     AiNamedObject(PlayerbotAI* botAI, std::string const name) : AiObject(botAI), name(name) {}
 
 public:
-    virtual std::string const getName() { return name; }
+    virtual std::string const& getName() const { return name; }
 
 protected:
     std::string const name;

@@ -50,7 +50,7 @@ private:
 
 GenericHunterStrategy::GenericHunterStrategy(PlayerbotAI* botAI) : CombatStrategy(botAI)
 {
-    actionNodeFactories.Add(new GenericHunterStrategyActionNodeFactory());
+    actionNodeFactories.Add(SharedFactory<GenericHunterStrategyActionNodeFactory>());
 }
 
 void GenericHunterStrategy::InitTriggers(std::vector<TriggerNode*>& triggers)

@@ -95,7 +95,7 @@ private:
 
 BearDruidStrategy::BearDruidStrategy(PlayerbotAI* botAI) : FeralDruidStrategy(botAI)
 {
-    actionNodeFactories.Add(new BearDruidStrategyActionNodeFactory());
+    actionNodeFactories.Add(SharedFactory<BearDruidStrategyActionNodeFactory>());
 }
 
 std::vector<NextAction> BearDruidStrategy::getDefaultActions()
