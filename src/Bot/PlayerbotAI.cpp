@@ -70,7 +70,52 @@ constexpr uint32 SPELL_DK_FROST_PRESENCE = 48263;
 constexpr uint32 SPELL_GRAVITY_LAPSE_TK = 39432;
 constexpr uint32 SPELL_GRAVITY_LAPSE_MGT = 44226;
 constexpr uint32 VEHICLE_FLAG_FIXED_POSITION = 0x00200000;
+
+// Packets of a master that its bots react to (PlayerbotMgr skips the walk over the bots for any other packet)
+struct MasterPacketHandler
+{
+    uint16 opcode;
+    char const* handler;
+};
+
+constexpr MasterPacketHandler MASTER_INCOMING_HANDLERS[] = {
+    {CMSG_GAMEOBJ_USE, "use game object"},
+    {CMSG_AREATRIGGER, "area trigger"},
+    {CMSG_GOSSIP_HELLO, "gossip hello"},
+    {CMSG_QUESTGIVER_HELLO, "gossip hello"},
+    {CMSG_ACTIVATETAXI, "activate taxi"},
+    {CMSG_ACTIVATETAXIEXPRESS, "activate taxi"},
+    {CMSG_TAXICLEARALLNODES, "taxi done"},
+    {CMSG_TAXICLEARNODE, "taxi done"},
+    {CMSG_GROUP_UNINVITE, "uninvite"},
+    {CMSG_GROUP_UNINVITE_GUID, "uninvite guid"},
+    {CMSG_LFG_TELEPORT, "lfg teleport"},
+    {CMSG_CAST_SPELL, "see spell"},
+    {CMSG_REPOP_REQUEST, "release spirit"},
+    {CMSG_RECLAIM_CORPSE, "revive from corpse"},
+    {CMSG_QUESTGIVER_COMPLETE_QUEST, "complete quest"},
+    {CMSG_QUESTGIVER_ACCEPT_QUEST, "accept quest"},
+    {CMSG_QUEST_CONFIRM_ACCEPT, "confirm quest"},
+    {CMSG_PUSHQUESTTOPARTY, "quest share"},
+};
+
+constexpr MasterPacketHandler MASTER_OUTGOING_HANDLERS[] = {
+    {SMSG_PARTY_COMMAND_RESULT, "party command"},
+    {MSG_RAID_READY_CHECK, "ready check"},
+    {MSG_RAID_READY_CHECK_FINISHED, "ready check finished"},
+    {SMSG_QUESTGIVER_OFFER_REWARD, "questgiver quest details"},
+};
+
+template <std::size_t N>
+bool HasMasterPacketHandler(MasterPacketHandler const (&handlers)[N], uint16 opcode)
+{
+    for (MasterPacketHandler const& entry : handlers)
+        if (entry.opcode == opcode)
+            return true;
+
+    return false;
 }
+}  // namespace
 
 std::vector<std::string> PlayerbotAI::dispel_whitelist = {
     "mutating injection",
@@ -172,22 +217,12 @@ PlayerbotAI::PlayerbotAI(Player* bot)
     currentEngine = engines[BOT_STATE_NON_COMBAT];
     currentState = BOT_STATE_NON_COMBAT;
 
-    masterIncomingPacketHandlers.AddHandler(CMSG_GAMEOBJ_USE, "use game object");
-    masterIncomingPacketHandlers.AddHandler(CMSG_AREATRIGGER, "area trigger");
+    for (MasterPacketHandler const& entry : MASTER_INCOMING_HANDLERS)
+        masterIncomingPacketHandlers.AddHandler(entry.opcode, entry.handler);
+    for (MasterPacketHandler const& entry : MASTER_OUTGOING_HANDLERS)
+        masterOutgoingPacketHandlers.AddHandler(entry.opcode, entry.handler);
     // masterIncomingPacketHandlers.AddHandler(CMSG_GAMEOBJ_USE, "use game object");
     // masterIncomingPacketHandlers.AddHandler(CMSG_LOOT_ROLL, "loot roll");
-    masterIncomingPacketHandlers.AddHandler(CMSG_GOSSIP_HELLO, "gossip hello");
-    masterIncomingPacketHandlers.AddHandler(CMSG_QUESTGIVER_HELLO, "gossip hello");
-    masterIncomingPacketHandlers.AddHandler(CMSG_ACTIVATETAXI, "activate taxi");
-    masterIncomingPacketHandlers.AddHandler(CMSG_ACTIVATETAXIEXPRESS, "activate taxi");
-    masterIncomingPacketHandlers.AddHandler(CMSG_TAXICLEARALLNODES, "taxi done");
-    masterIncomingPacketHandlers.AddHandler(CMSG_TAXICLEARNODE, "taxi done");
-    masterIncomingPacketHandlers.AddHandler(CMSG_GROUP_UNINVITE, "uninvite");
-    masterIncomingPacketHandlers.AddHandler(CMSG_GROUP_UNINVITE_GUID, "uninvite guid");
-    masterIncomingPacketHandlers.AddHandler(CMSG_LFG_TELEPORT, "lfg teleport");
-    masterIncomingPacketHandlers.AddHandler(CMSG_CAST_SPELL, "see spell");
-    masterIncomingPacketHandlers.AddHandler(CMSG_REPOP_REQUEST, "release spirit");
-    masterIncomingPacketHandlers.AddHandler(CMSG_RECLAIM_CORPSE, "revive from corpse");
 
     botOutgoingPacketHandlers.AddHandler(SMSG_PETITION_SHOW_SIGNATURES, "petition offer");
     botOutgoingPacketHandlers.AddHandler(SMSG_GROUP_INVITE, "group invite");
@@ -219,16 +254,7 @@ PlayerbotAI::PlayerbotAI(Player* bot)
     botOutgoingPacketHandlers.AddHandler(SMSG_GROUP_DESTROYED, "group destroyed");
     botOutgoingPacketHandlers.AddHandler(SMSG_GROUP_LIST, "group list");
 
-    masterOutgoingPacketHandlers.AddHandler(SMSG_PARTY_COMMAND_RESULT, "party command");
-    masterOutgoingPacketHandlers.AddHandler(MSG_RAID_READY_CHECK, "ready check");
-    masterOutgoingPacketHandlers.AddHandler(MSG_RAID_READY_CHECK_FINISHED, "ready check finished");
-    masterOutgoingPacketHandlers.AddHandler(SMSG_QUESTGIVER_OFFER_REWARD, "questgiver quest details");
-
     // quest packet
-    masterIncomingPacketHandlers.AddHandler(CMSG_QUESTGIVER_COMPLETE_QUEST, "complete quest");
-    masterIncomingPacketHandlers.AddHandler(CMSG_QUESTGIVER_ACCEPT_QUEST, "accept quest");
-    masterIncomingPacketHandlers.AddHandler(CMSG_QUEST_CONFIRM_ACCEPT, "confirm quest");
-    masterIncomingPacketHandlers.AddHandler(CMSG_PUSHQUESTTOPARTY, "quest share");
     botOutgoingPacketHandlers.AddHandler(SMSG_QUESTUPDATE_COMPLETE, "quest update complete");
     botOutgoingPacketHandlers.AddHandler(SMSG_QUESTUPDATE_ADD_KILL, "quest update add kill");
     // SMSG_QUESTUPDATE_ADD_ITEM no longer used
@@ -1536,6 +1562,16 @@ int32 PlayerbotAI::CalculateGlobalCooldown(uint32 spellid)
         return sPlayerbotAIConfig.GlobalCoolDown;
 
     return sPlayerbotAIConfig.ReactDelay;
+}
+
+bool PlayerbotAI::HandlesMasterIncomingOpcode(uint16 opcode)
+{
+    return HasMasterPacketHandler(MASTER_INCOMING_HANDLERS, opcode);
+}
+
+bool PlayerbotAI::HandlesMasterOutgoingOpcode(uint16 opcode)
+{
+    return HasMasterPacketHandler(MASTER_OUTGOING_HANDLERS, opcode);
 }
 
 void PlayerbotAI::HandleMasterIncomingPacket(WorldPacket const& packet)

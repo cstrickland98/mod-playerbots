@@ -419,6 +419,9 @@ public:
     void HandleBotOutgoingPacket(WorldPacket const& packet);
     void HandleMasterIncomingPacket(WorldPacket const& packet);
     void HandleMasterOutgoingPacket(WorldPacket const& packet);
+    // True if bots react to this packet from / to their master
+    static bool HandlesMasterIncomingOpcode(uint16 opcode);
+    static bool HandlesMasterOutgoingOpcode(uint16 opcode);
     void HandleTeleportAck();
     void ChangeEngine(BotState type);
     void ChangeEngineOnCombat();
