@@ -159,6 +159,7 @@ PlayerbotAI::PlayerbotAI(Player* bot)
 
     accountId = bot->GetSession()->GetAccountId();
     aiObjectContext = AiFactory::createAiObjectContext(bot, this);
+    possibleTargets = aiObjectContext->GetValue<GuidVector>("possible targets");  // unqualified: lives as long as the context
 
     engines[BOT_STATE_COMBAT] = AiFactory::createCombatEngine(bot, this, aiObjectContext);
     engines[BOT_STATE_NON_COMBAT] = AiFactory::createNonCombatEngine(bot, this, aiObjectContext);
@@ -281,6 +282,9 @@ void PlayerbotAI::UpdateAI(uint32 elapsed, bool minimal)
         if (HasCheat(BotCheatMask::power) && bot->getPowerType() != POWER_MANA)
             bot->SetPower(bot->getPowerType(), bot->GetMaxPower(bot->getPowerType()));
     }
+
+    // One scan per tick shared by every reader; world-thread readers (console commands) see the last tick's list.
+    possibleTargets->Reset();
 
     AllowActivity();
 
@@ -868,6 +872,10 @@ void PlayerbotAI::HandleTeleportAck()
     // Skip acknowledgment for SelfBots. The player's client handles that.
     if (IsSelfBot(bot))
         return;
+
+    // These lists are cached for a few seconds and would still point at the old location after landing.
+    aiObjectContext->GetValue<GuidVector>("possible new rpg targets")->Reset();
+    aiObjectContext->GetValue<GuidVector>("possible new rpg game objects")->Reset();
 
     /*
      * FAR TELEPORT (worldport / map change)

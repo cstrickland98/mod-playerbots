@@ -21,7 +21,7 @@ public:
 
 private:
     uint32 GetTargetingPlayerCount(Unit* unit);
-    Unit* FindTargetForGrinding(uint32 assistCount);
+    Unit* FindTargetForGrinding(uint32 assistCount, GuidVector const& targets);
     bool needForQuest(Unit* target);
 };
 

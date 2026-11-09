@@ -29,6 +29,8 @@
 
 class Action;
 class AiObjectContext;
+template <class T>
+class Value;
 class Creature;
 class Engine;
 class ExternalEventHelper;
@@ -666,6 +668,7 @@ protected:
     Player* master;
     uint32 accountId;
     AiObjectContext* aiObjectContext;
+    Value<GuidVector>* possibleTargets = nullptr;  // the context's "possible targets", reset every tick
     Engine* currentEngine;
     Engine* engines[BOT_STATE_MAX];
     BotState currentState;

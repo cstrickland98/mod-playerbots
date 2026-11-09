@@ -45,7 +45,8 @@ class PossibleNewRpgGameObjectsValue : public ObjectGuidListCalculatedValue
 {
 public:
     PossibleNewRpgGameObjectsValue(PlayerbotAI* botAI, bool ignoreLos = true)
-        : ObjectGuidListCalculatedValue(botAI, "possible new rpg game objects"), ignoreLos(ignoreLos)
+        : ObjectGuidListCalculatedValue(botAI, "possible new rpg game objects", 5 * IN_MILLISECONDS),
+          ignoreLos(ignoreLos)
     {
     }
 
