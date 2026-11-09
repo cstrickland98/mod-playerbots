@@ -10,6 +10,8 @@
 #include "Trigger.h"
 
 class PlayerbotAI;
+template <class T>
+class Value;
 
 class CombatStartTrigger : public Trigger
 {
@@ -20,6 +22,7 @@ public:
 
 private:
     bool hadAttackers = false;
+    Value<GuidVector>* attackers = nullptr;  // the context's "attackers", looked up once: checked every reaction pass
 };
 
 #endif

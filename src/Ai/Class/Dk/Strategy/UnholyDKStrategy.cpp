@@ -70,7 +70,7 @@ private:
 
 UnholyDKStrategy::UnholyDKStrategy(PlayerbotAI* botAI) : GenericDKStrategy(botAI)
 {
-    actionNodeFactories.Add(new UnholyDKStrategyActionNodeFactory());
+    actionNodeFactories.Add(SharedFactory<UnholyDKStrategyActionNodeFactory>());
 }
 
 std::vector<NextAction> UnholyDKStrategy::getDefaultActions()

@@ -26,7 +26,7 @@ private:
 
 HolyDpsPriestStrategy::HolyDpsPriestStrategy(PlayerbotAI* botAI) : GenericPriestStrategy(botAI)
 {
-    actionNodeFactories.Add(new HolyDpsPriestStrategyActionNodeFactory());
+    actionNodeFactories.Add(SharedFactory<HolyDpsPriestStrategyActionNodeFactory>());
 }
 
 std::vector<NextAction> HolyDpsPriestStrategy::getDefaultActions()

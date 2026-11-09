@@ -23,6 +23,9 @@ public:
     void ExternalEvent(WorldPacket& packet, Player* owner = nullptr) override;
     Event Check() override;
     void Reset() override;
+    // Only ExternalEvent() (a packet sent to the bot) can make Check() fire
+    bool needCheck(uint32 /*now*/) override { return triggered; }
+    bool IsExternalOnly() const override { return true; }
 
 private:
     WorldPacket packet;

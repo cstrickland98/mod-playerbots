@@ -296,6 +296,9 @@ void RandomPlayerbotMgr::UpdateAIInternal(uint32 /*elapsed*/, bool /*minimal*/)
     if (sPlayerbotAIConfig.RandomBotConcentrateInPlayerZone)
         UpdatePlayerZones();
 
+    if (sPlayerbotAIConfig.RandomBotBalanceMaps)
+        UpdateBotsPerMap();
+
     /*if (sPlayerbotAIConfig.enablePrototypePerformanceDiff)
     {
         LOG_INFO("playerbots", "---------------------------------------");
@@ -1864,6 +1867,9 @@ void RandomPlayerbotMgr::RandomTeleport(Player* bot, std::vector<WorldLocation>&
     PerfMonitorOperation* pmo = sPerfMonitor.start(PERF_MON_RNDBOT, "RandomTeleportByLocations");
 
     std::shuffle(std::begin(tlocs), std::end(tlocs), RandomEngine::Instance());
+    if (sPlayerbotAIConfig.RandomBotBalanceMaps)
+        PreferLeastLoadedMap(tlocs);
+
     for (uint32 i = 0; i < tlocs.size(); i++)
     {
         WorldLocation loc = tlocs[i];
@@ -2194,6 +2200,49 @@ void RandomPlayerbotMgr::UpdatePlayerZones()
 
     std::lock_guard<std::mutex> lock(_playerZonesLock);
     _playerZones = std::move(playerMapZones);
+}
+
+// Counts the random bots in world per map, every 30 s on the world thread. The map threads read
+// the counts from the teleport picker; they never run while the world thread is between map updates
+void RandomPlayerbotMgr::UpdateBotsPerMap()
+{
+    time_t const now = time(nullptr);
+    if (now < nextBotsPerMapUpdate)
+        return;
+
+    nextBotsPerMapUpdate = now + 30;
+    std::unordered_map<uint32, uint32> counts;
+    for (auto const& [guid, bot] : playerBots)
+        if (bot->IsInWorld())
+            ++counts[bot->GetMapId()];
+
+    botsPerMap = std::move(counts);
+}
+
+// Moves the locations on the candidate map with the fewest random bots to the front, keeping the
+// shuffled order within each part. A world tick lasts as long as the busiest map thread, so the
+// bots should spread evenly over the maps their level allows; the rest stay as fallbacks
+void RandomPlayerbotMgr::PreferLeastLoadedMap(std::vector<WorldPosition>& locs) const
+{
+    uint32 bestMap = 0;
+    uint32 bestCount = 0;
+    bool found = false;
+    for (WorldPosition const& loc : locs)
+    {
+        uint32 const mapId = loc.GetMapId();
+        auto const count = botsPerMap.find(mapId);
+        uint32 const bots = count == botsPerMap.end() ? 0 : count->second;
+        if (!found || bots < bestCount)
+        {
+            bestMap = mapId;
+            bestCount = bots;
+            found = true;
+        }
+    }
+
+    if (found)
+        std::stable_partition(locs.begin(), locs.end(),
+                              [bestMap](WorldPosition const& loc) { return loc.GetMapId() == bestMap; });
 }
 
 void RandomPlayerbotMgr::RandomTeleportGrindForLevel(Player* bot)
@@ -3022,6 +3071,26 @@ Player* RandomPlayerbotMgr::GetRandomPlayer()
     return players[index];
 }
 
+// Items the bot owns in equipment, bags, bank, keyring and buyback; each one is a separate Item object
+static uint32 CountOwnedItems(Player* bot)
+{
+    uint32 count = 0;
+    for (uint8 slot = EQUIPMENT_SLOT_START; slot < CURRENCYTOKEN_SLOT_END; ++slot)
+    {
+        Item* item = bot->GetItemByPos(INVENTORY_SLOT_BAG_0, slot);
+        if (!item)
+            continue;
+
+        ++count;
+        if (Bag* bag = item->ToBag())
+            for (uint32 i = 0; i < bag->GetBagSize(); ++i)
+                if (bag->GetItemByPos(i))
+                    ++count;
+    }
+
+    return count;
+}
+
 void RandomPlayerbotMgr::PrintStats()
 {
     printStatsTimer = time(nullptr);
@@ -3074,9 +3143,14 @@ void RandomPlayerbotMgr::PrintStats()
     // static NewRpgStatistic rpgStasticTotal;
     std::unordered_map<uint32, int> zoneCount;
     uint8 maxBotLevel = 0;
+    uint64 createdStrategies = 0, createdActions = 0, createdTriggers = 0, createdValues = 0;
+    uint64 ownedItems = 0;
+    std::unordered_map<std::string, uint32> valueNames;
+    std::map<uint32, uint32> botsOnMap;
     for (PlayerBotMap::iterator i = playerBots.begin(); i != playerBots.end(); ++i)
     {
         Player* bot = i->second;
+        ++botsOnMap[bot->GetMapId()];
         if (IsAlliance(bot->getRace()))
             ++alliance[bot->GetLevel()];
         else
@@ -3098,6 +3172,14 @@ void RandomPlayerbotMgr::PrintStats()
 
         if (botAI->IsActivityAllowedCached())
             ++active;
+
+        AiObjectContext::CreatedCounts created = botAI->GetAiObjectContext()->GetCreatedCounts();
+        createdStrategies += created.strategies;
+        createdActions += created.actions;
+        createdTriggers += created.triggers;
+        createdValues += created.values;
+        botAI->GetAiObjectContext()->CountCreatedValueNames(valueNames);
+        ownedItems += CountOwnedItems(bot);
         /* TODO: Review statistics on rpg merge
         if (botAI->GetAiObjectContext()->GetValue<bool>("random bot update")->Get())
             ++update;
@@ -3214,6 +3296,30 @@ void RandomPlayerbotMgr::PrintStats()
 
     LOG_INFO("playerbots", "Bots status:");
     LOG_INFO("playerbots", "    Active: {}", active);
+    if (!playerBots.empty())
+    {
+        uint32 loadedGrids = 0;
+        sMapMgr->DoForAllMaps([&loadedGrids](Map* map) { loadedGrids += map->GetLoadedGridsCount(); });
+        LOG_INFO("playerbots", "    Context objects per bot: {} strategies, {} actions, {} triggers, {} values ({} values in total)",
+            createdStrategies / playerBots.size(), createdActions / playerBots.size(),
+            createdTriggers / playerBots.size(), createdValues / playerBots.size(), createdValues);
+        LOG_INFO("playerbots", "    Loaded grids: {}", loadedGrids);
+
+        std::ostringstream perMap;
+        for (auto const& [mapId, count] : botsOnMap)
+            perMap << (perMap.tellp() ? ", " : "") << mapId << ": " << count;
+        LOG_INFO("playerbots", "    Bots per map: {}", perMap.str());
+        LOG_INFO("playerbots", "    Items per bot: {:.1f} ({} in total)", double(ownedItems) / playerBots.size(), ownedItems);
+
+        std::vector<std::pair<std::string, uint32>> topValues(valueNames.begin(), valueNames.end());
+        size_t shown = std::min<size_t>(topValues.size(), 20);
+        std::partial_sort(topValues.begin(), topValues.begin() + shown, topValues.end(),
+                          [](auto const& a, auto const& b) { return a.second > b.second; });
+        std::ostringstream names;
+        for (size_t i = 0; i < shown; ++i)
+            names << (i ? ", " : "") << topValues[i].first << " " << topValues[i].second;
+        LOG_INFO("playerbots", "    Most created values (total over all bots): {}", names.str());
+    }
     LOG_INFO("playerbots", "    Moving: {}", moving);
 
     // LOG_INFO("playerbots", "Bots to:");

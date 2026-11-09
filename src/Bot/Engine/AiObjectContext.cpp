@@ -111,7 +111,7 @@ void AiObjectContext::Load(std::vector<std::string> data)
     }
 }
 
-Strategy* AiObjectContext::GetStrategy(std::string const name)
+Strategy* AiObjectContext::GetStrategy(std::string const& name)
 {
     return strategyContexts.GetContextObject(name, botAI);
 }
@@ -121,13 +121,48 @@ std::set<std::string> AiObjectContext::GetSiblingStrategy(std::string const name
     return strategyContexts.GetSiblings(name);
 }
 
-Trigger* AiObjectContext::GetTrigger(std::string const name) { return triggerContexts.GetContextObject(name, botAI); }
+Trigger* AiObjectContext::GetTrigger(std::string const& name) { return triggerContexts.GetContextObject(name, botAI); }
 
-Action* AiObjectContext::GetAction(std::string const name) { return actionContexts.GetContextObject(name, botAI); }
+Action* AiObjectContext::GetAction(std::string const& name) { return actionContexts.GetContextObject(name, botAI); }
 
-UntypedValue* AiObjectContext::GetUntypedValue(std::string const name)
+UntypedValue* AiObjectContext::GetUntypedValue(std::string const& name)
 {
-    return valueContexts.GetContextObject(name, botAI);
+    UntypedValue* value = valueContexts.GetContextObject(name, botAI);
+    if (value)
+        value->lastUsedTime = getMSTime();
+
+    return value;
+}
+
+void AiObjectContext::QueueExternalTrigger(Trigger* trigger)
+{
+    // A second event before the first was consumed overwrites the trigger's payload, as before
+    if (std::find(pendingExternalTriggers.begin(), pendingExternalTriggers.end(), trigger) ==
+        pendingExternalTriggers.end())
+        pendingExternalTriggers.push_back(trigger);
+}
+
+// Deletes the qualified values that no lookup has touched for idleMs and that only cache a calculation
+// (UntypedValue::IsEvictable). Unqualified values are a fixed set per bot and stay. Returns the count.
+uint32 AiObjectContext::EvictIdleValues(uint32 idleMs)
+{
+    uint32 const now = getMSTime();
+    uint32 evicted = 0;
+    for (auto i = valueContexts.created.begin(); i != valueContexts.created.end();)
+    {
+        UntypedValue* value = i->second;
+        if (value && value->IsEvictable() && now - value->lastUsedTime > idleMs &&
+            i->first.find("::") != std::string::npos)
+        {
+            delete value;
+            i = valueContexts.created.erase(i);
+            ++evicted;
+        }
+        else
+            ++i;
+    }
+
+    return evicted;
 }
 
 std::set<std::string> AiObjectContext::GetValues() { return valueContexts.GetCreated(); }

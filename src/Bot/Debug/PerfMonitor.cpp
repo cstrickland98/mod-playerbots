@@ -104,7 +104,7 @@ void PerfMonitor::CountBlock(PerformanceData* data)
     ++data->blocks;
 }
 
-PerfMonitorOperation* PerfMonitor::start(PerformanceMetric metric, std::string const name,
+PerfMonitorOperation* PerfMonitor::start(PerformanceMetric metric, std::string const& name,
                                                        PerformanceStack* stack)
 {
     if (!IsEnabled())

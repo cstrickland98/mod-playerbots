@@ -162,7 +162,7 @@ public:
     }
 
     std::string const GetTargetName() override { return "current target"; }
-    std::string const getName() override { return spell; }
+    std::string const& getName() const override { return spell; }
     bool IsActive() override;
 
 protected:
@@ -217,7 +217,11 @@ public:
         : Trigger(botAI), amount(amount), distance(distance) {}
 
     bool IsActive() override;
-    std::string const getName() override { return "attacker count"; }
+    std::string const& getName() const override
+    {
+        static std::string const fixedName = "attacker count";
+        return fixedName;
+    }
 
 protected:
     int32 amount;
@@ -236,14 +240,22 @@ public:
     MyAttackerCountTrigger(PlayerbotAI* botAI, int32 amount) : AttackerCountTrigger(botAI, amount) {}
 
     bool IsActive() override;
-    std::string const getName() override { return "my attacker count"; }
+    std::string const& getName() const override
+    {
+        static std::string const fixedName = "my attacker count";
+        return fixedName;
+    }
 };
 
 class BeingAttackedTrigger : public MyAttackerCountTrigger
 {
 public:
     BeingAttackedTrigger(PlayerbotAI* botAI) : MyAttackerCountTrigger(botAI, 1) {}
-    std::string const getName() override { return "being attacked"; }
+    std::string const& getName() const override
+    {
+        static std::string const fixedName = "being attacked";
+        return fixedName;
+    }
 };
 
 class MediumThreatTrigger : public MyAttackerCountTrigger
@@ -267,7 +279,11 @@ public:
         : AttackerCountTrigger(botAI, amount), range(range) {}
 
     bool IsActive() override;
-    std::string const getName() override { return "aoe"; }
+    std::string const& getName() const override
+    {
+        static std::string const fixedName = "aoe";
+        return fixedName;
+    }
 
 private:
     float range;
@@ -334,11 +350,14 @@ class BuffOnPartyTrigger : public BuffTrigger
 {
 public:
     BuffOnPartyTrigger(PlayerbotAI* botAI, std::string const spell, int32 checkInterval = 1)
-        : BuffTrigger(botAI, spell, checkInterval) {}
+        : BuffTrigger(botAI, spell, checkInterval), _partyName(spell + " on party") {}
 
     Value<Unit*>* GetTargetValue() override;
     bool IsActive() override;
-    std::string const getName() override { return spell + " on party"; }
+    std::string const& getName() const override { return _partyName; }
+
+private:
+    std::string const _partyName;
 };
 
 class ProtectPartyMemberTrigger : public Trigger
@@ -410,10 +429,13 @@ class DebuffOnAttackerTrigger : public DebuffTrigger
 public:
     DebuffOnAttackerTrigger(PlayerbotAI* botAI, std::string const spell, bool checkIsOwner = true,
                             float needLifeTime = 8.0f)
-        : DebuffTrigger(botAI, spell, 1, checkIsOwner, needLifeTime) {}
+        : DebuffTrigger(botAI, spell, 1, checkIsOwner, needLifeTime), _attackerName(spell + " on attacker") {}
 
     Value<Unit*>* GetTargetValue() override;
-    std::string const getName() override { return spell + " on attacker"; }
+    std::string const& getName() const override { return _attackerName; }
+
+private:
+    std::string const _attackerName;
 };
 
 class DebuffOnMeleeAttackerTrigger : public DebuffTrigger
@@ -421,10 +443,13 @@ class DebuffOnMeleeAttackerTrigger : public DebuffTrigger
 public:
     DebuffOnMeleeAttackerTrigger(PlayerbotAI* botAI, std::string const spell, bool checkIsOwner = true,
                                  float needLifeTime = 8.0f)
-        : DebuffTrigger(botAI, spell, 1, checkIsOwner, needLifeTime) {}
+        : DebuffTrigger(botAI, spell, 1, checkIsOwner, needLifeTime), _attackerName(spell + " on attacker") {}
 
     Value<Unit*>* GetTargetValue() override;
-    std::string const getName() override { return spell + " on attacker"; }
+    std::string const& getName() const override { return _attackerName; }
+
+private:
+    std::string const _attackerName;
 };
 
 class BoostTrigger : public BuffTrigger
@@ -475,7 +500,8 @@ protected:
 class AndTrigger : public Trigger
 {
 public:
-    AndTrigger(PlayerbotAI* botAI, Trigger* ls, Trigger* rs) : Trigger(botAI), ls(ls), rs(rs) {}
+    AndTrigger(PlayerbotAI* botAI, Trigger* ls, Trigger* rs)
+        : Trigger(botAI), ls(ls), rs(rs), _andName(ls && rs ? ls->getName() + " and " + rs->getName() : "") {}
     virtual ~AndTrigger()
     {
         delete ls;
@@ -483,11 +509,14 @@ public:
     }
 
     bool IsActive() override;
-    std::string const getName() override;
+    std::string const& getName() const override { return _andName; }
 
 protected:
     Trigger* ls;
     Trigger* rs;
+
+private:
+    std::string const _andName;
 };
 
 class TwoTriggers : public Trigger
@@ -497,22 +526,30 @@ public:
     {
         this->name1 = std::move(name1);
         this->name2 = std::move(name2);
+        _twoName = this->name1 + " and " + this->name2;
     }
     bool IsActive() override;
-    std::string const getName() override;
+    std::string const& getName() const override { return _twoName; }
 
 protected:
     std::string name1;
     std::string name2;
+
+private:
+    std::string _twoName;
 };
 
 class SnareTargetTrigger : public DebuffTrigger
 {
 public:
-    SnareTargetTrigger(PlayerbotAI* botAI, std::string const spell) : DebuffTrigger(botAI, spell) {}
+    SnareTargetTrigger(PlayerbotAI* botAI, std::string const spell)
+        : DebuffTrigger(botAI, spell), _snareName(spell + " on snare target") {}
 
     Value<Unit*>* GetTargetValue() override;
-    std::string const getName() override { return spell + " on snare target"; }
+    std::string const& getName() const override { return _snareName; }
+
+private:
+    std::string const _snareName;
 };
 
 class LowManaTrigger : public Trigger
@@ -573,7 +610,11 @@ public:
         : Trigger(botAI, item, interval), item(item), count(count) {}
 
     bool IsActive() override;
-    std::string const getName() override { return "item count"; }
+    std::string const& getName() const override
+    {
+        static std::string const fixedName = "item count";
+        return fixedName;
+    }
 
 protected:
     std::string const item;
@@ -793,10 +834,14 @@ public:
 class InterruptEnemyHealerTrigger : public SpellTrigger
 {
 public:
-    InterruptEnemyHealerTrigger(PlayerbotAI* botAI, std::string const spell) : SpellTrigger(botAI, spell) {}
+    InterruptEnemyHealerTrigger(PlayerbotAI* botAI, std::string const spell)
+        : SpellTrigger(botAI, spell), _enemyHealerName(spell + " on enemy healer") {}
 
     Value<Unit*>* GetTargetValue() override;
-    std::string const getName() override { return spell + " on enemy healer"; }
+    std::string const& getName() const override { return _enemyHealerName; }
+
+private:
+    std::string const _enemyHealerName;
 };
 
 class RandomBotUpdateTrigger : public RandomTrigger

@@ -61,7 +61,7 @@ private:
 
 FuryWarriorStrategy::FuryWarriorStrategy(PlayerbotAI* botAI) : GenericWarriorStrategy(botAI)
 {
-    actionNodeFactories.Add(new FuryWarriorStrategyActionNodeFactory());
+    actionNodeFactories.Add(SharedFactory<FuryWarriorStrategyActionNodeFactory>());
 }
 
 std::vector<NextAction> FuryWarriorStrategy::getDefaultActions()

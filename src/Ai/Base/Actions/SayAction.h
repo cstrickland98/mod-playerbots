@@ -19,9 +19,13 @@ public:
 
     bool Execute(Event event) override;
     bool isUseful() override;
-    std::string const getName() override { return "say::" + qualifier; }
+    std::string const& getName() const override { return _sayName; }
+    void Qualify(int qual) override;
+    void Qualify(std::string const qual) override;
 
 private:
+    std::string _sayName;
+
     static std::map<std::string, std::vector<std::string>> stringTable;
     static std::map<std::string, uint32> probabilityTable;
 };

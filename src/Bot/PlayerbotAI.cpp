@@ -564,6 +564,17 @@ void PlayerbotAI::UpdateAIInternal([[maybe_unused]] uint32 elapsed, bool minimal
     if (!bot->GetMap())
         return; // instances are created and destroyed on demand
 
+    // Qualified values (per spell name, item id, npc entry) accumulate for the bot's lifetime; drop the
+    // ones unused for 10 minutes once a minute, staggered so that the bots do not sweep in the same tick
+    uint32 const now = getMSTime();
+    if (!nextValueSweepTime)
+        nextValueSweepTime = now + urand(0, MINUTE * IN_MILLISECONDS);
+    else if (int32(now - nextValueSweepTime) >= 0)
+    {
+        nextValueSweepTime = now + MINUTE * IN_MILLISECONDS;
+        aiObjectContext->EvictIdleValues(10 * MINUTE * IN_MILLISECONDS);
+    }
+
     // Only build the metric name when the profiler is enabled; start() returns nullptr otherwise.
     PerfMonitorOperation* pmo = nullptr;
     if (sPerfMonitor.IsEnabled())

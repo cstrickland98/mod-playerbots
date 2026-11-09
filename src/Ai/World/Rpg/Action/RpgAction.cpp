@@ -63,12 +63,7 @@ bool RpgAction::SetNextRpgAction()
 
             if (trigger)
             {
-
-                triggerNode->setTrigger(trigger);
-
-                std::vector<NextAction> nextActions = triggerNode->getHandlers();
-
-                Trigger* trigger = triggerNode->getTrigger();
+                std::vector<NextAction> nextActions = triggerNode->getHandlers(trigger);
 
                 bool isChecked = false;
 

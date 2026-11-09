@@ -82,9 +82,12 @@ public:
     virtual void AppendTargetExclusions([[maybe_unused]] GuidSet& exclusions,
                                         [[maybe_unused]] TargetValueExclusionType type) {}
     virtual bool HasTargetExclusions() const { return false; }
+    // True when InitTriggers/InitReactionTriggers depend on nothing but the strategy class, so the
+    // engine can use one process-wide node list instead of building a copy per bot
+    virtual bool HasSharedTriggers() const { return false; }
     virtual std::string const getName() = 0;
     virtual uint32 GetType() const { return STRATEGY_TYPE_GENERIC; }
-    virtual ActionNode* GetAction(std::string const name);
+    virtual ActionNode* GetAction(std::string const& name);
     void Update() {}
     void Reset() {}
 

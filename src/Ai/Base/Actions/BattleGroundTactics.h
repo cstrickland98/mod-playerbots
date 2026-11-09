@@ -278,7 +278,11 @@ class WsgRegroupAction : public DropTargetAction
 {
 public:
     WsgRegroupAction(PlayerbotAI* botAI) : DropTargetAction(botAI) {}
-    std::string const getName() override { return "wsg regroup"; }
+    std::string const& getName() const override
+    {
+        static std::string const fixedName = "wsg regroup";
+        return fixedName;
+    }
     bool isUseful() override;
 };
 

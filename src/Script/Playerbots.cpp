@@ -140,8 +140,31 @@ public:
         PLAYERHOOK_CAN_PLAYER_USE_GUILD_CHAT,
         PLAYERHOOK_CAN_PLAYER_USE_CHANNEL_CHAT,
         PLAYERHOOK_ON_GIVE_EXP,
-        PLAYERHOOK_ON_BEFORE_TELEPORT
+        PLAYERHOOK_ON_BEFORE_TELEPORT,
+        PLAYERHOOK_CAN_UPDATE_OWN_VISIBILITY_ON_RELOCATION
     }) {}
+
+    // A bot has no client, so its own visible set only feeds packets nobody reads; re-evaluating it on
+    // every relocation notify (CanSeeOrDetect on every object in sight range) was ~15 % of map CPU.
+    // Keep one pass a second so the set still tracks the bot's surroundings, whatever notify delay
+    // the core's dynamic visibility settings use at the current load. Real players and self bots
+    // always run the pass.
+    bool OnPlayerCanUpdateOwnVisibilityOnRelocation(Player* player) override
+    {
+        if (!player->GetSession()->IsHeadless())
+            return true;
+
+        PlayerbotAI* botAI = GET_PLAYERBOT_AI(player);
+        if (!botAI || IsSelfBot(player))
+            return true;
+
+        uint32 const now = getMSTime();
+        if (now - botAI->lastVisibilityPassTime < IN_MILLISECONDS)
+            return false;
+
+        botAI->lastVisibilityPassTime = now;
+        return true;
+    }
 
     void OnPlayerLogin(Player* player) override
     {

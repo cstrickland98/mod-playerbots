@@ -28,7 +28,7 @@ private:
 
 GenericMageNonCombatStrategy::GenericMageNonCombatStrategy(PlayerbotAI* botAI) : NonCombatStrategy(botAI)
 {
-    actionNodeFactories.Add(new GenericMageNonCombatStrategyActionNodeFactory());
+    actionNodeFactories.Add(SharedFactory<GenericMageNonCombatStrategyActionNodeFactory>());
 }
 
 void GenericMageNonCombatStrategy::InitTriggers(std::vector<TriggerNode*>& triggers)

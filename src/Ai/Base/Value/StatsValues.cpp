@@ -51,12 +51,22 @@ bool PetIsDeadValue::Calculate()
 
     if (!bot->GetPet())
     {
-        uint32 ownerid = bot->GetGUID().GetCounter();
-        QueryResult result = CharacterDatabase.Query("SELECT id FROM character_pet WHERE owner = {}", ownerid);
-        if (!result)
+        // True when the bot owns any pet (current, stabled or unslotted). The stable holds every character_pet row
+        // of the owner from login on, so this avoids a database query on the map thread.
+        PetStable const* petStable = bot->GetPetStable();
+        if (!petStable)
             return false;
 
-        return true;
+        if (petStable->CurrentPet || !petStable->UnslottedPets.empty())
+            return true;
+
+        for (Optional<PetStable::PetInfo> const& stabledPet : petStable->StabledPets)
+        {
+            if (stabledPet)
+                return true;
+        }
+
+        return false;
     }
 
     if (bot->GetPetGUID() && !bot->GetPet())

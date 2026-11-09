@@ -395,14 +395,22 @@ class CastRejuvenationBlanketAction : public CastBlanketHotAction
 {
 public:
     CastRejuvenationBlanketAction(PlayerbotAI* botAI) : CastBlanketHotAction(botAI, "rejuvenation") {}
-    std::string const getName() override { return "rejuvenation blanket"; }
+    std::string const& getName() const override
+    {
+        static std::string const fixedName = "rejuvenation blanket";
+        return fixedName;
+    }
 };
 
 class CastWildGrowthBlanketAction : public CastBlanketHotAction
 {
 public:
     CastWildGrowthBlanketAction(PlayerbotAI* botAI) : CastBlanketHotAction(botAI, "wild growth") {}
-    std::string const getName() override { return "wild growth blanket"; }
+    std::string const& getName() const override
+    {
+        static std::string const fixedName = "wild growth blanket";
+        return fixedName;
+    }
 };
 
 class EclipseSolarProcTimeValue : public ManualSetValue<time_t>

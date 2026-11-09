@@ -1830,13 +1830,11 @@ void PlayerbotsMgr::AddPlayerbotData(Player* player, bool isBotAI)
     }
     else
     {
-        std::unordered_map<ObjectGuid, PlayerbotAIBase*>::iterator itr = _playerbotsAIMap.find(player->GetGUID());
-        if (itr != _playerbotsAIMap.end())
-        {
-            _playerbotsAIMap.erase(itr);
-        }
-        PlayerbotAI* botAI = new PlayerbotAI(player);
-        ASSERT(_playerbotsAIMap.emplace(player->GetGUID(), botAI).second);
+        ObjectGuid::LowType const counter = player->GetGUID().GetCounter();
+        if (counter >= _playerbotsAIByCounter.size())
+            _playerbotsAIByCounter.resize(counter + 1, nullptr);
+
+        _playerbotsAIByCounter[counter] = new PlayerbotAI(player);
     }
 }
 
@@ -1844,11 +1842,8 @@ void PlayerbotsMgr::RemovePlayerBotData(ObjectGuid const& guid, bool is_AI)
 {
     if (is_AI)
     {
-        std::unordered_map<ObjectGuid, PlayerbotAIBase*>::iterator itr = _playerbotsAIMap.find(guid);
-        if (itr != _playerbotsAIMap.end())
-        {
-            _playerbotsAIMap.erase(itr);
-        }
+        if (guid.GetCounter() < _playerbotsAIByCounter.size())
+            _playerbotsAIByCounter[guid.GetCounter()] = nullptr;
     }
     else
     {
@@ -1870,14 +1865,8 @@ PlayerbotAI* PlayerbotsMgr::GetPlayerbotAI(Player* player)
     // {
     //     return nullptr;
     // }
-    auto itr = _playerbotsAIMap.find(player->GetGUID());
-    if (itr != _playerbotsAIMap.end())
-    {
-        if (itr->second->IsBotAI())
-            return dynamic_cast<PlayerbotAI*>(itr->second);
-    }
-
-    return nullptr;
+    ObjectGuid::LowType const counter = player->GetGUID().GetCounter();
+    return counter < _playerbotsAIByCounter.size() ? _playerbotsAIByCounter[counter] : nullptr;
 }
 
 PlayerbotMgr* PlayerbotsMgr::GetPlayerbotMgr(Player* player)
@@ -1890,7 +1879,7 @@ PlayerbotMgr* PlayerbotsMgr::GetPlayerbotMgr(Player* player)
     if (itr != _playerbotsMgrMap.end())
     {
         if (!itr->second->IsBotAI())
-            return dynamic_cast<PlayerbotMgr*>(itr->second);
+            return static_cast<PlayerbotMgr*>(itr->second);
     }
 
     return nullptr;

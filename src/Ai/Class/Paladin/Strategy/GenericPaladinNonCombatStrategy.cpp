@@ -11,7 +11,7 @@
 
 GenericPaladinNonCombatStrategy::GenericPaladinNonCombatStrategy(PlayerbotAI* botAI) : NonCombatStrategy(botAI)
 {
-    actionNodeFactories.Add(new GenericPaladinStrategyActionNodeFactory());
+    actionNodeFactories.Add(SharedFactory<GenericPaladinStrategyActionNodeFactory>());
 }
 
 void GenericPaladinNonCombatStrategy::InitTriggers(std::vector<TriggerNode*>& triggers)

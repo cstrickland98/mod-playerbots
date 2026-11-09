@@ -51,7 +51,19 @@ static const std::unordered_set<std::string> noReplyMsgParts = {
     "+", "-", "@", "follow target", "focus heal", "cast ", "accept [", "e [", "destroy [", "go zone"};
 static const std::unordered_set<std::string> noReplyMsgStarts = {"e ", "accept ", "cast ", "destroy "};
 
-SayAction::SayAction(PlayerbotAI* botAI) : Action(botAI, "say"), Qualified() {}
+SayAction::SayAction(PlayerbotAI* botAI) : Action(botAI, "say"), Qualified(), _sayName("say::") {}
+
+void SayAction::Qualify(int qual)
+{
+    Qualified::Qualify(qual);
+    _sayName = "say::" + qualifier;
+}
+
+void SayAction::Qualify(std::string const qual)
+{
+    Qualified::Qualify(qual);
+    _sayName = "say::" + qualifier;
+}
 
 bool SayAction::Execute(Event /*event*/)
 {

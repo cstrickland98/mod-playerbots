@@ -89,11 +89,14 @@ class CastDebuffSpellOnAttackerAction : public CastDebuffSpellAction
 public:
     CastDebuffSpellOnAttackerAction(PlayerbotAI* botAI, std::string const spell, bool isOwner = true,
                                     float needLifeTime = 8.0f)
-        : CastDebuffSpellAction(botAI, spell, isOwner, needLifeTime) {}
+        : CastDebuffSpellAction(botAI, spell, isOwner, needLifeTime), _attackerName(spell + " on attacker") {}
 
     Value<Unit*>* GetTargetValue() override;
-    std::string const getName() override { return spell + " on attacker"; }
+    std::string const& getName() const override { return _attackerName; }
     // ActionThreatType getThreatType() override { return ActionThreatType::Aoe; }
+
+private:
+    std::string const _attackerName;
 };
 
 class CastDebuffSpellOnMeleeAttackerAction : public CastDebuffSpellAction
@@ -101,11 +104,14 @@ class CastDebuffSpellOnMeleeAttackerAction : public CastDebuffSpellAction
 public:
     CastDebuffSpellOnMeleeAttackerAction(PlayerbotAI* botAI, std::string const spell, bool isOwner = true,
                                          float needLifeTime = 8.0f)
-        : CastDebuffSpellAction(botAI, spell, isOwner, needLifeTime) {}
+        : CastDebuffSpellAction(botAI, spell, isOwner, needLifeTime), _attackerName(spell + " on attacker") {}
 
     Value<Unit*>* GetTargetValue() override;
-    std::string const getName() override { return spell + " on attacker"; }
+    std::string const& getName() const override { return _attackerName; }
     // ActionThreatType getThreatType() override { return ActionThreatType::Aoe; }
+
+private:
+    std::string const _attackerName;
 };
 
 class CastBuffSpellAction : public CastAuraSpellAction
@@ -187,7 +193,7 @@ class PartyMemberActionNameSupport
 public:
     PartyMemberActionNameSupport(std::string const spell) { name = std::string(spell + " on party"); }
 
-    std::string const getName() { return name; }
+    std::string const& getName() const { return name; }
 
 private:
     std::string name;
@@ -201,7 +207,7 @@ public:
         : CastHealingSpellAction(botAI, spell, estAmount, manaEfficiency, isOwner), PartyMemberActionNameSupport(spell) {}
 
     std::string const GetTargetName() override { return "party member to heal"; }
-    std::string const getName() override { return PartyMemberActionNameSupport::getName(); }
+    std::string const& getName() const override { return PartyMemberActionNameSupport::getName(); }
 };
 
 class ResurrectPartyMemberAction : public CastSpellAction
@@ -226,7 +232,7 @@ public:
         : CastSpellAction(botAI, spell), PartyMemberActionNameSupport(spell), dispelType(dispelType) {}
 
     Value<Unit*>* GetTargetValue() override;
-    std::string const getName() override { return PartyMemberActionNameSupport::getName(); }
+    std::string const& getName() const override { return PartyMemberActionNameSupport::getName(); }
 
 protected:
     uint32 dispelType;
@@ -239,7 +245,7 @@ public:
         : CastBuffSpellAction(botAI, spell), PartyMemberActionNameSupport(spell) {}
 
     Value<Unit*>* GetTargetValue() override;
-    std::string const getName() override { return PartyMemberActionNameSupport::getName(); }
+    std::string const& getName() const override { return PartyMemberActionNameSupport::getName(); }
 };
 
 class GroupBuffOnPartyAction : public GroupBuffSpellAction, public PartyMemberActionNameSupport
@@ -249,7 +255,7 @@ public:
         : GroupBuffSpellAction(botAI, spell), PartyMemberActionNameSupport(spell) {}
 
     Value<Unit*>* GetTargetValue() override;
-    std::string const getName() override { return PartyMemberActionNameSupport::getName(); }
+    std::string const& getName() const override { return PartyMemberActionNameSupport::getName(); }
 };
 
 class CastShootAction : public CastSpellAction
@@ -352,20 +358,28 @@ private:
 class CastSpellOnEnemyHealerAction : public CastSpellAction
 {
 public:
-    CastSpellOnEnemyHealerAction(PlayerbotAI* botAI, std::string const spell) : CastSpellAction(botAI, spell) {}
+    CastSpellOnEnemyHealerAction(PlayerbotAI* botAI, std::string const spell)
+        : CastSpellAction(botAI, spell), _enemyHealerName(spell + " on enemy healer") {}
 
     Value<Unit*>* GetTargetValue() override;
-    std::string const getName() override { return spell + " on enemy healer"; }
+    std::string const& getName() const override { return _enemyHealerName; }
+
+private:
+    std::string const _enemyHealerName;
 };
 
 class CastSnareSpellAction : public CastDebuffSpellAction
 {
 public:
-    CastSnareSpellAction(PlayerbotAI* botAI, std::string const spell) : CastDebuffSpellAction(botAI, spell) {}
+    CastSnareSpellAction(PlayerbotAI* botAI, std::string const spell)
+        : CastDebuffSpellAction(botAI, spell), _snareName(spell + " on snare target") {}
 
     Value<Unit*>* GetTargetValue() override;
-    std::string const getName() override { return spell + " on snare target"; }
+    std::string const& getName() const override { return _snareName; }
     ActionThreatType getThreatType() override { return ActionThreatType::None; }
+
+private:
+    std::string const _snareName;
 };
 
 class CastCrowdControlSpellAction : public CastBuffSpellAction
@@ -473,7 +487,7 @@ class MainTankActionNameSupport
 public:
     MainTankActionNameSupport(std::string spell) { name = std::string(spell) + " on main tank"; }
 
-    virtual std::string const getName() { return name; }
+    virtual std::string const& getName() const { return name; }
 
 private:
     std::string name;
@@ -487,7 +501,7 @@ public:
 
 public:
     virtual Value<Unit*>* GetTargetValue();
-    virtual std::string const getName() { return MainTankActionNameSupport::getName(); }
+    std::string const& getName() const override { return MainTankActionNameSupport::getName(); }
 };
 
 #endif

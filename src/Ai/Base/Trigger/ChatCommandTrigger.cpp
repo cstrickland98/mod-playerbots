@@ -17,6 +17,7 @@ void ChatCommandTrigger::ExternalEvent(std::string const paramName, Player* even
     param = paramName;
     owner = eventPlayer;
     triggered = true;
+    context->QueueExternalTrigger(this);
 }
 
 Event ChatCommandTrigger::Check()

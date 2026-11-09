@@ -66,17 +66,13 @@ float ChooseRpgTargetAction::getMaxRelevance(GuidPosition guidP)
 
         if (trigger)
         {
-            triggerNode->setTrigger(trigger);
-
             if (triggerNode->getFirstRelevance() < maxRelevance || triggerNode->getFirstRelevance() > 2.0f)
                 continue;
-
-            Trigger* trigger = triggerNode->getTrigger();
 
             if (!trigger->IsActive())
                 continue;
 
-            std::vector<NextAction> nextActions = triggerNode->getHandlers();
+            std::vector<NextAction> nextActions = triggerNode->getHandlers(trigger);
 
             bool isRpg = false;
 

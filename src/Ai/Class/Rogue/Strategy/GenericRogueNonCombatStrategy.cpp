@@ -29,7 +29,7 @@ private:
 
 GenericRogueNonCombatStrategy::GenericRogueNonCombatStrategy(PlayerbotAI* botAI) : NonCombatStrategy(botAI)
 {
-    actionNodeFactories.Add(new GenericRogueNonCombatStrategyActionNodeFactory());
+    actionNodeFactories.Add(SharedFactory<GenericRogueNonCombatStrategyActionNodeFactory>());
 }
 
 void GenericRogueNonCombatStrategy::InitTriggers(std::vector<TriggerNode*>& triggers)

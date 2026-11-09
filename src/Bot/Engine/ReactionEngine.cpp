@@ -47,12 +47,11 @@ void ReactionEngine::Init()
         strategyTypeMask |= strategy->GetType();
         hasTargetExclusions |= strategy->HasTargetExclusions();
         strategy->InitReactionMultipliers(multipliers);
-        strategy->InitReactionTriggers(triggers);
-        for (auto& iter : strategy->actionNodeFactories.creators)
-        {
-            actionNodeFactories.creators[iter.first] = iter.second;
-        }
+        AddTriggerNodes(strategy, true);
     }
+
+    nodeTriggers.assign(triggers.size(), nullptr);
+    actionNodeCreators = SharedActionNodeCreators(strategies);
 }
 
 bool ReactionEngine::FindReaction(bool minimal, bool canControlSelf)

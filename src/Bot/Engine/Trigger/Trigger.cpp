@@ -12,7 +12,8 @@
 Trigger::Trigger(PlayerbotAI* botAI, std::string const name, int32 checkInterval)
     : AiNamedObject(botAI, name),
       checkInterval(checkInterval == 1 ? 1 : (checkInterval < 100 ? checkInterval * IN_MILLISECONDS : checkInterval)),
-      lastCheckTime(0)
+      lastCheckTime(0),
+      _checkedThisPass(false)
 {
 }
 

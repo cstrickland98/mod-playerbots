@@ -49,28 +49,26 @@ public:
 public:
     virtual ~NamedObjectFactory() = default;
 
-    virtual T* create(std::string name, PlayerbotAI* botAI)
+    // Creates "name" or "name::qualifier" from a creator map; read-only, so several threads may share the map
+    static T* CreateFrom(std::unordered_map<std::string, ObjectCreator> const& creators, std::string const& fullName,
+                         PlayerbotAI* botAI)
     {
-        size_t found = name.find("::");
-        std::string qualifier;
-        if (found != std::string::npos)
-        {
-            qualifier = name.substr(found + 2);
-            name = name.substr(0, found);
-        }
+        size_t found = fullName.find("::");
+        std::string name = found != std::string::npos ? fullName.substr(0, found) : fullName;
 
-        if (creators.find(name) == creators.end())
+        auto creator = creators.find(name);
+        if (creator == creators.end())
             return nullptr;
 
-        ObjectCreator& creator = creators[name];
-
-        T* object = creator(botAI);
+        T* object = creator->second(botAI);
         Qualified* q = dynamic_cast<Qualified*>(object);
         if (q && found != std::string::npos)
-            q->Qualify(qualifier);
+            q->Qualify(fullName.substr(found + 2));
 
         return object;
     }
+
+    virtual T* create(std::string name, PlayerbotAI* botAI) { return CreateFrom(creators, name, botAI); }
 
     std::set<std::string> supports()
     {
@@ -180,25 +178,7 @@ public:
 
     T* create(std::string name, PlayerbotAI* botAI)
     {
-        size_t found = name.find("::");
-        std::string qualifier;
-        if (found != std::string::npos)
-        {
-            qualifier = name.substr(found + 2);
-            name = name.substr(0, found);
-        }
-
-        if (creators.find(name) == creators.end())
-            return nullptr;
-
-        ObjectCreator const& creator = creators.at(name);
-
-        T* object = creator(botAI);
-        Qualified* q = dynamic_cast<Qualified*>(object);
-        if (q && found != std::string::npos)
-            q->Qualify(qualifier);
-
-        return object;
+        return NamedObjectFactory<T>::CreateFrom(creators, name, botAI);
     }
 
     T* GetContextObject(std::string const& name, PlayerbotAI* botAI)
@@ -254,57 +234,35 @@ public:
     }
 };
 
+// Returns the one process-wide instance of a creator-only factory. Factories hold nothing but a map of
+// name -> creator function, identical for every bot, so one copy serves all bots on all threads.
+template <class F>
+F* SharedFactory()
+{
+    static F instance;
+    return &instance;
+}
+
+// Non-owning list of shared factories; the last one added wins on a name both define
 template <class T>
 class NamedObjectFactoryList
 {
 public:
     using ObjectCreator = std::function<T*(PlayerbotAI* botAI)>;
     std::vector<NamedObjectFactory<T>*> factories;
-    std::unordered_map<std::string, ObjectCreator> creators;
 
-    virtual ~NamedObjectFactoryList()
+    T* create(std::string const& name, PlayerbotAI* botAI)
     {
-        for (typename std::vector<NamedObjectFactory<T>*>::const_iterator i = factories.begin(); i != factories.end(); i++)
-            delete *i;
-    }
-
-    T* create(std::string name, PlayerbotAI* botAI)
-    {
-        size_t found = name.find("::");
-        std::string qualifier;
-        if (found != std::string::npos)
-        {
-            qualifier = name.substr(found + 2);
-            name = name.substr(0, found);
-        }
-
-        if (creators.find(name) == creators.end())
-            return nullptr;
-
-        ObjectCreator const& creator = creators[name];
-
-        T* object = creator(botAI);
-        Qualified* q = dynamic_cast<Qualified*>(object);
-        if (q && found != std::string::npos)
-            q->Qualify(qualifier);
-
-        return object;
-    }
-
-    void Add(NamedObjectFactory<T>* context)
-    {
-        factories.push_back(context);
-        for (auto const& iter : context->creators)
-            creators[iter.first] = iter.second;
-    }
-
-    T* GetContextObject(std::string const& name, PlayerbotAI* botAI)
-    {
-        if (T* object = create(name, botAI))
-            return object;
+        for (auto i = factories.rbegin(); i != factories.rend(); ++i)
+            if (T* object = (*i)->create(name, botAI))
+                return object;
 
         return nullptr;
     }
+
+    void Add(NamedObjectFactory<T>* factory) { factories.push_back(factory); }
+
+    T* GetContextObject(std::string const& name, PlayerbotAI* botAI) { return create(name, botAI); }
 };
 
 #endif

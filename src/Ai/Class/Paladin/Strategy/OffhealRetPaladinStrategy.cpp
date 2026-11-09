@@ -63,7 +63,7 @@ private:
 
 OffhealRetPaladinStrategy::OffhealRetPaladinStrategy(PlayerbotAI* botAI) : GenericPaladinStrategy(botAI)
 {
-    actionNodeFactories.Add(new OffhealRetPaladinStrategyActionNodeFactory());
+    actionNodeFactories.Add(SharedFactory<OffhealRetPaladinStrategyActionNodeFactory>());
 }
 
 std::vector<NextAction> OffhealRetPaladinStrategy::getDefaultActions()

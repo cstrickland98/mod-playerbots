@@ -452,7 +452,11 @@ class HealerShouldAttackAndNotBlanketingTrigger : public HealerShouldAttackTrigg
 public:
     HealerShouldAttackAndNotBlanketingTrigger(PlayerbotAI* botAI) : HealerShouldAttackTrigger(botAI) {}
 
-    std::string const getName() override { return "healer should attack and not blanketing"; }
+    std::string const& getName() const override
+    {
+        static std::string const fixedName = "healer should attack and not blanketing";
+        return fixedName;
+    }
     bool IsActive() override;
 };
 

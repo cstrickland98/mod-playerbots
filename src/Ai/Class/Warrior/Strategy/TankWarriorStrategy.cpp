@@ -106,7 +106,7 @@ private:
 
 TankWarriorStrategy::TankWarriorStrategy(PlayerbotAI* botAI) : GenericWarriorStrategy(botAI)
 {
-    actionNodeFactories.Add(new TankWarriorStrategyActionNodeFactory());
+    actionNodeFactories.Add(SharedFactory<TankWarriorStrategyActionNodeFactory>());
 }
 
 std::vector<NextAction> TankWarriorStrategy::getDefaultActions()

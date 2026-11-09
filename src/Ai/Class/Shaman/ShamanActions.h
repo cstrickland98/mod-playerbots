@@ -186,7 +186,11 @@ public:
     CastCleanseSpiritPoisonOnPartyAction(PlayerbotAI* botAI) :
         CurePartyMemberAction(botAI, "cleanse spirit", DISPEL_POISON) {}
 
-    std::string const getName() override { return "cleanse spirit poison on party"; }
+    std::string const& getName() const override
+    {
+        static std::string const fixedName = "cleanse spirit poison on party";
+        return fixedName;
+    }
 };
 
 class CastCleanseSpiritCurseOnPartyAction : public CurePartyMemberAction
@@ -195,7 +199,11 @@ public:
     CastCleanseSpiritCurseOnPartyAction(PlayerbotAI* botAI) :
         CurePartyMemberAction(botAI, "cleanse spirit", DISPEL_CURSE) {}
 
-    std::string const getName() override { return "cleanse spirit curse on party"; }
+    std::string const& getName() const override
+    {
+        static std::string const fixedName = "cleanse spirit curse on party";
+        return fixedName;
+    }
 };
 
 class CastCleanseSpiritDiseaseOnPartyAction : public CurePartyMemberAction
@@ -204,7 +212,11 @@ public:
     CastCleanseSpiritDiseaseOnPartyAction(PlayerbotAI* botAI) :
         CurePartyMemberAction(botAI, "cleanse spirit", DISPEL_DISEASE) {}
 
-    std::string const getName() override { return "cleanse spirit disease on party"; }
+    std::string const& getName() const override
+    {
+        static std::string const fixedName = "cleanse spirit disease on party";
+        return fixedName;
+    }
 };
 
 class CastCureToxinsActionSham : public CastCureSpellAction
@@ -220,7 +232,11 @@ public:
     CastCureToxinsPoisonOnPartyActionSham(PlayerbotAI* botAI) :
         CurePartyMemberAction(botAI, "cure toxins", DISPEL_POISON) {}
 
-    std::string const getName() override { return "cure toxins poison on party"; }
+    std::string const& getName() const override
+    {
+        static std::string const fixedName = "cure toxins poison on party";
+        return fixedName;
+    }
 };
 
 class CastCureToxinsDiseaseOnPartyActionSham : public CurePartyMemberAction
@@ -229,7 +245,11 @@ public:
     CastCureToxinsDiseaseOnPartyActionSham(PlayerbotAI* botAI) :
         CurePartyMemberAction(botAI, "cure toxins", DISPEL_DISEASE) {}
 
-    std::string const getName() override { return "cure toxins disease on party"; }
+    std::string const& getName() const override
+    {
+        static std::string const fixedName = "cure toxins disease on party";
+        return fixedName;
+    }
 };
 
 // Damage and Debuff Actions

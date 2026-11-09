@@ -47,7 +47,7 @@ private:
 
 GenericDruidStrategy::GenericDruidStrategy(PlayerbotAI* botAI) : CombatStrategy(botAI)
 {
-    actionNodeFactories.Add(new GenericDruidStrategyActionNodeFactory());
+    actionNodeFactories.Add(SharedFactory<GenericDruidStrategyActionNodeFactory>());
 }
 
 void GenericDruidStrategy::InitTriggers(std::vector<TriggerNode*>& triggers)

@@ -108,7 +108,7 @@ private:
 
 GenericShamanStrategy::GenericShamanStrategy(PlayerbotAI* botAI) : CombatStrategy(botAI)
 {
-    actionNodeFactories.Add(new GenericShamanStrategyActionNodeFactory());
+    actionNodeFactories.Add(SharedFactory<GenericShamanStrategyActionNodeFactory>());
 }
 
 void GenericShamanStrategy::InitTriggers(std::vector<TriggerNode*>& triggers)

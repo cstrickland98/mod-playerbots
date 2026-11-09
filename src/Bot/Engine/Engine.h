@@ -13,6 +13,7 @@
 #include "Strategy.h"
 #include "Trigger.h"
 #include <map>
+#include <memory>
 
 class Action;
 class ActionNode;
@@ -70,7 +71,7 @@ public:
     void addStrategiesNoInit(std::string first, ...);
     bool removeStrategy(std::string const name, bool init = true);
     bool HasStrategy(std::string const name);
-    Strategy* GetStrategy(std::string const name);
+    Strategy* GetStrategy(std::string const& name);
     void removeAllStrategies();
     void toggleStrategy(std::string const name);
     std::string const ListStrategies();
@@ -106,13 +107,21 @@ protected:
     bool MultiplyAndPush(std::vector<NextAction> actions, float forceRelevance, bool skipPrerequisites, Event event,
                          char const* pushType);
     void Reset();
+    void AddTriggerNodes(Strategy* strategy, bool reaction);
     void ProcessTriggers(bool minimal);
+    void PartitionTriggerNodes();
+    void CheckTrigger(size_t node, uint32 now, bool minimal, std::vector<std::pair<Trigger*, Event>>& fires);
     void PushAgain(ActionNode* actionNode, float relevance, Event event);
     virtual Action* InitializeAction(ActionNode* actionNode);
     virtual bool ListenAndExecute(Action* action, Event event);
 
     Queue queue;
-    std::vector<TriggerNode*> triggers;
+    std::vector<TriggerNode*> triggers;       // shared and owned nodes, in strategy order
+    std::vector<Trigger*> nodeTriggers;       // the Trigger of this bot for each node, resolved in the first pass
+    std::vector<size_t> checkNodes;           // nodes whose trigger is checked every pass
+    std::vector<size_t> externalNodes;        // nodes whose trigger fires only after an external event
+    bool nodesPartitioned = false;
+    std::vector<TriggerNode*> ownedTriggerNodes;
     std::vector<Multiplier*> multipliers;
     AiObjectContext* aiObjectContext;
     std::map<std::string, Strategy*> strategies;
@@ -120,7 +129,12 @@ protected:
     std::string lastAction;
     uint32 strategyTypeMask;
     bool hasTargetExclusions = false;
-    NamedObjectFactoryList<ActionNode> actionNodeFactories;
+    // Union of the strategies' action node creators; one shared copy per distinct strategy set
+    using ActionNodeCreators = std::unordered_map<std::string, NamedObjectFactory<ActionNode>::ObjectCreator>;
+    static std::shared_ptr<ActionNodeCreators const> SharedActionNodeCreators(
+        std::map<std::string, Strategy*> const& strategies);
+    static std::vector<TriggerNode*> const& SharedTriggerNodes(Strategy* strategy, bool reaction);
+    std::shared_ptr<ActionNodeCreators const> actionNodeCreators;
 };
 
 #endif
